@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/ads/banner_ad_widget.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
+import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared_widgets/empty_state_view.dart';
@@ -38,8 +39,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
-    final prefs = await SharedPreferences.getInstance();
-    _currency = prefs.getString('default_currency') ?? 'INR';
+    final currencyProvider = context.read<CurrencyProvider>();
+    _currency = currencyProvider.currencyCode;
 
     final rows = await DbProvider.query(
       DbProvider.tableInvoices,
@@ -115,7 +116,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currencySymbol = CurrencyFormatter.getCurrencySymbol(_currency);
+    final currencyProvider = context.watch<CurrencyProvider>();
+    final currencySymbol = currencyProvider.currencySymbol;
 
     return Scaffold(
       body: RefreshIndicator(

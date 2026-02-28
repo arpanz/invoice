@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
+import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/pdf_helper.dart';
@@ -14,7 +15,6 @@ import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
 import '../services/pdf_generator_service.dart';
 import 'create_invoice_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class InvoiceHistoryScreen extends StatefulWidget {
   const InvoiceHistoryScreen({super.key});
@@ -133,6 +133,8 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
 
   Future<BusinessProfile> _getBusinessProfile() async {
     final prefs = await SharedPreferences.getInstance();
+    final currencyProvider = context.read<CurrencyProvider>();
+    
     return BusinessProfile(
       businessName: prefs.getString('biz_name') ?? 'My Business',
       address: prefs.getString('biz_address'),
@@ -143,7 +145,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       accountNumber: prefs.getString('biz_account'),
       ifscCode: prefs.getString('biz_ifsc'),
       logoPath: prefs.getString('biz_logo_path'),
-      currency: prefs.getString('default_currency') ?? 'INR',
+      currency: currencyProvider.currencyCode,
     );
   }
 
