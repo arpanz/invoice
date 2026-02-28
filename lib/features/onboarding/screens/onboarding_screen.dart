@@ -195,8 +195,7 @@ class _OnboardingPageWidget extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: PrimaryButton(
-                text: 'Get Started',
-                onPressed: () => _showCurrencySelection(context),
+                onPressed: () => _showCurrencySelection(context), label: 'Get Started',
               ),
             ),
         ],
