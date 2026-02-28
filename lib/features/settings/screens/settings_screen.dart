@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/billing/billing_service.dart';
+import '../../../core/models/currency_model.dart';
+import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../widgets/paywall_bottom_sheet.dart';
 import 'business_profile_screen.dart';
@@ -14,38 +15,16 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _currency = 'INR';
-  double _defaultTaxRate = 18.0;
-
   @override
   void initState() {
     super.initState();
-    _loadPreferences();
-  }
-
-  Future<void> _loadPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _currency = prefs.getString('default_currency') ?? 'INR';
-      _defaultTaxRate = prefs.getDouble('default_tax_rate') ?? 18.0;
-    });
-  }
-
-  Future<void> _saveCurrency(String currency) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('default_currency', currency);
-    setState(() => _currency = currency);
-  }
-
-  Future<void> _saveTaxRate(double rate) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('default_tax_rate', rate);
-    setState(() => _defaultTaxRate = rate);
   }
 
   @override
   Widget build(BuildContext context) {
     final billing = context.watch<BillingService>();
+    final currencyProvider = context.watch<CurrencyProvider>();
+    final selectedCurrency = currencyProvider.selectedCurrency;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -271,8 +250,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildCurrencyTile() {
-    final currencies = ['INR', 'USD', 'EUR', 'GBP', 'AED'];
-    final symbols = {'INR': '₹', 'USD': '\$', 'EUR': '€', 'GBP': '£', 'AED': 'AED'};
+    final currencyProvider = context.read<CurrencyProvider>();
+    final selectedCurrency = currencyProvider.selectedCurrency;
 
     return Container(
       decoration: const BoxDecoration(
@@ -293,22 +272,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: const Icon(Icons.currency_exchange, size: 18, color: AppColors.slate600),
         ),
         title: const Text('Default Currency', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-        subtitle: Text('${symbols[_currency]} $_currency', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-        trailing: DropdownButton<String>(
-          value: _currency,
-          underline: const SizedBox(),
-          items: currencies.map((c) => DropdownMenuItem(
-            value: c,
-            child: Text('${symbols[c]} $c'),
-          )).toList(),
-          onChanged: (v) => v != null ? _saveCurrency(v) : null,
-        ),
+        subtitle: Text('${selectedCurrency.symbol} ${selectedCurrency.code}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.slate400),
+        onTap: () => _showCurrencyPicker(context),
+      ),
+    );
+  }
+
+  void _showCurrencyPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _CurrencyPickerSheet(
+        onCurrencySelected: (currency) {
+          context.read<CurrencyProvider>().setCurrency(currency);
+          Navigator.pop(ctx);
+        },
       ),
     );
   }
 
   Widget _buildTaxRateTile() {
-    final rates = [0.0, 5.0, 12.0, 18.0, 28.0];
+    final currencyProvider = context.read<CurrencyProvider>();
+    final defaultTax = currencyProvider.defaultTax;
+    final rates = [0.0, defaultTax.rate / 2, defaultTax.rate, defaultTax.rate * 1.5, defaultTax.rate * 2];
 
     return Container(
       decoration: const BoxDecoration(
@@ -328,16 +316,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: const Icon(Icons.percent, size: 18, color: AppColors.slate600),
         ),
-        title: const Text('Default GST Rate', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-        subtitle: Text('${_defaultTaxRate.toStringAsFixed(0)}% applied to new invoices', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-        trailing: DropdownButton<double>(
-          value: _defaultTaxRate,
-          underline: const SizedBox(),
-          items: rates.map((r) => DropdownMenuItem(
-            value: r,
-            child: Text('${r.toStringAsFixed(0)}%'),
-          )).toList(),
-          onChanged: (v) => v != null ? _saveTaxRate(v) : null,
+        title: Text('Default ${defaultTax.shortName} Rate', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        subtitle: Text('${defaultTax.rate}% ${defaultTax.name}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        trailing: Text(
+          '${defaultTax.rate}%',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+          ),
         ),
       ),
     );
@@ -364,6 +351,195 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             child: const Text('Rate Now ⭐'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Currency picker bottom sheet
+class _CurrencyPickerSheet extends StatefulWidget {
+  final Function(Currency) onCurrencySelected;
+
+  const _CurrencyPickerSheet({required this.onCurrencySelected});
+
+  @override
+  State<_CurrencyPickerSheet> createState() => _CurrencyPickerSheetState();
+}
+
+class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
+  String _searchQuery = '';
+  List<Currency> _filteredCurrencies = SupportedCurrencies.all;
+
+  void _filterCurrencies(String query) {
+    setState(() {
+      _searchQuery = query;
+      if (query.isEmpty) {
+        _filteredCurrencies = SupportedCurrencies.all;
+      } else {
+        _filteredCurrencies = SupportedCurrencies.search(query);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedCurrency = context.watch<CurrencyProvider>().selectedCurrency;
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.slate300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              'Select Currency',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.slate100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                onChanged: _filterCurrencies,
+                decoration: const InputDecoration(
+                  hintText: 'Search currency...',
+                  hintStyle: TextStyle(color: AppColors.textHint),
+                  prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              itemCount: _filteredCurrencies.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final currency = _filteredCurrencies[index];
+                final isSelected = currency.code == selectedCurrency.code;
+
+                return Material(
+                  color: isSelected ? AppColors.primaryLight.withOpacity(0.1) : AppColors.slate50,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    onTap: () => widget.onCurrencySelected(currency),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? AppColors.primary : AppColors.cardBorder,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(currency.flag, style: const TextStyle(fontSize: 24)),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      currency.code,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 16,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      currency.symbol,
+                                      style: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  currency.name,
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: currency.defaultTax.rate > 0
+                                      ? AppColors.primaryLight.withOpacity(0.1)
+                                      : AppColors.accent.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  currency.defaultTax.rate > 0
+                                      ? '${currency.defaultTax.rate}% ${currency.defaultTax.shortName}'
+                                      : 'No Tax',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: currency.defaultTax.rate > 0
+                                        ? AppColors.primary
+                                        : AppColors.accent,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (isSelected) ...[
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.check_circle,
+                              color: AppColors.primary,
+                              size: 24,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),

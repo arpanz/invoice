@@ -4,12 +4,14 @@ import 'package:provider/provider.dart';
 import 'core/ads/ad_manager.dart';
 import 'core/billing/billing_service.dart';
 import 'core/database/db_provider.dart';
+import 'core/providers/currency_provider.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_typography.dart';
 import 'features/clients/screens/client_list_screen.dart';
 import 'features/dashboard/screens/dashboard_screen.dart';
 import 'features/invoices/screens/create_invoice_screen.dart';
 import 'features/invoices/screens/invoice_history_screen.dart';
+import 'features/onboarding/screens/onboarding_screen.dart';
 import 'features/settings/screens/settings_screen.dart';
 
 void main() async {
@@ -42,6 +44,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => CurrencyProvider()),
         ChangeNotifierProvider<BillingService>.value(value: billingService),
       ],
       child: const InvoiceMakerProApp(),
@@ -58,7 +61,40 @@ class InvoiceMakerProApp extends StatelessWidget {
       title: 'Invoice Maker Pro',
       debugShowCheckedModeBanner: false,
       theme: AppTypography.lightTheme,
-      home: const MainNavigationShell(),
+      home: const AppStartup(),
+      routes: {
+        '/home': (context) => const MainNavigationShell(),
+      },
+    );
+  }
+}
+
+/// Initial screen that handles onboarding state
+class AppStartup extends StatelessWidget {
+  const AppStartup({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<CurrencyProvider>(
+      builder: (context, currencyProvider, child) {
+        // Show loading while checking preferences
+        if (currencyProvider.isLoading) {
+          return const Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        // Show onboarding if not completed
+        if (!currencyProvider.onboardingComplete) {
+          return const OnboardingScreen();
+        }
+
+        // Show main app
+        return const MainNavigationShell();
+      },
     );
   }
 }

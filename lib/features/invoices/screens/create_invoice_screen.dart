@@ -10,6 +10,7 @@ import '../../../core/ads/ad_manager.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/providers/currency_provider.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/primary_button.dart';
@@ -73,9 +74,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   Future<void> _initializeForm() async {
-    final prefs = await SharedPreferences.getInstance();
-    _currency = prefs.getString('default_currency') ?? 'INR';
-    final defaultTax = prefs.getDouble('default_tax_rate') ?? 18.0;
+    final currencyProvider = context.read<CurrencyProvider>();
+    _currency = currencyProvider.currencyCode;
+    final defaultTax = currencyProvider.defaultTax.rate;
 
     if (widget.existingInvoice != null) {
       final inv = widget.existingInvoice!;
