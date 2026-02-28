@@ -114,7 +114,7 @@ class AppTypography {
             color: AppColors.textPrimary,
           ),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: AppColors.surface,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -142,7 +142,8 @@ class AppTypography {
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: AppColors.accentRed),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           hintStyle: GoogleFonts.inter(
             fontSize: 14,
             color: AppColors.textHint,
@@ -186,7 +187,8 @@ class AppTypography {
         ),
         chipTheme: ChipThemeData(
           backgroundColor: AppColors.slate100,
-          labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+          labelStyle:
+              GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),

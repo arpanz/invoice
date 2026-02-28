@@ -501,7 +501,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     }
   }
 
-  void _showPdfPreview(List<int> pdfBytes, InvoiceModel invoice) {
+  void _showPdfPreview(Uint8List pdfBytes, InvoiceModel invoice) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
