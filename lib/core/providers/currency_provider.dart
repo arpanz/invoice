@@ -28,7 +28,7 @@ class CurrencyProvider extends ChangeNotifier {
   Future<void> _loadPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Load currency
       final currencyJson = prefs.getString(CurrencyPreferences._currencyKey);
       if (currencyJson != null) {
@@ -42,7 +42,8 @@ class CurrencyProvider extends ChangeNotifier {
       }
 
       // Load onboarding status
-      _onboardingComplete = prefs.getBool(CurrencyPreferences._onboardingCompleteKey) ?? false;
+      _onboardingComplete =
+          prefs.getBool(CurrencyPreferences._onboardingCompleteKey) ?? false;
     } catch (e) {
       debugPrint('Error loading currency preferences: $e');
     } finally {
@@ -106,7 +107,7 @@ class CurrencyProvider extends ChangeNotifier {
   String formatAmount(double amount) {
     final formatter = _getFormatter();
     final formatted = formatter.format(amount);
-    return '$_selectedCurrency$formatted';
+    return '${_selectedCurrency.symbol}$formatted';
   }
 
   /// Format amount with compact notation

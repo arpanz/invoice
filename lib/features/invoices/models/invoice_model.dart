@@ -66,6 +66,12 @@ class InvoiceModel {
   final DateTime updatedAt;
   final List<LineItemModel> lineItems;
 
+  /// True when the invoice is unpaid and the due date has passed.
+  bool get isOverdue =>
+      status == InvoiceStatus.unpaid &&
+      dueDate != null &&
+      dueDate!.isBefore(DateTime.now());
+
   const InvoiceModel({
     required this.id,
     required this.invoiceNumber,
@@ -94,7 +100,10 @@ class InvoiceModel {
     this.lineItems = const [],
   });
 
-  factory InvoiceModel.fromMap(Map<String, dynamic> map, {List<LineItemModel>? items}) {
+  factory InvoiceModel.fromMap(
+    Map<String, dynamic> map, {
+    List<LineItemModel>? items,
+  }) {
     return InvoiceModel(
       id: map['id'] as String,
       invoiceNumber: map['invoice_number'] as String,
@@ -104,12 +113,16 @@ class InvoiceModel {
       clientPhone: map['client_phone'] as String?,
       clientAddress: map['client_address'] as String?,
       clientGstin: map['client_gstin'] as String?,
-      invoiceDate: DateTime.fromMillisecondsSinceEpoch(map['invoice_date'] as int),
+      invoiceDate: DateTime.fromMillisecondsSinceEpoch(
+        map['invoice_date'] as int,
+      ),
       dueDate: map['due_date'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['due_date'] as int)
           : null,
       subtotal: (map['subtotal'] as num).toDouble(),
-      discountType: _discountTypeFromString(map['discount_type'] as String? ?? 'none'),
+      discountType: _discountTypeFromString(
+        map['discount_type'] as String? ?? 'none',
+      ),
       discountValue: (map['discount_value'] as num? ?? 0).toDouble(),
       discountAmount: (map['discount_amount'] as num? ?? 0).toDouble(),
       sgstRate: (map['sgst_rate'] as num? ?? 0).toDouble(),
@@ -117,7 +130,9 @@ class InvoiceModel {
       igstRate: (map['igst_rate'] as num? ?? 0).toDouble(),
       taxAmount: (map['tax_amount'] as num? ?? 0).toDouble(),
       grandTotal: (map['grand_total'] as num).toDouble(),
-      status: InvoiceStatusExtension.fromString(map['status'] as String? ?? 'unpaid'),
+      status: InvoiceStatusExtension.fromString(
+        map['status'] as String? ?? 'unpaid',
+      ),
       notes: map['notes'] as String?,
       currency: map['currency'] as String? ?? 'INR',
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
@@ -231,12 +246,6 @@ class InvoiceModel {
       updatedAt: updatedAt ?? this.updatedAt,
       lineItems: lineItems ?? this.lineItems,
     );
-  }
-
-  bool get isOverdue {
-    if (status == InvoiceStatus.paid) return false;
-    if (dueDate == null) return false;
-    return DateTime.now().isAfter(dueDate!);
   }
 
   @override

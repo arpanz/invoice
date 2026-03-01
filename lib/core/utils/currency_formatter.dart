@@ -1,10 +1,18 @@
 import 'package:intl/intl.dart';
+import '../models/currency_model.dart';
 
 class CurrencyFormatter {
   CurrencyFormatter._();
 
+  /// Formats [amount] with the given [currencySymbol].
+  /// Uses Indian number grouping (e.g. ₹1,00,000) for INR and
+  /// standard grouping (e.g. $1,000,000) for all other currencies.
   static String format(double amount, {String currencySymbol = '₹'}) {
-    final formatter = NumberFormat('#,##,##0.00', 'en_IN');
+    final locale = currencySymbol == '₹' ? 'en_IN' : 'en_US';
+    final formatter = NumberFormat.decimalPatternDigits(
+      locale: locale,
+      decimalDigits: 2,
+    );
     return '$currencySymbol${formatter.format(amount)}';
   }
 
@@ -19,21 +27,12 @@ class CurrencyFormatter {
     return format(amount, currencySymbol: currencySymbol);
   }
 
-  static String getCurrencySymbol(String currency) {
-    switch (currency) {
-      case 'INR':
-        return '₹';
-      case 'USD':
-        return '\$';
-      case 'EUR':
-        return '€';
-      case 'GBP':
-        return '£';
-      case 'AED':
-        return 'AED ';
-      default:
-        return '₹';
-    }
+  /// Returns the currency symbol for a given ISO currency [code].
+  /// Uses [SupportedCurrencies] as the source of truth so all 30+
+  /// currencies are covered. Falls back to the code itself if unknown.
+  static String getCurrencySymbol(String code) {
+    final currency = SupportedCurrencies.getByCode(code);
+    return currency?.symbol ?? code;
   }
 
   static double parseAmount(String value) {

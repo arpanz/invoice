@@ -139,11 +139,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: AppColors.primary,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.receipt_long, color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.receipt_long,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   const Text(
-                    'Invoice Maker Pro',
+                    'Overview',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                 ],
@@ -192,8 +196,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.account_balance_wallet_outlined,
-                                        color: Colors.white70, size: 18),
+                                    const Icon(
+                                      Icons.account_balance_wallet_outlined,
+                                      color: Colors.white70,
+                                      size: 18,
+                                    ),
                                     const SizedBox(width: 6),
                                     const Text(
                                       'Total Outstanding',
@@ -267,12 +274,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ElevatedButton.icon(
                             onPressed: () => Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
+                              MaterialPageRoute(
+                                builder: (_) => const CreateInvoiceScreen(),
+                              ),
                             ).then((_) => _loadData()),
                             icon: const Icon(Icons.add, size: 22),
                             label: const Text(
                               '+ New Invoice',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
@@ -313,14 +325,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             EmptyStateView(
                               icon: Icons.receipt_long_outlined,
                               title: 'No Invoices Yet',
-                              subtitle: 'Tap "+ New Invoice" to create your first invoice',
+                              subtitle:
+                                  'Tap "+ New Invoice" to create your first invoice',
                             )
                           else
                             ...List.generate(_recentInvoices.length, (index) {
                               final invoice = _recentInvoices[index];
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
-                                child: _buildRecentInvoiceCard(invoice, currencySymbol),
+                                child: _buildRecentInvoiceCard(
+                                  invoice,
+                                  currencySymbol,
+                                ),
                               );
                             }),
 
@@ -378,7 +394,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),
@@ -427,7 +446,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: AppColors.slate100,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.receipt_outlined, size: 20, color: AppColors.slate500),
+              child: const Icon(
+                Icons.receipt_outlined,
+                size: 20,
+                color: AppColors.slate500,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -436,13 +459,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Text(
                     invoice.clientName,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     '${invoice.invoiceNumber} • ${dateFormat.format(invoice.invoiceDate)}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -451,12 +480,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  CurrencyFormatter.format(invoice.grandTotal, currencySymbol: currencySymbol),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  CurrencyFormatter.format(
+                    invoice.grandTotal,
+                    currencySymbol: currencySymbol,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: statusBg,
                     borderRadius: BorderRadius.circular(5),
