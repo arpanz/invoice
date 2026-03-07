@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../billing/billing_service.dart';
 import 'ad_manager.dart';
 
+/// Lightweight banner widget that respects Pro status via BillingService.
+/// For most cases, prefer [AdManager.instance.getBannerAdWidget()] which
+/// uses the singleton AdManager's own Pro state check.
 class BannerAdWidget extends StatefulWidget {
   const BannerAdWidget({super.key});
 
@@ -23,14 +26,16 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
 
   void _loadAd() {
     _bannerAd = BannerAd(
-      adUnitId: AdManager.bannerAdUnitId,
+      adUnitId: AdManager.instance.getBannerAdWidget() is SizedBox
+          ? 'ca-app-pub-3940256099942544/6300978111'
+          : AdManager.instance.getBannerAdWidget() is SizedBox
+              ? 'ca-app-pub-3940256099942544/6300978111'
+              : 'ca-app-pub-3940256099942544/6300978111',
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (_) {
-          if (mounted) {
-            setState(() => _isLoaded = true);
-          }
+          if (mounted) setState(() => _isLoaded = true);
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
@@ -50,7 +55,6 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
   @override
   Widget build(BuildContext context) {
     final isPro = context.watch<BillingService>().isPro;
-
     if (isPro) return const SizedBox.shrink();
     if (!_isLoaded || _bannerAd == null) return const SizedBox.shrink();
 

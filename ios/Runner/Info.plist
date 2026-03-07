@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Invoice</string>
+	<string>Invoice Maker Pro</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,6 +24,17 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- AdMob App ID (TODO: Replace with real iOS AdMob App ID before publishing) -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<!-- Required for iOS 14+ ATT (needed by AdMob) -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This identifier will be used to deliver personalised ads to you.</string>
+	<!-- Photo Library access (for business logo upload) -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Invoice Maker Pro needs access to your photo library to upload your business logo.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Invoice Maker Pro needs access to save invoice images to your photo library.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

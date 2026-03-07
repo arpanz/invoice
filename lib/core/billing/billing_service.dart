@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../ads/ad_manager.dart';
 
 class BillingService extends ChangeNotifier {
-  static const String _proProductId = 'invoice_maker_pro_lifetime';
-  static const String _prefKeyIsPro = 'is_pro_user';
+  static const String _proProductId = 'invoice_pro_lifetime';
+  static const String _yearlyProductId = 'invoice_pro_yearly';
+  static const String _legacyProductId = 'invoice_maker_pro_lifetime';
+  static const String _prefKeyIsPro = 'is_premium_user';
 
   BillingService({this.forceProForSession = false});
 
@@ -33,14 +36,11 @@ class BillingService extends ChangeNotifier {
     _isPro = prefs.getBool(_prefKeyIsPro) ?? false;
     notifyListeners();
 
-    // Listen to purchase updates
     _iap.purchaseStream.listen(_onPurchaseUpdate);
-
-    // Restore purchases on init
     await restorePurchases();
   }
 
-  Future<void> purchasePro() async {
+  Future<void> purchasePro({bool yearly = false}) async {
     if (forceProForSession) return;
 
     _isLoading = true;
@@ -56,7 +56,8 @@ class BillingService extends ChangeNotifier {
         return;
       }
 
-      final response = await _iap.queryProductDetails({_proProductId});
+      final targetId = yearly ? _yearlyProductId : _proProductId;
+      final response = await _iap.queryProductDetails({targetId});
       if (response.productDetails.isEmpty) {
         _errorMessage = 'Product not found. Please try again.';
         _isLoading = false;
@@ -77,20 +78,21 @@ class BillingService extends ChangeNotifier {
 
   Future<void> restorePurchases() async {
     if (forceProForSession) return;
-
     try {
       await _iap.restorePurchases();
     } catch (e) {
-      debugPrint('Restore purchases failed: $e');
+      debugPrint('BillingService: Restore purchases failed: $e');
     }
   }
 
   void _onPurchaseUpdate(List<PurchaseDetails> purchases) async {
     for (final purchase in purchases) {
-      if (purchase.productID == _proProductId) {
+      final knownIds = {_proProductId, _yearlyProductId, _legacyProductId};
+      if (knownIds.contains(purchase.productID)) {
         if (purchase.status == PurchaseStatus.purchased ||
             purchase.status == PurchaseStatus.restored) {
           await _setPro(true);
+          await AdManager.instance.enableProVersion();
           if (purchase.pendingCompletePurchase) {
             await _iap.completePurchase(purchase);
           }
