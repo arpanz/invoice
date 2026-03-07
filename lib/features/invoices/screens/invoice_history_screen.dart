@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,8 @@ import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/ads/ad_manager.dart';
+import '../../../core/ads/banner_ad_widget.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/providers/currency_provider.dart';
@@ -172,7 +175,8 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _printPdf(invoice),
+                      onPressed: () =>
+                          _runWithInterstitial(() => _printPdf(invoice)),
                       icon: const Icon(Icons.print_outlined, size: 18),
                       label: const Text('Print'),
                       style: OutlinedButton.styleFrom(
@@ -186,7 +190,8 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => _sharePdf(invoice),
+                      onPressed: () =>
+                          _runWithInterstitial(() => _sharePdf(invoice)),
                       icon: const Icon(Icons.share_outlined, size: 18),
                       label: const Text('Share'),
                       style: ElevatedButton.styleFrom(
@@ -240,6 +245,25 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     ).showSnackBar(SnackBar(content: Text('Invoice saved at $path')));
   }
 
+  Future<void> _runWithInterstitial(Future<void> Function() action) async {
+    final isPro = context.read<BillingService>().isPro;
+    if (isPro) {
+      await action();
+      return;
+    }
+
+    final completer = Completer<void>();
+    AdManager.instance.showInterstitial(
+      context,
+      onAdDismissed: () {
+        if (!completer.isCompleted) completer.complete();
+      },
+    );
+    await completer.future;
+    if (!mounted) return;
+    await action();
+  }
+
   Future<void> _handleInvoiceMenuAction(
     String action,
     InvoiceModel invoice,
@@ -256,7 +280,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     }
 
     if (action == 'save') {
-      await _savePdf(invoice);
+      await _runWithInterstitial(() => _savePdf(invoice));
       return;
     }
 
@@ -266,12 +290,12 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     }
 
     if (action == 'print') {
-      await _printPdf(invoice);
+      await _runWithInterstitial(() => _printPdf(invoice));
       return;
     }
 
     if (action == 'share') {
-      await _sharePdf(invoice);
+      await _runWithInterstitial(() => _sharePdf(invoice));
       return;
     }
   }
@@ -339,6 +363,10 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                     },
                   ),
                 ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: BannerAdWidget(),
         ),
       ],
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/ads/banner_ad_widget.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared_widgets/custom_text_field.dart';
@@ -245,6 +246,10 @@ class _ClientListScreenState extends State<ClientListScreen> {
                       return _buildClientCard(client);
                     },
                   ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: BannerAdWidget(),
           ),
         ],
       ),
