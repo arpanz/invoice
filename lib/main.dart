@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'core/ads/ad_manager.dart';
 import 'core/billing/billing_service.dart';
 import 'core/database/db_provider.dart';
-import 'core/dev/mockup_session.dart';
 import 'core/providers/currency_provider.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_typography.dart';
@@ -35,18 +34,10 @@ void main() async {
   // Initialize database
   await DbProvider.database;
 
-  // Seed demo data and prefs for screenshot sessions.
-  await MockupSession.bootstrap();
+  // Initialize ads and billing
+  await AdManager.instance.initialize();
 
-  // Initialize ads only when not forcing Pro mode.
-  if (!MockupSession.forceProForSession) {
-    await AdManager.instance.initialize();
-  }
-
-  // Initialize billing
-  final billingService = BillingService(
-    forceProForSession: MockupSession.forceProForSession,
-  );
+  final billingService = BillingService();
   await billingService.initialize();
 
   runApp(
