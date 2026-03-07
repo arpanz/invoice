@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../../core/ads/ad_manager.dart';
@@ -58,32 +59,44 @@ class _PaywallScreenState extends State<PaywallScreen>
 
   Future<void> _initStore() async {
     final bool isAvailable = await _iap.isAvailable();
+    debugPrint('Paywall: IAP Available: $isAvailable');
     if (!isAvailable) {
       if (mounted) setState(() => _available = false);
       return;
     }
 
     if (AdManager.instance.products.isNotEmpty) {
+      debugPrint('Paywall: Using cached products (${AdManager.instance.products.length})');
       if (mounted) setState(() => _products = AdManager.instance.products);
     }
 
     _subscription = _iap.purchaseStream.listen(
-      (data) => _listenToPurchaseUpdated(data),
+      (data) {
+        debugPrint('Paywall: Purchase stream update (${data.length} items)');
+        _listenToPurchaseUpdated(data);
+      },
       onDone: () => _subscription?.cancel(),
       onError: (error) {
+        debugPrint('Paywall: Purchase stream error: $error');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Store Error: $error'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('Store Error: $error'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       },
     );
 
     if (_products.isEmpty) {
+      debugPrint('Paywall: Querying product details...');
       final ProductDetailsResponse response = await _iap.queryProductDetails({
         AdManager.productId,
         AdManager.yearlyProductId,
       });
+      debugPrint('Paywall: Not found IDs: ${response.notFoundIDs}');
+      debugPrint('Paywall: Products found: ${response.productDetails.length}');
       if (mounted) {
         setState(() {
           _products = response.productDetails;
@@ -95,17 +108,14 @@ class _PaywallScreenState extends State<PaywallScreen>
 
   ProductDetails? _getProduct(String productId) {
     try {
-      for (final p in _products) {
-        if (p.id == productId) return p;
-      }
-      return null;
-    } catch (e) {
+      return _products.firstWhere((p) => p.id == productId);
+    } catch (_) {
       return null;
     }
   }
 
-  void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) async {
-    for (var purchase in purchaseDetailsList) {
+  void _listenToPurchaseUpdated(List<PurchaseDetails> list) async {
+    for (final purchase in list) {
       if (purchase.status == PurchaseStatus.pending) {
         if (mounted) setState(() => _isLoading = true);
       } else {
@@ -113,7 +123,9 @@ class _PaywallScreenState extends State<PaywallScreen>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Purchase Failed: ${purchase.error?.message ?? 'Unknown error'}'),
+                content: Text(
+                  'Purchase Failed: ${purchase.error?.message ?? 'Unknown error'}',
+                ),
                 backgroundColor: Colors.red,
               ),
             );
@@ -133,6 +145,7 @@ class _PaywallScreenState extends State<PaywallScreen>
               await _grantPremium();
             }
           } else {
+            debugPrint('Paywall: Ignoring unknown productID: ${purchase.productID}');
             if (mounted) setState(() => _isLoading = false);
           }
         }
@@ -164,37 +177,57 @@ class _PaywallScreenState extends State<PaywallScreen>
   }
 
   Future<void> _buyProduct() async {
-    if (_products.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Product not found. Please try again later.')),
-      );
-      return;
-    }
-
-    final selectedProductId =
-        _isLifetimeSelected ? AdManager.productId : AdManager.yearlyProductId;
-    final product = _getProduct(selectedProductId);
-    if (product == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selected product not available. Please try again.')),
-      );
-      return;
-    }
-
-    _purchaseHandled = false;
+    debugPrint('Paywall: Buy pressed. Products: ${_products.length}');
     try {
-      await _iap.buyNonConsumable(purchaseParam: PurchaseParam(productDetails: product));
-    } catch (error) {
-      if (mounted) {
-        setState(() => _isLoading = false);
+      if (_products.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Purchase Error: $error'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('Product not found. Please try again later.')),
+        );
+        return;
+      }
+
+      final selectedId =
+          _isLifetimeSelected ? AdManager.productId : AdManager.yearlyProductId;
+      final product = _getProduct(selectedId);
+      if (product == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Selected product not available. Please try again.'),
+          ),
+        );
+        return;
+      }
+
+      debugPrint('Paywall: Purchasing ${product.id} @ ${product.price}');
+      _purchaseHandled = false;
+      try {
+        await _iap.buyNonConsumable(
+          purchaseParam: PurchaseParam(productDetails: product),
+        );
+      } catch (error) {
+        debugPrint('Paywall: Purchase initiation error: $error');
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Purchase Error: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e, stack) {
+      debugPrint('Paywall: Exception during buy: $e\n$stack');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Exception: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
   Future<void> _restorePurchases() async {
+    debugPrint('Paywall: Restore pressed');
     if (mounted) setState(() => _isLoading = true);
     _restoreTimer?.cancel();
     _purchaseHandled = false;
@@ -203,6 +236,7 @@ class _PaywallScreenState extends State<PaywallScreen>
       await _iap.restorePurchases();
       _restoreTimer = Timer(const Duration(seconds: 5), () {
         if (mounted && _isLoading) {
+          debugPrint('Paywall: Restore timeout — no matching purchases found');
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -214,6 +248,7 @@ class _PaywallScreenState extends State<PaywallScreen>
       });
     } catch (e) {
       _restoreTimer?.cancel();
+      debugPrint('Paywall: Restore error: $e');
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -223,38 +258,43 @@ class _PaywallScreenState extends State<PaywallScreen>
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Build
+  // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // Invoice app accent: deep blue with gold
-    const accentColor = Color(0xFF2563EB); // Invoice Blue
-    const goldColor = Color(0xFFF59E0B);   // Invoice Gold/Amber
+    const accentColor = Color(0xFFFFD700); // Gold — matches csvforge paywall
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0F1120),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+            colors: [Color(0xFF151829), Color(0xFF0D0F1A)],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // Close button
+              // ── Close button ─────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 26),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white54,
+                      size: 26,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
               ),
 
-              // Scrollable content
+              // ── Scrollable feature list ───────────────────────────────────
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
@@ -312,7 +352,7 @@ class _PaywallScreenState extends State<PaywallScreen>
                                 Icons.all_inclusive_rounded,
                                 'Unlimited Invoices',
                                 'Create & send as many invoices as you need.',
-                                const Color(0xFF3B82F6),
+                                Colors.blueAccent,
                               ),
                               _buildFeatureRow(
                                 Icons.picture_as_pdf_outlined,
@@ -330,13 +370,13 @@ class _PaywallScreenState extends State<PaywallScreen>
                                 Icons.business_center_outlined,
                                 'Business Profile',
                                 'Add your signature, logo & GSTIN to every invoice.',
-                                const Color(0xFF8B5CF6),
+                                Colors.purpleAccent,
                               ),
                               _buildFeatureRow(
                                 Icons.insights_rounded,
                                 'Revenue Dashboard',
                                 'Track paid, unpaid & overdue invoices at a glance.',
-                                const Color(0xFFF59E0B),
+                                Colors.orangeAccent,
                               ),
                               _buildFeatureRow(
                                 Icons.block_flipped,
@@ -354,17 +394,18 @@ class _PaywallScreenState extends State<PaywallScreen>
                 ),
               ),
 
-              // Bottom action panel
+              // ── Bottom action panel ───────────────────────────────────────
               FadeTransition(
                 opacity: _fadeAnimation,
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                    color: const Color(0xFF181B2E),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(28)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.35),
+                        color: Colors.black.withValues(alpha: 0.35),
                         blurRadius: 24,
                         offset: const Offset(0, -6),
                       ),
@@ -384,20 +425,23 @@ class _PaywallScreenState extends State<PaywallScreen>
                         ),
                       ),
 
-                      // Pricing cards
+                      // Lifetime card
                       _buildPricingCard(
                         title: 'Lifetime',
                         price: _getProduct(AdManager.productId)?.price ?? '...',
                         subtitle: 'One-time payment. Own forever.',
                         badge: 'BEST VALUE',
-                        badgeColor: goldColor,
+                        badgeColor: accentColor,
                         isSelected: _isLifetimeSelected,
                         onTap: () => setState(() => _isLifetimeSelected = true),
                       ),
                       const SizedBox(height: 10),
+
+                      // Yearly card
                       _buildPricingCard(
                         title: 'Yearly',
-                        price: _getProduct(AdManager.yearlyProductId)?.price ?? '...',
+                        price:
+                            _getProduct(AdManager.yearlyProductId)?.price ?? '...',
                         subtitle: 'Billed annually. Cancel anytime.',
                         badge: null,
                         badgeColor: Colors.white30,
@@ -406,15 +450,16 @@ class _PaywallScreenState extends State<PaywallScreen>
                       ),
                       const SizedBox(height: 16),
 
-                      // CTA button
+                      // CTA
                       SizedBox(
                         width: double.infinity,
-                        height: 52,
+                        height: 50,
                         child: ElevatedButton(
-                          onPressed: _available && !_isLoading ? _buyProduct : null,
+                          onPressed:
+                              _available && !_isLoading ? _buyProduct : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: accentColor,
-                            foregroundColor: Colors.white,
+                            foregroundColor: Colors.black,
                             elevation: 0,
                             shadowColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
@@ -427,7 +472,7 @@ class _PaywallScreenState extends State<PaywallScreen>
                                   width: 24,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.5,
-                                    color: Colors.white,
+                                    color: Colors.black,
                                   ),
                                 )
                               : Text(
@@ -453,7 +498,9 @@ class _PaywallScreenState extends State<PaywallScreen>
                           ),
                           _dot(),
                           _buildTrustBadge(
-                            _isLifetimeSelected ? '✓  No subscription' : '✓  Cancel anytime',
+                            _isLifetimeSelected
+                                ? '✓  No subscription'
+                                : '✓  Cancel anytime',
                           ),
                           _dot(),
                           _buildTrustBadge('✓  GST-ready'),
@@ -461,7 +508,7 @@ class _PaywallScreenState extends State<PaywallScreen>
                       ),
                       const SizedBox(height: 4),
 
-                      // Restore link
+                      // Restore
                       TextButton(
                         onPressed: _restorePurchases,
                         style: TextButton.styleFrom(
@@ -472,7 +519,10 @@ class _PaywallScreenState extends State<PaywallScreen>
                         ),
                         child: const Text(
                           'Already purchased? Restore Purchases',
-                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -487,6 +537,7 @@ class _PaywallScreenState extends State<PaywallScreen>
     );
   }
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
   Widget _dot() => const Padding(
     padding: EdgeInsets.symmetric(horizontal: 4),
     child: Text('•', style: TextStyle(color: Colors.white24, fontSize: 11)),
@@ -510,26 +561,28 @@ class _PaywallScreenState extends State<PaywallScreen>
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    const accentColor = Color(0xFF2563EB);
+    const accentColor = Color(0xFFFFD700);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
         decoration: BoxDecoration(
           color: isSelected
-              ? accentColor.withOpacity(0.12)
-              : const Color(0xFF0F172A),
+              ? accentColor.withValues(alpha: 0.08)
+              : const Color(0xFF222540),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? accentColor : Colors.white.withOpacity(0.08),
+            color: isSelected
+                ? accentColor
+                : Colors.white.withValues(alpha: 0.08),
             width: isSelected ? 2 : 1,
           ),
         ),
         child: Row(
           children: [
-            // Radio circle
+            // Radio indicator
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 20,
@@ -543,7 +596,7 @@ class _PaywallScreenState extends State<PaywallScreen>
                 color: isSelected ? accentColor : Colors.transparent,
               ),
               child: isSelected
-                  ? const Icon(Icons.check, color: Colors.white, size: 14)
+                  ? const Icon(Icons.check, color: Colors.black, size: 14)
                   : null,
             ),
             const SizedBox(width: 14),
@@ -599,7 +652,7 @@ class _PaywallScreenState extends State<PaywallScreen>
               ),
             ),
 
-            // Price
+            // Price — fetched live from Play Store, never hardcoded
             Text(
               price,
               style: TextStyle(
@@ -629,7 +682,7 @@ class _PaywallScreenState extends State<PaywallScreen>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.12),
+              color: iconColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: iconColor, size: 22),
@@ -659,14 +712,21 @@ class _PaywallScreenState extends State<PaywallScreen>
               ],
             ),
           ),
-          const Icon(Icons.check_circle_rounded, color: Color(0xFF4ADE80), size: 18),
+          const Icon(
+            Icons.check_circle_rounded,
+            color: Color(0xFF4ADE80),
+            size: 18,
+          ),
         ],
       ),
     );
   }
 }
 
-// ── Hero animation: animated invoice/document icon ─────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Hero animation — invoice document drawing itself
+// (ported from csvforge _PremiumTableAnimation, reskinned for Invoice)
+// ─────────────────────────────────────────────────────────────────────────────
 class _InvoiceProAnimation extends StatefulWidget {
   final double size;
   const _InvoiceProAnimation({required this.size});
@@ -687,11 +747,14 @@ class _InvoiceProAnimationState extends State<_InvoiceProAnimation>
       vsync: this,
       duration: const Duration(seconds: 3),
     );
-    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
-    _runAnimationLoop();
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+    );
+    _runLoop();
   }
 
-  void _runAnimationLoop() async {
+  void _runLoop() async {
     while (mounted) {
       try {
         await _controller.forward();
@@ -699,7 +762,7 @@ class _InvoiceProAnimationState extends State<_InvoiceProAnimation>
         if (!mounted) break;
         await _controller.reverse();
         await Future.delayed(const Duration(milliseconds: 500));
-      } catch (e) {
+      } catch (_) {
         break;
       }
     }
@@ -721,11 +784,11 @@ class _InvoiceProAnimationState extends State<_InvoiceProAnimation>
           width: widget.size,
           height: widget.size,
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(24),
+            color: const Color(0xFF1A1A2E),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF2563EB).withOpacity(0.2),
+                color: const Color(0xFF2563EB).withValues(alpha: 0.15),
                 blurRadius: 30,
                 spreadRadius: -5,
                 offset: const Offset(0, 10),
@@ -734,14 +797,13 @@ class _InvoiceProAnimationState extends State<_InvoiceProAnimation>
           ),
           padding: const EdgeInsets.all(16),
           child: CustomPaint(
-            painter: _InvoicePainter(
-              animationValue: _animation,
-              baseColor: Colors.white.withOpacity(0.05),
+            painter: _InvoiceDocPainter(
+              animation: _animation,
+              baseColor: Colors.white.withValues(alpha: 0.05),
               highlightColor: const Color(0xFF2563EB),
             ),
           ),
         ),
-        // Crown/premium badge
         Positioned(
           top: -12,
           right: -8,
@@ -749,10 +811,14 @@ class _InvoiceProAnimationState extends State<_InvoiceProAnimation>
             angle: 0.35,
             child: const Icon(
               Icons.workspace_premium_rounded,
-              color: Color(0xFFF59E0B),
+              color: Color(0xFFFFD700),
               size: 40,
               shadows: [
-                Shadow(color: Colors.black45, blurRadius: 10, offset: Offset(2, 2)),
+                Shadow(
+                  color: Colors.black45,
+                  blurRadius: 10,
+                  offset: Offset(2, 2),
+                ),
               ],
             ),
           ),
@@ -762,16 +828,17 @@ class _InvoiceProAnimationState extends State<_InvoiceProAnimation>
   }
 }
 
-class _InvoicePainter extends CustomPainter {
-  final Animation<double> animationValue;
+/// Painter: animated invoice document (diagonal reveal, same pattern as csvforge)
+class _InvoiceDocPainter extends CustomPainter {
+  final Animation<double> animation;
   final Color baseColor;
   final Color highlightColor;
 
-  _InvoicePainter({
-    required this.animationValue,
+  _InvoiceDocPainter({
+    required this.animation,
     required this.baseColor,
     required this.highlightColor,
-  }) : super(repaint: animationValue);
+  }) : super(repaint: animation);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -781,22 +848,17 @@ class _InvoicePainter extends CustomPainter {
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
 
-    // Draw invoice-like horizontal lines (mimics text rows on a document)
-    final lineSpacing = size.height / 6;
-    for (int i = 1; i <= 5; i++) {
-      final y = i * lineSpacing;
-      final lineWidth = i == 1 ? size.width : size.width * (0.5 + (i % 3) * 0.15);
-      canvas.drawLine(Offset(0, y), Offset(lineWidth, y), bgPaint);
-    }
+    final cw = size.width / 3;
+    final ch = size.height / 3;
+    _drawGrid(canvas, size, cw, ch, bgPaint);
 
-    // Animated reveal — lines fill in from top to bottom
     final highlightPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
+      ..strokeWidth = 2.0
       ..strokeCap = StrokeCap.round
       ..shader = LinearGradient(
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
         colors: [
           const Color(0xFF60A5FA),
           highlightColor,
@@ -804,30 +866,59 @@ class _InvoicePainter extends CustomPainter {
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
-    final revealedLines = (animationValue.value * 5).ceil();
-    for (int i = 1; i <= revealedLines && i <= 5; i++) {
-      final y = i * lineSpacing;
-      final lineWidth = i == 1 ? size.width : size.width * (0.5 + (i % 3) * 0.15);
-      // Partially reveal the last active line
-      final partialFill = i == revealedLines
-          ? lineWidth * ((animationValue.value * 5) - (i - 1))
-          : lineWidth;
-      canvas.drawLine(Offset(0, y), Offset(partialFill, y), highlightPaint);
-    }
+    // Diagonal reveal (same logic as csvforge _TablePainter)
+    final maxExtent = size.width + size.height;
+    final currentExtent = maxExtent * animation.value;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(currentExtent, 0)
+      ..lineTo(0, currentExtent)
+      ..close();
 
-    // Draw a small dot at the head of the last drawn line for a cursor effect
-    if (animationValue.value > 0 && animationValue.value < 1) {
-      final dotPaint = Paint()
-        ..color = const Color(0xFF60A5FA)
-        ..style = PaintingStyle.fill;
-      final activeI = (animationValue.value * 5).ceil().clamp(1, 5);
-      final y = activeI * lineSpacing;
-      final lineWidth = activeI == 1 ? size.width : size.width * (0.5 + (activeI % 3) * 0.15);
-      final xHead = lineWidth * ((animationValue.value * 5) - (activeI - 1));
-      canvas.drawCircle(Offset(xHead.clamp(0, size.width), y), 3, dotPaint);
+    canvas.save();
+    canvas.clipPath(path);
+    highlightPaint.maskFilter = const MaskFilter.blur(BlurStyle.solid, 3);
+    _drawGrid(canvas, size, cw, ch, highlightPaint);
+    highlightPaint.maskFilter = null;
+    _drawGrid(canvas, size, cw, ch, highlightPaint);
+    _drawDots(canvas, size, cw, ch, highlightColor);
+    canvas.restore();
+  }
+
+  void _drawGrid(
+      Canvas canvas, Size size, double cw, double ch, Paint paint) {
+    for (int i = 0; i <= 3; i++) {
+      double x = i * cw;
+      if (i == 0) x += 1;
+      if (i == 3) x -= 1;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (int i = 0; i <= 3; i++) {
+      double y = i * ch;
+      if (i == 0) y += 1;
+      if (i == 3) y -= 1;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  void _drawDots(
+      Canvas canvas, Size size, double cw, double ch, Color color) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    for (int i = 0; i <= 3; i++) {
+      for (int j = 0; j <= 3; j++) {
+        double x = i * cw;
+        double y = j * ch;
+        if (i == 0) x += 1;
+        if (i == 3) x -= 1;
+        if (j == 0) y += 1;
+        if (j == 3) y -= 1;
+        canvas.drawCircle(Offset(x, y), 2.5, paint);
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _InvoicePainter oldDelegate) => true;
+  bool shouldRepaint(covariant _InvoiceDocPainter old) => true;
 }
