@@ -217,7 +217,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
         listItems.add(
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
-            child: NativeAdWidget(height: 72, borderRadius: 12),
+            child: NativeAdWidget(height: 72),
           ),
         );
       }

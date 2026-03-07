@@ -331,7 +331,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     padding: const EdgeInsets.only(bottom: 8),
                                     child: NativeAdWidget(
                                       height: 80,
-                                      borderRadius: 12,
                                     ),
                                   );
                                 }

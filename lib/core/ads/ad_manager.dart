@@ -36,6 +36,12 @@ class AdManager {
       'https://play.google.com/store/apps/details?id=com.livinlabs.invoice';
   List<ProductDetails> products = [];
 
+  /// Returns a ready-to-use [NativeAdWidget]. Returns [SizedBox.shrink] if Pro.
+  Widget getNativeAdWidget({double height = 120}) {
+    if (_isPro) return const SizedBox.shrink();
+    return NativeAdWidget(height: height);
+  }
+
   // ── Paywall trigger hook ───────────────────────────────────────────────────
   static Future<void> Function(BuildContext context)? onShowPaywall;
   int _interstitialCount = 0;
@@ -262,13 +268,6 @@ class AdManager {
   Widget getBannerAdWidget() {
     if (_isPro) return const SizedBox.shrink();
     return _BannerAdWrapper(adUnitId: _bannerId);
-  }
-
-  // ── Native widget helper ───────────────────────────────────────────────────
-  /// Returns a ready-to-use [NativeAdWidget]. Returns [SizedBox.shrink] if Pro.
-  Widget getNativeAdWidget({double height = 120}) {
-    if (_isPro) return const SizedBox.shrink();
-    return NativeAdWidget(height: height);
   }
 }
 

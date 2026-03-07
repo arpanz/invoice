@@ -11,7 +11,7 @@
     <application
         android:label="Invoice Maker Pro"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon">
 
         <!-- AdMob App ID (TODO: Replace with real ID before publishing) -->
         <meta-data
