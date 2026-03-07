@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -33,8 +32,8 @@ class AdManager {
   int _paywallThreshold = 3;
 
   // TODO: Replace real IDs before publishing
-  final String _realBannerId = 'ca-app-pub-4397005408366648/9027020038';
-  final String _realInterstitialId = 'ca-app-pub-4397005408366648/7889198185';
+  final String _realBannerId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
+  final String _realInterstitialId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
 
   // Test IDs
   final String _testBannerId = 'ca-app-pub-3940256099942544/6300978111';
@@ -72,20 +71,21 @@ class AdManager {
       if (!await iap.isAvailable()) return;
 
       StreamSubscription<List<PurchaseDetails>>? sub;
-      sub = iap.purchaseStream.listen((purchases) {
-        bool hasPro = purchases.any(
-          (p) =>
-              (p.productID == productId ||
-                  p.productID == yearlyProductId ||
-                  p.productID == legacyProductId) &&
-              (p.status == PurchaseStatus.purchased ||
-                  p.status == PurchaseStatus.restored),
-        );
-        if (!hasPro) {
-          _disableProVersion();
-        }
-        sub?.cancel();
-      }, onError: (_) => sub?.cancel());
+      sub = iap.purchaseStream.listen(
+        (purchases) {
+          final hasPro = purchases.any(
+            (p) =>
+                (p.productID == productId ||
+                    p.productID == yearlyProductId ||
+                    p.productID == legacyProductId) &&
+                (p.status == PurchaseStatus.purchased ||
+                    p.status == PurchaseStatus.restored),
+          );
+          if (!hasPro) _disableProVersion();
+          sub?.cancel();
+        },
+        onError: (_) => sub?.cancel(),
+      );
 
       await iap.restorePurchases();
       Future.delayed(const Duration(seconds: 10), () => sub?.cancel());
@@ -105,12 +105,10 @@ class AdManager {
     }
     await MobileAds.instance.initialize();
     _loadInterstitial();
-    debugPrint(
-      'AdManager: Premium disabled (subscription expired or missing).',
-    );
+    debugPrint('AdManager: Premium disabled (subscription expired or missing).');
   }
 
-  /// Call this when purchase is successful
+  /// Call this when a purchase is confirmed
   Future<void> enableProVersion() async {
     _isPro = true;
     _interstitialAd?.dispose();
@@ -149,7 +147,8 @@ class AdManager {
     _interstitialRetryAttempt++;
     final delay = Duration(seconds: 1 << _interstitialRetryAttempt);
     debugPrint(
-      'AdManager: Retrying interstitial in ${delay.inSeconds}s (attempt $_interstitialRetryAttempt/$_maxRetryAttempts)',
+      'AdManager: Retrying interstitial in ${delay.inSeconds}s '
+      '(attempt $_interstitialRetryAttempt/$_maxRetryAttempts)',
     );
     Future.delayed(delay, () => _loadInterstitial());
   }
