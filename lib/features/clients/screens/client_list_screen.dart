@@ -42,11 +42,14 @@ class _ClientListScreenState extends State<ClientListScreen> {
   List<ClientModel> get _filteredClients {
     if (_searchQuery.isEmpty) return _clients;
     final q = _searchQuery.toLowerCase();
-    return _clients.where((c) =>
-      c.name.toLowerCase().contains(q) ||
-      (c.email?.toLowerCase().contains(q) ?? false) ||
-      (c.phone?.contains(q) ?? false)
-    ).toList();
+    return _clients
+        .where(
+          (c) =>
+              c.name.toLowerCase().contains(q) ||
+              (c.email?.toLowerCase().contains(q) ?? false) ||
+              (c.phone?.contains(q) ?? false),
+        )
+        .toList();
   }
 
   Future<void> _showAddEditDialog({ClientModel? client}) async {
@@ -91,7 +94,10 @@ class _ClientListScreenState extends State<ClientListScreen> {
               const SizedBox(height: 20),
               Text(
                 client == null ? 'Add New Client' : 'Edit Client',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 20),
               CustomTextField(
@@ -99,7 +105,8 @@ class _ClientListScreenState extends State<ClientListScreen> {
                 hint: 'John Doe / Acme Corp',
                 controller: nameCtrl,
                 textCapitalization: TextCapitalization.words,
-                validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               CustomTextField(
@@ -152,7 +159,9 @@ class _ClientListScreenState extends State<ClientListScreen> {
         name: nameCtrl.text.trim(),
         email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
         phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
-        address: addressCtrl.text.trim().isEmpty ? null : addressCtrl.text.trim(),
+        address: addressCtrl.text.trim().isEmpty
+            ? null
+            : addressCtrl.text.trim(),
         gstin: gstinCtrl.text.trim().isEmpty ? null : gstinCtrl.text.trim(),
         createdAt: client?.createdAt ?? now,
       );
@@ -170,10 +179,16 @@ class _ClientListScreenState extends State<ClientListScreen> {
         title: const Text('Delete Client?'),
         content: Text('Are you sure you want to delete "${client.name}"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.accentRed)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppColors.accentRed),
+            ),
           ),
         ],
       ),
@@ -190,7 +205,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
     return Scaffold(
       appBar: widget.selectionMode
           ? AppBar(title: const Text('Select Client'))
-          : null,
+          : AppBar(title: const Text('Clients')),
       body: Column(
         children: [
           // Search bar
@@ -208,24 +223,28 @@ class _ClientListScreenState extends State<ClientListScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredClients.isEmpty
-                    ? EmptyStateView(
-                        icon: Icons.people_outline,
-                        title: _searchQuery.isEmpty ? 'No Clients Yet' : 'No Results',
-                        subtitle: _searchQuery.isEmpty
-                            ? 'Add your first client to get started'
-                            : 'Try a different search term',
-                        actionLabel: _searchQuery.isEmpty ? 'Add Client' : null,
-                        onAction: _searchQuery.isEmpty ? () => _showAddEditDialog() : null,
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                        itemCount: _filteredClients.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (_, index) {
-                          final client = _filteredClients[index];
-                          return _buildClientCard(client);
-                        },
-                      ),
+                ? EmptyStateView(
+                    icon: Icons.people_outline,
+                    title: _searchQuery.isEmpty
+                        ? 'No Clients Yet'
+                        : 'No Results',
+                    subtitle: _searchQuery.isEmpty
+                        ? 'Add your first client to get started'
+                        : 'Try a different search term',
+                    actionLabel: _searchQuery.isEmpty ? 'Add Client' : null,
+                    onAction: _searchQuery.isEmpty
+                        ? () => _showAddEditDialog()
+                        : null,
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                    itemCount: _filteredClients.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, index) {
+                      final client = _filteredClients[index];
+                      return _buildClientCard(client);
+                    },
+                  ),
           ),
         ],
       ),
@@ -255,7 +274,10 @@ class _ClientListScreenState extends State<ClientListScreen> {
           border: Border.all(color: AppColors.cardBorder),
         ),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
           leading: CircleAvatar(
             backgroundColor: AppColors.primary.withOpacity(0.1),
             child: Text(
@@ -275,9 +297,21 @@ class _ClientListScreenState extends State<ClientListScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (client.email != null)
-                Text(client.email!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                Text(
+                  client.email!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               if (client.phone != null)
-                Text(client.phone!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                Text(
+                  client.phone!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
             ],
           ),
           trailing: widget.selectionMode
@@ -291,7 +325,10 @@ class _ClientListScreenState extends State<ClientListScreen> {
                     const PopupMenuItem(value: 'edit', child: Text('Edit')),
                     const PopupMenuItem(
                       value: 'delete',
-                      child: Text('Delete', style: TextStyle(color: AppColors.accentRed)),
+                      child: Text(
+                        'Delete',
+                        style: TextStyle(color: AppColors.accentRed),
+                      ),
                     ),
                   ],
                 ),

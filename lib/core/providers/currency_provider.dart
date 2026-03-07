@@ -8,6 +8,7 @@ import '../models/currency_model.dart';
 class CurrencyPreferences {
   static const String _currencyKey = 'user_currency';
   static const String _onboardingCompleteKey = 'onboarding_complete';
+  static const String _customTaxRateKey = 'custom_default_tax_rate';
 }
 
 /// Provider to manage currency state throughout the app
@@ -15,10 +16,13 @@ class CurrencyProvider extends ChangeNotifier {
   Currency _selectedCurrency = SupportedCurrencies.all.first;
   bool _isLoading = true;
   bool _onboardingComplete = false;
+  double? _customTaxRate;
 
   Currency get selectedCurrency => _selectedCurrency;
   bool get isLoading => _isLoading;
   bool get onboardingComplete => _onboardingComplete;
+  double? get customTaxRate => _customTaxRate;
+  bool get hasCustomTaxRate => _customTaxRate != null;
 
   CurrencyProvider() {
     _loadPreferences();
@@ -44,6 +48,9 @@ class CurrencyProvider extends ChangeNotifier {
       // Load onboarding status
       _onboardingComplete =
           prefs.getBool(CurrencyPreferences._onboardingCompleteKey) ?? false;
+
+      // Load custom tax override (if any)
+      _customTaxRate = prefs.getDouble(CurrencyPreferences._customTaxRateKey);
     } catch (e) {
       debugPrint('Error loading currency preferences: $e');
     } finally {
@@ -101,7 +108,41 @@ class CurrencyProvider extends ChangeNotifier {
   String get currencyCode => _selectedCurrency.code;
 
   /// Get default tax info
-  TaxInfo get defaultTax => _selectedCurrency.defaultTax;
+  TaxInfo get defaultTax {
+    final base = _selectedCurrency.defaultTax;
+    return TaxInfo(
+      name: base.name,
+      shortName: base.shortName,
+      rate: _customTaxRate ?? base.rate,
+      description: base.description,
+    );
+  }
+
+  /// Persist an editable default tax rate.
+  Future<void> setCustomTaxRate(double rate) async {
+    _customTaxRate = rate;
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(CurrencyPreferences._customTaxRateKey, rate);
+    } catch (e) {
+      debugPrint('Error saving custom tax rate: $e');
+    }
+  }
+
+  /// Remove custom tax override and return to currency default.
+  Future<void> clearCustomTaxRate() async {
+    _customTaxRate = null;
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(CurrencyPreferences._customTaxRateKey);
+    } catch (e) {
+      debugPrint('Error clearing custom tax rate: $e');
+    }
+  }
 
   /// Format amount with selected currency
   String formatAmount(double amount) {

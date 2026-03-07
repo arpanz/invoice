@@ -16,7 +16,6 @@ import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/primary_button.dart';
 import '../../clients/models/client_model.dart';
 import '../../clients/screens/client_list_screen.dart';
-import '../../settings/screens/business_profile_screen.dart';
 import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
 import '../services/pdf_generator_service.dart';
@@ -92,12 +91,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       _notesCtrl.text = inv.notes ?? '';
 
       for (final item in inv.lineItems) {
-        _lineItems.add(_LineItemEntry(
-          id: item.id,
-          descCtrl: TextEditingController(text: item.description),
-          qtyCtrl: TextEditingController(text: item.quantity.toString()),
-          priceCtrl: TextEditingController(text: item.unitPrice.toString()),
-        ));
+        _lineItems.add(
+          _LineItemEntry(
+            id: item.id,
+            descCtrl: TextEditingController(text: item.description),
+            qtyCtrl: TextEditingController(text: item.quantity.toString()),
+            priceCtrl: TextEditingController(text: item.unitPrice.toString()),
+          ),
+        );
       }
 
       if (inv.discountType != DiscountType.none) {
@@ -119,14 +120,31 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     } else {
       // New invoice
       final invoiceCount = await _getNextInvoiceNumber();
-      _invoiceNumberCtrl.text = 'INV-${invoiceCount.toString().padLeft(3, '0')}';
+      _invoiceNumberCtrl.text =
+          'INV-${invoiceCount.toString().padLeft(3, '0')}';
       _dueDate = DateTime.now().add(const Duration(days: 30));
 
       if (defaultTax > 0) {
         _hasTax = true;
-        final half = defaultTax / 2;
-        _sgstCtrl.text = half.toStringAsFixed(0);
-        _cgstCtrl.text = half.toStringAsFixed(0);
+        final normalizedTax = defaultTax
+            .toStringAsFixed(3)
+            .replaceFirst(RegExp(r'0+$'), '')
+            .replaceFirst(RegExp(r'\.$'), '');
+
+        if (_currency == 'INR') {
+          final half = defaultTax / 2;
+          _sgstCtrl.text = half
+              .toStringAsFixed(2)
+              .replaceFirst(RegExp(r'0+$'), '')
+              .replaceFirst(RegExp(r'\.$'), '');
+          _cgstCtrl.text = half
+              .toStringAsFixed(2)
+              .replaceFirst(RegExp(r'0+$'), '')
+              .replaceFirst(RegExp(r'\.$'), '');
+        } else {
+          _useIGST = true;
+          _igstCtrl.text = normalizedTax;
+        }
       }
 
       // Add one empty line item
@@ -175,7 +193,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   String get _currencySymbol => CurrencyFormatter.getCurrencySymbol(_currency);
 
   Future<void> _selectDate(bool isDueDate) async {
-    final initial = isDueDate ? (_dueDate ?? DateTime.now().add(const Duration(days: 30))) : _invoiceDate;
+    final initial = isDueDate
+        ? (_dueDate ?? DateTime.now().add(const Duration(days: 30)))
+        : _invoiceDate;
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -217,7 +237,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   Future<void> _selectClient() async {
     final client = await Navigator.push<ClientModel>(
       context,
-      MaterialPageRoute(builder: (_) => const ClientListScreen(selectionMode: true)),
+      MaterialPageRoute(
+        builder: (_) => const ClientListScreen(selectionMode: true),
+      ),
     );
     if (client != null) {
       setState(() {
@@ -231,19 +253,21 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     }
   }
 
-  void _addLineItem() {
-    setState(() => _lineItems.add(_LineItemEntry.empty()));
-  }
-
   void _removeLineItem(int index) {
     setState(() => _lineItems.removeAt(index));
   }
 
   Future<void> _showAddItemSheet({int? editIndex}) async {
-    final entry = editIndex != null ? _lineItems[editIndex] : _LineItemEntry.empty();
+    final entry = editIndex != null
+        ? _lineItems[editIndex]
+        : _LineItemEntry.empty();
     final descCtrl = TextEditingController(text: entry.descCtrl.text);
-    final qtyCtrl = TextEditingController(text: entry.qtyCtrl.text == '0' ? '' : entry.qtyCtrl.text);
-    final priceCtrl = TextEditingController(text: entry.priceCtrl.text == '0' ? '' : entry.priceCtrl.text);
+    final qtyCtrl = TextEditingController(
+      text: entry.qtyCtrl.text == '0' ? '' : entry.qtyCtrl.text,
+    );
+    final priceCtrl = TextEditingController(
+      text: entry.priceCtrl.text == '0' ? '' : entry.priceCtrl.text,
+    );
     final formKey = GlobalKey<FormState>();
 
     final result = await showModalBottomSheet<bool>(
@@ -286,7 +310,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   const SizedBox(height: 20),
                   Text(
                     editIndex != null ? 'Edit Item' : 'Add Line Item',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   CustomTextField(
@@ -294,7 +321,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     hint: 'e.g. Web Design Services',
                     controller: descCtrl,
                     textCapitalization: TextCapitalization.sentences,
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -304,12 +332,19 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           label: 'Quantity *',
                           hint: '1',
                           controller: qtyCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d*'),
+                            ),
+                          ],
                           onChanged: (_) => setModalState(() {}),
                           validator: (v) {
                             if (v == null || v.isEmpty) return 'Required';
-                            if ((double.tryParse(v) ?? 0) <= 0) return 'Must be > 0';
+                            if ((double.tryParse(v) ?? 0) <= 0)
+                              return 'Must be > 0';
                             return null;
                           },
                         ),
@@ -320,8 +355,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           label: 'Unit Price *',
                           hint: '0.00',
                           controller: priceCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d{0,2}'),
+                            ),
+                          ],
                           prefixText: '$_currencySymbol ',
                           onChanged: (_) => setModalState(() {}),
                           validator: (v) {
@@ -343,9 +384,18 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Line Total', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                        const Text(
+                          'Line Total',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
                         Text(
-                          CurrencyFormatter.format(total, currencySymbol: _currencySymbol),
+                          CurrencyFormatter.format(
+                            total,
+                            currencySymbol: _currencySymbol,
+                          ),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -442,19 +492,35 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         invoiceNumber: _invoiceNumberCtrl.text.trim(),
         clientId: _selectedClient?.id,
         clientName: _clientNameCtrl.text.trim(),
-        clientEmail: _clientEmailCtrl.text.trim().isEmpty ? null : _clientEmailCtrl.text.trim(),
-        clientPhone: _clientPhoneCtrl.text.trim().isEmpty ? null : _clientPhoneCtrl.text.trim(),
-        clientAddress: _clientAddressCtrl.text.trim().isEmpty ? null : _clientAddressCtrl.text.trim(),
-        clientGstin: _clientGstinCtrl.text.trim().isEmpty ? null : _clientGstinCtrl.text.trim(),
+        clientEmail: _clientEmailCtrl.text.trim().isEmpty
+            ? null
+            : _clientEmailCtrl.text.trim(),
+        clientPhone: _clientPhoneCtrl.text.trim().isEmpty
+            ? null
+            : _clientPhoneCtrl.text.trim(),
+        clientAddress: _clientAddressCtrl.text.trim().isEmpty
+            ? null
+            : _clientAddressCtrl.text.trim(),
+        clientGstin: _clientGstinCtrl.text.trim().isEmpty
+            ? null
+            : _clientGstinCtrl.text.trim(),
         invoiceDate: _invoiceDate,
         dueDate: _dueDate,
         subtotal: _subtotal,
         discountType: _hasDiscount ? _discountType : DiscountType.none,
-        discountValue: _hasDiscount ? (double.tryParse(_discountCtrl.text) ?? 0) : 0,
+        discountValue: _hasDiscount
+            ? (double.tryParse(_discountCtrl.text) ?? 0)
+            : 0,
         discountAmount: _discountAmount,
-        sgstRate: (!_hasTax || _useIGST) ? 0 : (double.tryParse(_sgstCtrl.text) ?? 0),
-        cgstRate: (!_hasTax || _useIGST) ? 0 : (double.tryParse(_cgstCtrl.text) ?? 0),
-        igstRate: (_hasTax && _useIGST) ? (double.tryParse(_igstCtrl.text) ?? 0) : 0,
+        sgstRate: (!_hasTax || _useIGST)
+            ? 0
+            : (double.tryParse(_sgstCtrl.text) ?? 0),
+        cgstRate: (!_hasTax || _useIGST)
+            ? 0
+            : (double.tryParse(_cgstCtrl.text) ?? 0),
+        igstRate: (_hasTax && _useIGST)
+            ? (double.tryParse(_igstCtrl.text) ?? 0)
+            : 0,
         taxAmount: _taxAmount,
         grandTotal: _grandTotal,
         status: widget.existingInvoice?.status ?? InvoiceStatus.unpaid,
@@ -468,7 +534,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       // Save to DB
       await DbProvider.insert(DbProvider.tableInvoices, invoice.toMap());
       // Delete old line items and re-insert
-      await DbProvider.delete(DbProvider.tableLineItems, 'invoice_id = ?', [invoiceId]);
+      await DbProvider.delete(DbProvider.tableLineItems, 'invoice_id = ?', [
+        invoiceId,
+      ]);
       for (final item in lineItems) {
         await DbProvider.insert(DbProvider.tableLineItems, item.toMap());
       }
@@ -486,18 +554,20 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
       // Show interstitial ad for free users
       if (!isPro) {
-        AdManager.showInterstitialAd(onAdDismissed: () {
-          if (mounted) _showPdfPreview(pdfBytes, invoice);
-        });
+        AdManager.showInterstitialAd(
+          onAdDismissed: () {
+            if (mounted) _showPdfPreview(pdfBytes, invoice);
+          },
+        );
       } else {
         _showPdfPreview(pdfBytes, invoice);
       }
     } catch (e) {
       setState(() => _isGenerating = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     }
   }
@@ -552,16 +622,17 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           pdfBytes,
                           invoice.invoiceNumber,
                         );
-                        await Share.shareXFiles(
-                          [XFile(path)],
-                          text: 'Invoice ${invoice.invoiceNumber}',
-                        );
+                        await Share.shareXFiles([
+                          XFile(path),
+                        ], text: 'Invoice ${invoice.invoiceNumber}');
                       },
                       icon: const Icon(Icons.share_outlined, size: 18),
                       label: const Text('Share'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -578,7 +649,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -617,7 +690,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.existingInvoice != null ? 'Edit Invoice' : 'New Invoice'),
+        title: Text(
+          widget.existingInvoice != null ? 'Edit Invoice' : 'New Invoice',
+        ),
       ),
       body: Form(
         key: _formKey,
@@ -636,7 +711,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       label: 'Invoice Number',
                       controller: _invoiceNumberCtrl,
                       textCapitalization: TextCapitalization.characters,
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -665,33 +741,48 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: ['Net 15', 'Net 30', 'Net 60', 'Due on Receipt'].map((preset) {
-                          final isSelected = _dueDatePreset == preset;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: GestureDetector(
-                              onTap: () => _setDueDatePreset(preset),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? AppColors.primary : AppColors.slate50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: isSelected ? AppColors.primary : AppColors.cardBorder,
+                        children:
+                            [
+                              'Net 15',
+                              'Net 30',
+                              'Net 60',
+                              'Due on Receipt',
+                            ].map((preset) {
+                              final isSelected = _dueDatePreset == preset;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: GestureDetector(
+                                  onTap: () => _setDueDatePreset(preset),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : AppColors.slate50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? AppColors.primary
+                                            : AppColors.cardBorder,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      preset,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : AppColors.textSecondary,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                child: Text(
-                                  preset,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: isSelected ? Colors.white : AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                              );
+                            }).toList(),
                       ),
                     ),
                   ],
@@ -717,7 +808,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       hint: 'John Doe / Acme Corp',
                       controller: _clientNameCtrl,
                       textCapitalization: TextCapitalization.words,
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -781,9 +873,41 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
                           children: const [
-                            Expanded(flex: 4, child: Text('Description', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecondary))),
-                            Expanded(flex: 2, child: Text('Qty × Price', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecondary), textAlign: TextAlign.center)),
-                            Expanded(flex: 2, child: Text('Total', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecondary), textAlign: TextAlign.right)),
+                            Expanded(
+                              flex: 4,
+                              child: Text(
+                                'Description',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'Qty × Price',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textSecondary,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'Total',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textSecondary,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
                             SizedBox(width: 32),
                           ],
                         ),
@@ -802,7 +926,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
                         minimumSize: const Size(double.infinity, 44),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                   ],
@@ -817,7 +943,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     // Subtotal
                     _buildFinancialRow(
                       'Subtotal',
-                      CurrencyFormatter.format(_subtotal, currencySymbol: _currencySymbol),
+                      CurrencyFormatter.format(
+                        _subtotal,
+                        currencySymbol: _currencySymbol,
+                      ),
                       isBold: false,
                     ),
                     const Divider(height: 20),
@@ -826,7 +955,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     Row(
                       children: [
                         const Expanded(
-                          child: Text('Add Discount', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          child: Text(
+                            'Add Discount',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                         Switch(
                           value: _hasDiscount,
@@ -849,21 +984,41 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                _buildDiscountTypeBtn('%', DiscountType.percentage),
-                                _buildDiscountTypeBtn('Flat', DiscountType.flat),
+                                _buildDiscountTypeBtn(
+                                  '%',
+                                  DiscountType.percentage,
+                                ),
+                                _buildDiscountTypeBtn(
+                                  'Flat',
+                                  DiscountType.flat,
+                                ),
                               ],
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: CustomTextField(
-                              hint: _discountType == DiscountType.percentage ? '10' : '500',
+                              hint: _discountType == DiscountType.percentage
+                                  ? '10'
+                                  : '500',
                               controller: _discountCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'^\d*\.?\d{0,2}'),
+                                ),
+                              ],
                               onChanged: (_) => setState(() {}),
-                              prefixText: _discountType == DiscountType.flat ? '$_currencySymbol ' : null,
-                              suffixText: _discountType == DiscountType.percentage ? '%' : null,
+                              prefixText: _discountType == DiscountType.flat
+                                  ? '$_currencySymbol '
+                                  : null,
+                              suffixText:
+                                  _discountType == DiscountType.percentage
+                                  ? '%'
+                                  : null,
                             ),
                           ),
                         ],
@@ -884,7 +1039,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     Row(
                       children: [
                         const Expanded(
-                          child: Text('Add GST / Tax', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          child: Text(
+                            'Add GST / Tax',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                         Switch(
                           value: _hasTax,
@@ -904,7 +1065,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             onChanged: (v) => setState(() => _useIGST = v),
                             activeColor: AppColors.primary,
                           ),
-                          const Text('SGST + CGST', style: TextStyle(fontSize: 13)),
+                          const Text(
+                            'SGST + CGST',
+                            style: TextStyle(fontSize: 13),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -913,8 +1077,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           label: 'IGST Rate (%)',
                           hint: '18',
                           controller: _igstCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d{0,2}'),
+                            ),
+                          ],
                           onChanged: (_) => setState(() {}),
                           suffixText: '%',
                         )
@@ -926,8 +1096,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 label: 'SGST (%)',
                                 hint: '9',
                                 controller: _sgstCtrl,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'^\d*\.?\d{0,2}'),
+                                  ),
+                                ],
                                 onChanged: (_) => setState(() {}),
                                 suffixText: '%',
                               ),
@@ -938,8 +1115,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 label: 'CGST (%)',
                                 hint: '9',
                                 controller: _cgstCtrl,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'^\d*\.?\d{0,2}'),
+                                  ),
+                                ],
                                 onChanged: (_) => setState(() {}),
                                 suffixText: '%',
                               ),
@@ -953,7 +1137,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             _useIGST
                                 ? 'IGST (${_igstCtrl.text}%)'
                                 : 'Tax (SGST ${_sgstCtrl.text}% + CGST ${_cgstCtrl.text}%)',
-                            CurrencyFormatter.format(_taxAmount, currencySymbol: _currencySymbol),
+                            CurrencyFormatter.format(
+                              _taxAmount,
+                              currencySymbol: _currencySymbol,
+                            ),
                           ),
                         ),
                     ],
@@ -998,10 +1185,16 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       children: [
                         const Text(
                           'Grand Total',
-                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                         Text(
-                          CurrencyFormatter.format(_grandTotal, currencySymbol: _currencySymbol),
+                          CurrencyFormatter.format(
+                            _grandTotal,
+                            currencySymbol: _currencySymbol,
+                          ),
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
@@ -1058,10 +1251,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              if (action != null) ...[
-                const Spacer(),
-                action,
-              ],
+              if (action != null) ...[const Spacer(), action],
             ],
           ),
           const SizedBox(height: 16),
@@ -1088,16 +1278,29 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.slate400),
+            const Icon(
+              Icons.calendar_today_outlined,
+              size: 16,
+              color: AppColors.slate400,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                   Text(
                     date != null ? dateFormat.format(date) : 'Select',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -1130,7 +1333,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             flex: 2,
             child: Text(
               '${qty % 1 == 0 ? qty.toInt() : qty} × $_currencySymbol${price.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
           ),
@@ -1146,7 +1352,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             width: 32,
             child: PopupMenuButton<String>(
               padding: EdgeInsets.zero,
-              icon: const Icon(Icons.more_vert, size: 18, color: AppColors.slate400),
+              icon: const Icon(
+                Icons.more_vert,
+                size: 18,
+                color: AppColors.slate400,
+              ),
               onSelected: (value) {
                 if (value == 'edit') _showAddItemSheet(editIndex: index);
                 if (value == 'delete') _removeLineItem(index);
@@ -1155,7 +1365,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 const PopupMenuItem(value: 'edit', child: Text('Edit')),
                 const PopupMenuItem(
                   value: 'delete',
-                  child: Text('Delete', style: TextStyle(color: AppColors.accentRed)),
+                  child: Text(
+                    'Delete',
+                    style: TextStyle(color: AppColors.accentRed),
+                  ),
                 ),
               ],
             ),
@@ -1165,7 +1378,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     );
   }
 
-  Widget _buildFinancialRow(String label, String value, {bool isBold = false, Color? valueColor}) {
+  Widget _buildFinancialRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    Color? valueColor,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1226,11 +1444,11 @@ class _LineItemEntry {
   });
 
   factory _LineItemEntry.empty() => _LineItemEntry(
-        id: const Uuid().v4(),
-        descCtrl: TextEditingController(),
-        qtyCtrl: TextEditingController(text: '1'),
-        priceCtrl: TextEditingController(text: '0'),
-      );
+    id: const Uuid().v4(),
+    descCtrl: TextEditingController(),
+    qtyCtrl: TextEditingController(text: '1'),
+    priceCtrl: TextEditingController(text: '0'),
+  );
 
   double get total {
     final qty = double.tryParse(qtyCtrl.text) ?? 0;

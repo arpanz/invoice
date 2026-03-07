@@ -70,9 +70,7 @@ class InvoiceMakerProApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTypography.lightTheme,
       home: const AppStartup(),
-      routes: {
-        '/home': (context) => const MainNavigationShell(),
-      },
+      routes: {'/home': (context) => const MainNavigationShell()},
     );
   }
 }
@@ -89,9 +87,7 @@ class AppStartup extends StatelessWidget {
         if (currencyProvider.isLoading) {
           return const Scaffold(
             backgroundColor: AppColors.background,
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -119,27 +115,27 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   final List<Widget> _screens = const [
     DashboardScreen(),
+    ClientListScreen(),
     CreateInvoiceScreen(),
-    _HistoryAndClientsScreen(),
+    _HistoryScreen(),
     SettingsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.cardBorder, width: 1)),
+          border: Border(
+            top: BorderSide(color: AppColors.cardBorder, width: 1),
+          ),
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) {
             // For "Create Invoice" tab, always push a fresh screen
-            if (index == 1) {
+            if (index == 2) {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
@@ -166,6 +162,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               icon: Icon(Icons.dashboard_outlined),
               activeIcon: Icon(Icons.dashboard),
               label: 'Overview',
+            ),
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.people_outline),
+              activeIcon: Icon(Icons.people),
+              label: 'Clients',
             ),
             BottomNavigationBarItem(
               icon: Container(
@@ -212,85 +213,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   }
 }
 
-/// Combined Invoices + Clients screen with segmented control
-class _HistoryAndClientsScreen extends StatefulWidget {
-  const _HistoryAndClientsScreen();
-
-  @override
-  State<_HistoryAndClientsScreen> createState() => _HistoryAndClientsScreenState();
-}
-
-class _HistoryAndClientsScreenState extends State<_HistoryAndClientsScreen> {
-  int _segmentIndex = 0;
+class _HistoryScreen extends StatelessWidget {
+  const _HistoryScreen();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('History'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(52),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Container(
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.slate100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  _buildSegmentBtn('Invoices', 0),
-                  _buildSegmentBtn('Clients', 1),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      body: IndexedStack(
-        index: _segmentIndex,
-        children: const [
-          InvoiceHistoryScreen(),
-          ClientListScreen(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSegmentBtn(String label, int index) {
-    final isSelected = _segmentIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _segmentIndex = index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
-              ),
-            ),
-          ),
-        ),
-      ),
+      appBar: AppBar(title: const Text('History')),
+      body: const InvoiceHistoryScreen(),
     );
   }
 }
