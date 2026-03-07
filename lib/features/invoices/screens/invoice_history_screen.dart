@@ -41,12 +41,10 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
 
   Future<void> _loadInvoices() async {
     setState(() => _isLoading = true);
-
     final rows = await DbProvider.query(
       DbProvider.tableInvoices,
       orderBy: 'created_at DESC',
     );
-
     final invoices = <InvoiceModel>[];
     for (final row in rows) {
       final itemRows = await DbProvider.query(
@@ -58,7 +56,6 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       final items = itemRows.map(LineItemModel.fromMap).toList();
       invoices.add(InvoiceModel.fromMap(row, items: items));
     }
-
     setState(() {
       _invoices = invoices;
       _isLoading = false;
@@ -89,9 +86,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete Invoice?'),
-        content: Text(
-          'Delete ${invoice.invoiceNumber}? This cannot be undone.',
-        ),
+        content: Text('Delete ${invoice.invoiceNumber}? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -99,17 +94,15 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: AppColors.accentRed),
-            ),
+            child: const Text('Delete',
+                style: TextStyle(color: AppColors.accentRed)),
           ),
         ],
       ),
     );
-
     if (confirm == true) {
-      await DbProvider.delete(DbProvider.tableInvoices, 'id = ?', [invoice.id]);
+      await DbProvider.delete(
+          DbProvider.tableInvoices, 'id = ?', [invoice.id]);
       await PdfHelper.deletePdf(invoice.invoiceNumber);
       await _loadInvoices();
     }
@@ -118,7 +111,6 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   Future<Uint8List> _buildInvoicePdf(InvoiceModel invoice) async {
     final isPro = context.read<BillingService>().isPro;
     final profile = await _getBusinessProfile();
-
     return PdfGeneratorService.generateInvoicePdf(
       invoice: invoice,
       businessProfile: profile,
@@ -128,9 +120,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
 
   Future<void> _showInvoicePreview(InvoiceModel invoice) async {
     final pdfBytes = await _buildInvoicePdf(invoice);
-
     if (!mounted) return;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -147,10 +137,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
               child: Row(
                 children: [
-                  const Text(
-                    'Invoice Preview',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
+                  const Text('Invoice Preview',
+                      style: TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w700)),
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.pop(ctx),
@@ -180,10 +169,10 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                       icon: const Icon(Icons.print_outlined, size: 18),
                       label: const Text('Print'),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
@@ -197,10 +186,10 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
@@ -215,34 +204,24 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
 
   Future<void> _printPdf(InvoiceModel invoice) async {
     final pdfBytes = await _buildInvoicePdf(invoice);
-
-    if (mounted) {
-      await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
-    }
+    if (mounted) await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
   }
 
   Future<void> _sharePdf(InvoiceModel invoice) async {
     final pdfBytes = await _buildInvoicePdf(invoice);
     final path = await PdfGeneratorService.saveAndGetPath(
-      pdfBytes,
-      invoice.invoiceNumber,
-    );
-    await Share.shareXFiles([
-      XFile(path),
-    ], text: 'Invoice ${invoice.invoiceNumber}');
+        pdfBytes, invoice.invoiceNumber);
+    await Share.shareXFiles([XFile(path)],
+        text: 'Invoice ${invoice.invoiceNumber}');
   }
 
   Future<void> _savePdf(InvoiceModel invoice) async {
     final pdfBytes = await _buildInvoicePdf(invoice);
     final path = await PdfGeneratorService.saveAndGetPath(
-      pdfBytes,
-      invoice.invoiceNumber,
-    );
-
+        pdfBytes, invoice.invoiceNumber);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Invoice saved at $path')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('Invoice saved at $path')));
   }
 
   Future<void> _runWithInterstitial(Future<void> Function() action) async {
@@ -251,7 +230,6 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       await action();
       return;
     }
-
     final completer = Completer<void>();
     AdManager.instance.showInterstitial(
       context,
@@ -265,9 +243,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   }
 
   Future<void> _handleInvoiceMenuAction(
-    String action,
-    InvoiceModel invoice,
-  ) async {
+      String action, InvoiceModel invoice) async {
     if (action == 'edit') {
       await Navigator.push(
         context,
@@ -278,22 +254,18 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       if (mounted) await _loadInvoices();
       return;
     }
-
     if (action == 'save') {
       await _runWithInterstitial(() => _savePdf(invoice));
       return;
     }
-
     if (action == 'delete') {
       await _deleteInvoice(invoice);
       return;
     }
-
     if (action == 'print') {
       await _runWithInterstitial(() => _printPdf(invoice));
       return;
     }
-
     if (action == 'share') {
       await _runWithInterstitial(() => _sharePdf(invoice));
       return;
@@ -303,7 +275,6 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   Future<BusinessProfile> _getBusinessProfile() async {
     final prefs = await SharedPreferences.getInstance();
     final currencyProvider = context.read<CurrencyProvider>();
-
     return BusinessProfile(
       businessName: prefs.getString('biz_name') ?? 'My Business',
       address: prefs.getString('biz_address'),
@@ -320,6 +291,24 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final billing = context.watch<BillingService>();
+    final filtered = _filteredInvoices;
+
+    // Build a list that injects a NativeAdWidget every 5 invoices (free users only)
+    List<Widget> listItems = [];
+    for (int i = 0; i < filtered.length; i++) {
+      listItems.add(_buildInvoiceCard(filtered[i]));
+      // Insert native ad after every 5th invoice
+      if (!billing.isPro && (i + 1) % 5 == 0 && i != filtered.length - 1) {
+        listItems.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: NativeAdWidget(height: 80, borderRadius: 12),
+          ),
+        );
+      }
+    }
+
     return Column(
       children: [
         // Filter chips
@@ -343,26 +332,25 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : _filteredInvoices.isEmpty
-              ? EmptyStateView(
-                  icon: Icons.receipt_long_outlined,
-                  title: 'No Invoices',
-                  subtitle: _filterStatus == 'all'
-                      ? 'Create your first invoice to get started'
-                      : 'No ${_filterStatus} invoices found',
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadInvoices,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                    itemCount: _filteredInvoices.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, index) {
-                      final invoice = _filteredInvoices[index];
-                      return _buildInvoiceCard(invoice);
-                    },
-                  ),
-                ),
+              : filtered.isEmpty
+                  ? EmptyStateView(
+                      icon: Icons.receipt_long_outlined,
+                      title: 'No Invoices',
+                      subtitle: _filterStatus == 'all'
+                          ? 'Create your first invoice to get started'
+                          : 'No ${_filterStatus} invoices found',
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadInvoices,
+                      child: ListView.separated(
+                        padding:
+                            const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                        itemCount: listItems.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 8),
+                        itemBuilder: (_, index) => listItems[index],
+                      ),
+                    ),
         ),
         const Padding(
           padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -378,12 +366,14 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       onTap: () => setState(() => _filterStatus = value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.cardBorder,
+            color:
+                isSelected ? AppColors.primary : AppColors.cardBorder,
           ),
         ),
         child: Text(
@@ -391,7 +381,8 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.white : AppColors.textSecondary,
+            color:
+                isSelected ? Colors.white : AppColors.textSecondary,
           ),
         ),
       ),
@@ -400,9 +391,8 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
 
   Widget _buildInvoiceCard(InvoiceModel invoice) {
     final dateFormat = DateFormat('dd MMM yyyy');
-    final currencySymbol = CurrencyFormatter.getCurrencySymbol(
-      invoice.currency,
-    );
+    final currencySymbol =
+        CurrencyFormatter.getCurrencySymbol(invoice.currency);
 
     return Dismissible(
       key: Key(invoice.id),
@@ -420,9 +410,8 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          if (invoice.status != InvoiceStatus.paid) {
+          if (invoice.status != InvoiceStatus.paid)
             await _markAsPaid(invoice);
-          }
           return false;
         } else {
           await _deleteInvoice(invoice);
@@ -451,18 +440,16 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                           Text(
                             invoice.invoiceNumber,
                             style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             invoice.clientName,
                             style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                            ),
+                                fontSize: 13,
+                                color: AppColors.textSecondary),
                           ),
                         ],
                       ),
@@ -476,10 +463,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                             currencySymbol: currencySymbol,
                           ),
                           style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                          ),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary),
                         ),
                         const SizedBox(height: 4),
                         _buildStatusBadge(invoice.status),
@@ -500,18 +486,16 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.calendar_today_outlined,
-                                size: 12,
-                                color: AppColors.slate400,
-                              ),
+                              const Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 12,
+                                  color: AppColors.slate400),
                               const SizedBox(width: 4),
                               Text(
                                 dateFormat.format(invoice.invoiceDate),
                                 style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondary,
-                                ),
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary),
                               ),
                             ],
                           ),
@@ -519,11 +503,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
-                                  Icons.schedule_outlined,
-                                  size: 12,
-                                  color: AppColors.slate400,
-                                ),
+                                const Icon(Icons.schedule_outlined,
+                                    size: 12,
+                                    color: AppColors.slate400),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Due ${dateFormat.format(invoice.dueDate!)}',
@@ -543,32 +525,24 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                       ),
                     ),
                     PopupMenuButton<String>(
-                      icon: const Icon(
-                        Icons.more_vert,
-                        color: AppColors.slate500,
-                      ),
+                      icon: const Icon(Icons.more_vert,
+                          color: AppColors.slate500),
                       onSelected: (value) =>
                           _handleInvoiceMenuAction(value, invoice),
                       itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'edit', child: Text('Edit')),
                         const PopupMenuItem(
-                          value: 'save',
-                          child: Text('Save PDF'),
-                        ),
+                            value: 'edit', child: Text('Edit')),
                         const PopupMenuItem(
-                          value: 'print',
-                          child: Text('Print'),
-                        ),
+                            value: 'save', child: Text('Save PDF')),
                         const PopupMenuItem(
-                          value: 'share',
-                          child: Text('Share'),
-                        ),
+                            value: 'print', child: Text('Print')),
+                        const PopupMenuItem(
+                            value: 'share', child: Text('Share')),
                         const PopupMenuItem(
                           value: 'delete',
-                          child: Text(
-                            'Delete',
-                            style: TextStyle(color: AppColors.accentRed),
-                          ),
+                          child: Text('Delete',
+                              style:
+                                  TextStyle(color: AppColors.accentRed)),
                         ),
                       ],
                     ),
@@ -600,24 +574,19 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         children: [
           Icon(icon, color: Colors.white, size: 24),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 
   Widget _buildStatusBadge(InvoiceStatus status) {
-    Color bg;
-    Color text;
+    Color bg, text;
     String label;
-
     switch (status) {
       case InvoiceStatus.paid:
         bg = AppColors.statusPaidBg;
@@ -634,21 +603,13 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         text = AppColors.statusUnpaid;
         label = 'Unpaid';
     }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: text,
-        ),
-      ),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w700, color: text)),
     );
   }
 }

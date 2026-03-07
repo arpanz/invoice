@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/ads/ad_manager.dart';
 import '../../../core/ads/banner_ad_widget.dart';
+import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared_widgets/custom_text_field.dart';
@@ -10,7 +13,6 @@ import '../models/client_model.dart';
 
 class ClientListScreen extends StatefulWidget {
   final bool selectionMode;
-
   const ClientListScreen({super.key, this.selectionMode = false});
 
   @override
@@ -96,9 +98,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
               Text(
                 client == null ? 'Add New Client' : 'Edit Client',
                 style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
+                    fontSize: 20, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 20),
               CustomTextField(
@@ -158,16 +158,19 @@ class _ClientListScreenState extends State<ClientListScreen> {
       final newClient = ClientModel(
         id: client?.id ?? const Uuid().v4(),
         name: nameCtrl.text.trim(),
-        email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
-        phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+        email:
+            emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+        phone:
+            phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
         address: addressCtrl.text.trim().isEmpty
             ? null
             : addressCtrl.text.trim(),
-        gstin: gstinCtrl.text.trim().isEmpty ? null : gstinCtrl.text.trim(),
+        gstin:
+            gstinCtrl.text.trim().isEmpty ? null : gstinCtrl.text.trim(),
         createdAt: client?.createdAt ?? now,
       );
-
-      await DbProvider.insert(DbProvider.tableClients, newClient.toMap());
+      await DbProvider.insert(
+          DbProvider.tableClients, newClient.toMap());
       await _loadClients();
     }
   }
@@ -176,9 +179,11 @@ class _ClientListScreenState extends State<ClientListScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete Client?'),
-        content: Text('Are you sure you want to delete "${client.name}"?'),
+        content:
+            Text('Are you sure you want to delete "${client.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -186,66 +191,80 @@ class _ClientListScreenState extends State<ClientListScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: AppColors.accentRed),
-            ),
+            child: const Text('Delete',
+                style: TextStyle(color: AppColors.accentRed)),
           ),
         ],
       ),
     );
-
     if (confirm == true) {
-      await DbProvider.delete(DbProvider.tableClients, 'id = ?', [client.id]);
+      await DbProvider.delete(
+          DbProvider.tableClients, 'id = ?', [client.id]);
       await _loadClients();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final billing = context.watch<BillingService>();
+    final filtered = _filteredClients;
+
+    // Build list items with native ad injected every 4 clients (free only)
+    List<Widget> listItems = [];
+    for (int i = 0; i < filtered.length; i++) {
+      listItems.add(_buildClientCard(filtered[i]));
+      if (!billing.isPro && (i + 1) % 4 == 0 && i != filtered.length - 1) {
+        listItems.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: NativeAdWidget(height: 72, borderRadius: 12),
+          ),
+        );
+      }
+    }
+
     return Scaffold(
-      appBar: widget.selectionMode
-          ? AppBar(title: const Text('Select Client'))
-          : AppBar(title: const Text('Clients')),
+      appBar: AppBar(
+        title:
+            Text(widget.selectionMode ? 'Select Client' : 'Clients'),
+      ),
       body: Column(
         children: [
-          // Search bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: CustomTextField(
               hint: 'Search clients...',
-              prefixIcon: const Icon(Icons.search, color: AppColors.slate400),
+              prefixIcon:
+                  const Icon(Icons.search, color: AppColors.slate400),
               onChanged: (v) => setState(() => _searchQuery = v),
             ),
           ),
-
-          // Client list
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _filteredClients.isEmpty
-                ? EmptyStateView(
-                    icon: Icons.people_outline,
-                    title: _searchQuery.isEmpty
-                        ? 'No Clients Yet'
-                        : 'No Results',
-                    subtitle: _searchQuery.isEmpty
-                        ? 'Add your first client to get started'
-                        : 'Try a different search term',
-                    actionLabel: _searchQuery.isEmpty ? 'Add Client' : null,
-                    onAction: _searchQuery.isEmpty
-                        ? () => _showAddEditDialog()
-                        : null,
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                    itemCount: _filteredClients.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, index) {
-                      final client = _filteredClients[index];
-                      return _buildClientCard(client);
-                    },
-                  ),
+                : filtered.isEmpty
+                    ? EmptyStateView(
+                        icon: Icons.people_outline,
+                        title: _searchQuery.isEmpty
+                            ? 'No Clients Yet'
+                            : 'No Results',
+                        subtitle: _searchQuery.isEmpty
+                            ? 'Add your first client to get started'
+                            : 'Try a different search term',
+                        actionLabel:
+                            _searchQuery.isEmpty ? 'Add Client' : null,
+                        onAction: _searchQuery.isEmpty
+                            ? () => _showAddEditDialog()
+                            : null,
+                      )
+                    : ListView.separated(
+                        padding:
+                            const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                        itemCount: listItems.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 8),
+                        itemBuilder: (_, index) => listItems[index],
+                      ),
           ),
           const Padding(
             padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -271,7 +290,9 @@ class _ClientListScreenState extends State<ClientListScreen> {
         .join();
 
     return GestureDetector(
-      onTap: widget.selectionMode ? () => Navigator.pop(context, client) : null,
+      onTap: widget.selectionMode
+          ? () => Navigator.pop(context, client)
+          : null,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -279,10 +300,8 @@ class _ClientListScreenState extends State<ClientListScreen> {
           border: Border.all(color: AppColors.cardBorder),
         ),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
-          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           leading: CircleAvatar(
             backgroundColor: AppColors.primary.withOpacity(0.1),
             child: Text(
@@ -296,44 +315,41 @@ class _ClientListScreenState extends State<ClientListScreen> {
           ),
           title: Text(
             client.name,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            style: const TextStyle(
+                fontWeight: FontWeight.w600, fontSize: 15),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (client.email != null)
-                Text(
-                  client.email!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+                Text(client.email!,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary)),
               if (client.phone != null)
-                Text(
-                  client.phone!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+                Text(client.phone!,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary)),
             ],
           ),
           trailing: widget.selectionMode
-              ? const Icon(Icons.chevron_right, color: AppColors.slate400)
+              ? const Icon(Icons.chevron_right,
+                  color: AppColors.slate400)
               : PopupMenuButton<String>(
                   onSelected: (value) {
-                    if (value == 'edit') _showAddEditDialog(client: client);
+                    if (value == 'edit')
+                      _showAddEditDialog(client: client);
                     if (value == 'delete') _deleteClient(client);
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                    const PopupMenuItem(
+                        value: 'edit', child: Text('Edit')),
                     const PopupMenuItem(
                       value: 'delete',
-                      child: Text(
-                        'Delete',
-                        style: TextStyle(color: AppColors.accentRed),
-                      ),
+                      child: Text('Delete',
+                          style:
+                              TextStyle(color: AppColors.accentRed)),
                     ),
                   ],
                 ),

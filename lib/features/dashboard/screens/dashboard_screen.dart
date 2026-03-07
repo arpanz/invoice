@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/ads/ad_manager.dart';
 import '../../../core/ads/banner_ad_widget.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
@@ -38,7 +39,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-
     final currencyProvider = context.read<CurrencyProvider>();
     _currency = currencyProvider.currencyCode;
 
@@ -61,13 +61,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
-
-    double outstanding = 0;
-    double paidThisMonth = 0;
-    double overdue = 0;
+    double outstanding = 0, paidThisMonth = 0, overdue = 0;
 
     for (final inv in invoices) {
-      if (inv.status == InvoiceStatus.unpaid || inv.status == InvoiceStatus.overdue) {
+      if (inv.status == InvoiceStatus.unpaid ||
+          inv.status == InvoiceStatus.overdue) {
         outstanding += inv.grandTotal;
         if (inv.status == InvoiceStatus.overdue || inv.isOverdue) {
           overdue += inv.grandTotal;
@@ -91,7 +89,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _previewInvoice(InvoiceModel invoice) async {
     final isPro = context.read<BillingService>().isPro;
     final prefs = await SharedPreferences.getInstance();
-
     final profile = BusinessProfile(
       businessName: prefs.getString('biz_name') ?? 'My Business',
       address: prefs.getString('biz_address'),
@@ -104,13 +101,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       logoPath: prefs.getString('biz_logo_path'),
       currency: _currency,
     );
-
     final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
       invoice: invoice,
       businessProfile: profile,
       isPro: isPro,
     );
-
     if (mounted) {
       await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
     }
@@ -120,13 +115,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final currencyProvider = context.watch<CurrencyProvider>();
     final currencySymbol = currencyProvider.currencySymbol;
+    final billing = context.watch<BillingService>();
 
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: _loadData,
         child: CustomScrollView(
           slivers: [
-            // App Bar
             SliverAppBar(
               expandedHeight: 0,
               floating: true,
@@ -141,17 +136,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: AppColors.primary,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(
-                      Icons.receipt_long,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                    child: const Icon(Icons.receipt_long,
+                        color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 10),
-                  const Text(
-                    'Overview',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
+                  const Text('Overview',
+                      style: TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w800)),
                 ],
               ),
               actions: [
@@ -162,7 +153,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-
             SliverToBoxAdapter(
               child: _isLoading
                   ? const SizedBox(
@@ -174,13 +164,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // ── Outstanding Card ─────────────────────────────
+                          // Outstanding card
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                                colors: [
+                                  Color(0xFF2563EB),
+                                  Color(0xFF1D4ED8)
+                                ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
@@ -207,10 +200,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     const Text(
                                       'Total Outstanding',
                                       style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                          color: Colors.white70,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500),
                                     ),
                                   ],
                                 ),
@@ -240,7 +232,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // ── Metrics Row ──────────────────────────────────
+                          // Metrics row
                           Row(
                             children: [
                               Expanded(
@@ -272,7 +264,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(height: 24),
 
-                          // ── New Invoice Button ───────────────────────────
+                          // New Invoice button
                           ElevatedButton.icon(
                             onPressed: () => Navigator.push(
                               context,
@@ -281,43 +273,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ).then((_) => _loadData()),
                             icon: const Icon(Icons.add, size: 22),
-                            label: const Text(
-                              'New Invoice',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                            label: const Text('New Invoice',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                               minimumSize: const Size(double.infinity, 56),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
+                                  borderRadius: BorderRadius.circular(14)),
                               elevation: 0,
                             ),
                           ),
                           const SizedBox(height: 24),
 
-                          // ── Recent Invoices ──────────────────────────────
+                          // Recent Invoices header
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'Recent Invoices',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                              const Text('Recent Invoices',
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700)),
                               if (_recentInvoices.isNotEmpty)
                                 Text(
                                   '${_recentInvoices.length} shown',
                                   style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                  ),
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary),
                                 ),
                             ],
                           ),
@@ -331,20 +315,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   'Tap "+ New Invoice" to create your first invoice',
                             )
                           else
-                            ...List.generate(_recentInvoices.length, (index) {
-                              final invoice = _recentInvoices[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: _buildRecentInvoiceCard(
-                                  invoice,
-                                  currencySymbol,
-                                ),
-                              );
-                            }),
+                            // ── Invoice list with native ad injected after 3rd item ──
+                            ...List.generate(
+                              _recentInvoices.length +
+                                  (!billing.isPro &&
+                                          _recentInvoices.length >= 3
+                                      ? 1
+                                      : 0),
+                              (index) {
+                                // Insert native ad between 3rd and 4th invoice
+                                if (!billing.isPro &&
+                                    _recentInvoices.length >= 3 &&
+                                    index == 3) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: NativeAdWidget(
+                                      height: 80,
+                                      borderRadius: 12,
+                                    ),
+                                  );
+                                }
+                                final invoiceIndex = (!billing.isPro &&
+                                        _recentInvoices.length >= 3 &&
+                                        index > 3)
+                                    ? index - 1
+                                    : index;
+                                final invoice =
+                                    _recentInvoices[invoiceIndex];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: _buildRecentInvoiceCard(
+                                      invoice, currencySymbol),
+                                );
+                              },
+                            ),
 
                           const SizedBox(height: 16),
-
-                          // ── Banner Ad ────────────────────────────────────
                           const BannerAdWidget(),
                         ],
                       ),
@@ -394,23 +400,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppColors.textSecondary,
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11, color: AppColors.textSecondary)),
         ],
       ),
     );
   }
 
-  Widget _buildRecentInvoiceCard(InvoiceModel invoice, String currencySymbol) {
+  Widget _buildRecentInvoiceCard(
+      InvoiceModel invoice, String currencySymbol) {
     final dateFormat = DateFormat('dd MMM');
-
-    Color statusBg;
-    Color statusText;
+    Color statusBg, statusText;
     String statusLabel;
 
     switch (invoice.status) {
@@ -448,11 +449,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: AppColors.slate100,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(
-                Icons.receipt_outlined,
-                size: 20,
-                color: AppColors.slate500,
-              ),
+              child: const Icon(Icons.receipt_outlined,
+                  size: 20, color: AppColors.slate500),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -462,18 +460,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Text(
                     invoice.clientName,
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                        fontSize: 14, fontWeight: FontWeight.w600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     '${invoice.invoiceNumber} • ${dateFormat.format(invoice.invoiceDate)}',
                     style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
+                        fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -482,21 +476,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  CurrencyFormatter.format(
-                    invoice.grandTotal,
-                    currencySymbol: currencySymbol,
-                  ),
+                  CurrencyFormatter.format(invoice.grandTotal,
+                      currencySymbol: currencySymbol),
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
+                      fontSize: 14, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: statusBg,
                     borderRadius: BorderRadius.circular(5),
@@ -504,10 +492,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Text(
                     statusLabel,
                     style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: statusText,
-                    ),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: statusText),
                   ),
                 ),
               ],

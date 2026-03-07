@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../../core/ads/ad_manager.dart';
@@ -59,44 +59,33 @@ class _PaywallScreenState extends State<PaywallScreen>
 
   Future<void> _initStore() async {
     final bool isAvailable = await _iap.isAvailable();
-    debugPrint('Paywall: IAP Available: $isAvailable');
     if (!isAvailable) {
       if (mounted) setState(() => _available = false);
       return;
     }
-
     if (AdManager.instance.products.isNotEmpty) {
-      debugPrint('Paywall: Using cached products (${AdManager.instance.products.length})');
-      if (mounted) setState(() => _products = AdManager.instance.products);
+      if (mounted)
+        setState(() => _products = AdManager.instance.products);
     }
-
     _subscription = _iap.purchaseStream.listen(
-      (data) {
-        debugPrint('Paywall: Purchase stream update (${data.length} items)');
-        _listenToPurchaseUpdated(data);
-      },
+      (data) => _listenToPurchaseUpdated(data),
       onDone: () => _subscription?.cancel(),
       onError: (error) {
-        debugPrint('Paywall: Purchase stream error: $error');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Store Error: $error'),
-              backgroundColor: Colors.red,
-            ),
+                content: Text('Store Error: $error'),
+                backgroundColor: Colors.red),
           );
         }
       },
     );
-
     if (_products.isEmpty) {
-      debugPrint('Paywall: Querying product details...');
-      final ProductDetailsResponse response = await _iap.queryProductDetails({
+      final ProductDetailsResponse response =
+          await _iap.queryProductDetails({
         AdManager.productId,
         AdManager.yearlyProductId,
       });
-      debugPrint('Paywall: Not found IDs: ${response.notFoundIDs}');
-      debugPrint('Paywall: Products found: ${response.productDetails.length}');
       if (mounted) {
         setState(() {
           _products = response.productDetails;
@@ -114,7 +103,8 @@ class _PaywallScreenState extends State<PaywallScreen>
     }
   }
 
-  void _listenToPurchaseUpdated(List<PurchaseDetails> list) async {
+  void _listenToPurchaseUpdated(
+      List<PurchaseDetails> list) async {
     for (final purchase in list) {
       if (purchase.status == PurchaseStatus.pending) {
         if (mounted) setState(() => _isLoading = true);
@@ -124,8 +114,7 @@ class _PaywallScreenState extends State<PaywallScreen>
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Purchase Failed: ${purchase.error?.message ?? 'Unknown error'}',
-                ),
+                    'Purchase Failed: ${purchase.error?.message ?? 'Unknown error'}'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -145,7 +134,6 @@ class _PaywallScreenState extends State<PaywallScreen>
               await _grantPremium();
             }
           } else {
-            debugPrint('Paywall: Ignoring unknown productID: ${purchase.productID}');
             if (mounted) setState(() => _isLoading = false);
           }
         }
@@ -168,7 +156,8 @@ class _PaywallScreenState extends State<PaywallScreen>
       Navigator.pop(context);
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Invoice Maker Pro Activated! All Pro features unlocked.'),
+          content: Text(
+              'Invoice Maker Pro Activated! All Pro features unlocked.'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
@@ -177,70 +166,55 @@ class _PaywallScreenState extends State<PaywallScreen>
   }
 
   Future<void> _buyProduct() async {
-    debugPrint('Paywall: Buy pressed. Products: ${_products.length}');
+    if (_products.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Product not found. Please try again later.')),
+      );
+      return;
+    }
+    final selectedId = _isLifetimeSelected
+        ? AdManager.productId
+        : AdManager.yearlyProductId;
+    final product = _getProduct(selectedId);
+    if (product == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Selected product not available. Please try again.')),
+      );
+      return;
+    }
+    _purchaseHandled = false;
     try {
-      if (_products.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Product not found. Please try again later.')),
-        );
-        return;
-      }
-
-      final selectedId =
-          _isLifetimeSelected ? AdManager.productId : AdManager.yearlyProductId;
-      final product = _getProduct(selectedId);
-      if (product == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Selected product not available. Please try again.'),
-          ),
-        );
-        return;
-      }
-
-      debugPrint('Paywall: Purchasing ${product.id} @ ${product.price}');
-      _purchaseHandled = false;
-      try {
-        await _iap.buyNonConsumable(
-          purchaseParam: PurchaseParam(productDetails: product),
-        );
-      } catch (error) {
-        debugPrint('Paywall: Purchase initiation error: $error');
-        if (mounted) {
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Purchase Error: $error'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e, stack) {
-      debugPrint('Paywall: Exception during buy: $e\n$stack');
+      await _iap.buyNonConsumable(
+          purchaseParam: PurchaseParam(productDetails: product));
+    } catch (error) {
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Exception: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Purchase Error: $error'),
+              backgroundColor: Colors.red),
         );
       }
     }
   }
 
   Future<void> _restorePurchases() async {
-    debugPrint('Paywall: Restore pressed');
     if (mounted) setState(() => _isLoading = true);
     _restoreTimer?.cancel();
     _purchaseHandled = false;
-
     try {
       await _iap.restorePurchases();
       _restoreTimer = Timer(const Duration(seconds: 5), () {
         if (mounted && _isLoading) {
-          debugPrint('Paywall: Restore timeout — no matching purchases found');
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No previous purchases found for this account.'),
+              content: Text(
+                  'No previous purchases found for this account.'),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -248,22 +222,20 @@ class _PaywallScreenState extends State<PaywallScreen>
       });
     } catch (e) {
       _restoreTimer?.cancel();
-      debugPrint('Paywall: Restore error: $e');
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Restore failed: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Restore failed: $e'),
+              backgroundColor: Colors.red),
         );
       }
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Build
-  // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    const accentColor = Color(0xFFFFD700); // Gold — matches csvforge paywall
+    const accentColor = Color(0xFFFFD700);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F1120),
@@ -278,23 +250,18 @@ class _PaywallScreenState extends State<PaywallScreen>
         child: SafeArea(
           child: Column(
             children: [
-              // ── Close button ─────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 4),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: Colors.white54,
-                      size: 26,
-                    ),
+                    icon: const Icon(Icons.close_rounded,
+                        color: Colors.white54, size: 26),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
               ),
-
-              // ── Scrollable feature list ───────────────────────────────────
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
@@ -303,17 +270,14 @@ class _PaywallScreenState extends State<PaywallScreen>
                     child: Column(
                       children: [
                         const SizedBox(height: 4),
-
-                        // Hero animation
                         ScaleTransition(
                           scale: _scaleAnimation,
                           child: const _InvoiceProAnimation(size: 120),
                         ),
                         const SizedBox(height: 24),
-
-                        // Headline
                         const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 32),
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 32),
                           child: Text(
                             'Unlock\nInvoice Maker Pro',
                             textAlign: TextAlign.center,
@@ -327,10 +291,9 @@ class _PaywallScreenState extends State<PaywallScreen>
                           ),
                         ),
                         const SizedBox(height: 10),
-
-                        // Subtitle
                         const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 40),
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 40),
                           child: Text(
                             'Create unlimited GST-ready invoices, share as PDF, and grow your business — ad-free.',
                             textAlign: TextAlign.center,
@@ -342,10 +305,9 @@ class _PaywallScreenState extends State<PaywallScreen>
                           ),
                         ),
                         const SizedBox(height: 20),
-
-                        // Feature list
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20),
                           child: Column(
                             children: [
                               _buildFeatureRow(
@@ -393,16 +355,15 @@ class _PaywallScreenState extends State<PaywallScreen>
                   ),
                 ),
               ),
-
-              // ── Bottom action panel ───────────────────────────────────────
               FadeTransition(
                 opacity: _fadeAnimation,
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                  padding:
+                      const EdgeInsets.fromLTRB(20, 20, 20, 8),
                   decoration: BoxDecoration(
                     color: const Color(0xFF181B2E),
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(28)),
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(28)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.35),
@@ -414,7 +375,6 @@ class _PaywallScreenState extends State<PaywallScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Drag handle
                       Container(
                         width: 36,
                         height: 4,
@@ -424,47 +384,47 @@ class _PaywallScreenState extends State<PaywallScreen>
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-
-                      // Lifetime card
                       _buildPricingCard(
                         title: 'Lifetime',
-                        price: _getProduct(AdManager.productId)?.price ?? '...',
+                        price: _getProduct(AdManager.productId)
+                                ?.price ??
+                            '...',
                         subtitle: 'One-time payment. Own forever.',
                         badge: 'BEST VALUE',
                         badgeColor: accentColor,
                         isSelected: _isLifetimeSelected,
-                        onTap: () => setState(() => _isLifetimeSelected = true),
+                        onTap: () => setState(
+                            () => _isLifetimeSelected = true),
                       ),
                       const SizedBox(height: 10),
-
-                      // Yearly card
                       _buildPricingCard(
                         title: 'Yearly',
-                        price:
-                            _getProduct(AdManager.yearlyProductId)?.price ?? '...',
+                        price: _getProduct(AdManager.yearlyProductId)
+                                ?.price ??
+                            '...',
                         subtitle: 'Billed annually. Cancel anytime.',
                         badge: null,
                         badgeColor: Colors.white30,
                         isSelected: !_isLifetimeSelected,
-                        onTap: () => setState(() => _isLifetimeSelected = false),
+                        onTap: () => setState(
+                            () => _isLifetimeSelected = false),
                       ),
                       const SizedBox(height: 16),
-
-                      // CTA
                       SizedBox(
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed:
-                              _available && !_isLoading ? _buyProduct : null,
+                          onPressed: _available && !_isLoading
+                              ? _buyProduct
+                              : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: accentColor,
                             foregroundColor: Colors.black,
                             elevation: 0,
                             shadowColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
+                                borderRadius:
+                                    BorderRadius.circular(18)),
                           ),
                           child: _isLoading
                               ? const SizedBox(
@@ -488,41 +448,35 @@ class _PaywallScreenState extends State<PaywallScreen>
                         ),
                       ),
                       const SizedBox(height: 12),
-
-                      // Trust badges
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildTrustBadge(
-                            _isLifetimeSelected ? '✓  Lifetime' : '✓  Yearly',
-                          ),
+                          _buildTrustBadge(_isLifetimeSelected
+                              ? '✓  Lifetime'
+                              : '✓  Yearly'),
                           _dot(),
-                          _buildTrustBadge(
-                            _isLifetimeSelected
-                                ? '✓  No subscription'
-                                : '✓  Cancel anytime',
-                          ),
+                          _buildTrustBadge(_isLifetimeSelected
+                              ? '✓  No subscription'
+                              : '✓  Cancel anytime'),
                           _dot(),
                           _buildTrustBadge('✓  GST-ready'),
                         ],
                       ),
                       const SizedBox(height: 4),
-
-                      // Restore
                       TextButton(
                         onPressed: _restorePurchases,
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.white38,
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(0, 36),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          tapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: const Text(
                           'Already purchased? Restore Purchases',
                           style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                          ),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -537,20 +491,20 @@ class _PaywallScreenState extends State<PaywallScreen>
     );
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
   Widget _dot() => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 4),
-    child: Text('•', style: TextStyle(color: Colors.white24, fontSize: 11)),
-  );
+        padding: EdgeInsets.symmetric(horizontal: 4),
+        child: Text('•',
+            style:
+                TextStyle(color: Colors.white24, fontSize: 11)),
+      );
 
   Widget _buildTrustBadge(String text) => Text(
-    text,
-    style: const TextStyle(
-      color: Colors.white54,
-      fontSize: 11,
-      fontWeight: FontWeight.w600,
-    ),
-  );
+        text,
+        style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 11,
+            fontWeight: FontWeight.w600),
+      );
 
   Widget _buildPricingCard({
     required String title,
@@ -582,7 +536,6 @@ class _PaywallScreenState extends State<PaywallScreen>
         ),
         child: Row(
           children: [
-            // Radio indicator
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 20,
@@ -596,12 +549,11 @@ class _PaywallScreenState extends State<PaywallScreen>
                 color: isSelected ? accentColor : Colors.transparent,
               ),
               child: isSelected
-                  ? const Icon(Icons.check, color: Colors.black, size: 14)
+                  ? const Icon(Icons.check,
+                      color: Colors.black, size: 14)
                   : null,
             ),
             const SizedBox(width: 14),
-
-            // Plan info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,16 +565,16 @@ class _PaywallScreenState extends State<PaywallScreen>
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14.5,
-                          color: isSelected ? Colors.white : Colors.white70,
+                          color: isSelected
+                              ? Colors.white
+                              : Colors.white70,
                         ),
                       ),
                       if (badge != null) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: badgeColor,
                             borderRadius: BorderRadius.circular(20),
@@ -644,15 +596,15 @@ class _PaywallScreenState extends State<PaywallScreen>
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: isSelected ? Colors.white54 : Colors.white38,
+                      color: isSelected
+                          ? Colors.white54
+                          : Colors.white38,
                       fontSize: 11.5,
                     ),
                   ),
                 ],
               ),
             ),
-
-            // Price — fetched live from Play Store, never hardcoded
             Text(
               price,
               style: TextStyle(
@@ -712,11 +664,8 @@ class _PaywallScreenState extends State<PaywallScreen>
               ],
             ),
           ),
-          const Icon(
-            Icons.check_circle_rounded,
-            color: Color(0xFF4ADE80),
-            size: 18,
-          ),
+          const Icon(Icons.check_circle_rounded,
+              color: Color(0xFF4ADE80), size: 18),
         ],
       ),
     );
@@ -724,32 +673,50 @@ class _PaywallScreenState extends State<PaywallScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Hero animation — invoice document drawing itself
-// (ported from csvforge _PremiumTableAnimation, reskinned for Invoice)
+// NEW Hero animation — an invoice document that writes itself:
+// header fills in, then line items stamp across one by one,
+// a gold ✓ seal pulses at the end, then loops.
 // ─────────────────────────────────────────────────────────────────────────────
 class _InvoiceProAnimation extends StatefulWidget {
   final double size;
   const _InvoiceProAnimation({required this.size});
 
   @override
-  State<_InvoiceProAnimation> createState() => _InvoiceProAnimationState();
+  State<_InvoiceProAnimation> createState() =>
+      _InvoiceProAnimationState();
 }
 
 class _InvoiceProAnimationState extends State<_InvoiceProAnimation>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+  late AnimationController _ctrl;
+
+  // Phase timings (0–1 normalised)
+  // 0.00 – 0.20  paper slides up
+  // 0.20 – 0.40  header block draws in
+  // 0.40 – 0.75  3 line-item rows stamp in sequentially
+  // 0.75 – 0.90  total row highlights
+  // 0.90 – 1.00  gold seal pops + holds
+  static const _paperStart = 0.0;
+  static const _paperEnd = 0.20;
+  static const _headerStart = 0.20;
+  static const _headerEnd = 0.40;
+  static const _row1Start = 0.40;
+  static const _row1End = 0.55;
+  static const _row2Start = 0.52;
+  static const _row2End = 0.67;
+  static const _row3Start = 0.64;
+  static const _row3End = 0.78;
+  static const _totalStart = 0.75;
+  static const _totalEnd = 0.90;
+  static const _sealStart = 0.88;
+  static const _sealEnd = 1.00;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOutCubic,
+      duration: const Duration(milliseconds: 2800),
     );
     _runLoop();
   }
@@ -757,11 +724,11 @@ class _InvoiceProAnimationState extends State<_InvoiceProAnimation>
   void _runLoop() async {
     while (mounted) {
       try {
-        await _controller.forward();
-        await Future.delayed(const Duration(seconds: 2));
+        await _ctrl.forward(from: 0);
+        await Future.delayed(const Duration(milliseconds: 1600));
         if (!mounted) break;
-        await _controller.reverse();
-        await Future.delayed(const Duration(milliseconds: 500));
+        await _ctrl.reverse();
+        await Future.delayed(const Duration(milliseconds: 400));
       } catch (_) {
         break;
       }
@@ -770,155 +737,288 @@ class _InvoiceProAnimationState extends State<_InvoiceProAnimation>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
+  double _phase(double start, double end) =>
+      ((_ctrl.value - start) / (end - start)).clamp(0.0, 1.0);
+
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A2E),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF2563EB).withValues(alpha: 0.15),
-                blurRadius: 30,
-                spreadRadius: -5,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(16),
-          child: CustomPaint(
-            painter: _InvoiceDocPainter(
-              animation: _animation,
-              baseColor: Colors.white.withValues(alpha: 0.05),
-              highlightColor: const Color(0xFF2563EB),
-            ),
-          ),
-        ),
-        Positioned(
-          top: -12,
-          right: -8,
-          child: Transform.rotate(
-            angle: 0.35,
-            child: const Icon(
-              Icons.workspace_premium_rounded,
-              color: Color(0xFFFFD700),
-              size: 40,
-              shadows: [
-                Shadow(
-                  color: Colors.black45,
-                  blurRadius: 10,
-                  offset: Offset(2, 2),
+    final size = widget.size;
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        final paperProgress = _phase(_paperStart, _paperEnd);
+        final headerProgress = _phase(_headerStart, _headerEnd);
+        final row1Progress = _phase(_row1Start, _row1End);
+        final row2Progress = _phase(_row2Start, _row2End);
+        final row3Progress = _phase(_row3Start, _row3End);
+        final totalProgress = _phase(_totalStart, _totalEnd);
+        final sealProgress = _phase(_sealStart, _sealEnd);
+
+        // Paper slides up with a slight elastic overshoot
+        final paperOffset = (1.0 - Curves.easeOutBack.transform(paperProgress)) * 18.0;
+
+        return Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            // Glow behind the doc
+            Opacity(
+              opacity: paperProgress * 0.6,
+              child: Container(
+                width: size * 0.9,
+                height: size * 0.9,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withOpacity(0.25),
+                      blurRadius: 40,
+                      spreadRadius: 10,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ],
+
+            // The document card
+            Transform.translate(
+              offset: Offset(0, paperOffset),
+              child: Opacity(
+                opacity: paperProgress.clamp(0.0, 1.0),
+                child: Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1C2035),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.07),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.35),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  padding: EdgeInsets.all(size * 0.10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Header block ──────────────────────────────────
+                      ClipRect(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: headerProgress,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: size * 0.14,
+                                height: size * 0.14,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2563EB)
+                                      .withOpacity(0.9),
+                                  borderRadius:
+                                      BorderRadius.circular(6),
+                                ),
+                                child: Icon(
+                                  Icons.receipt_long_rounded,
+                                  color: Colors.white,
+                                  size: size * 0.08,
+                                ),
+                              ),
+                              SizedBox(width: size * 0.05),
+                              Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: size * 0.38,
+                                    height: size * 0.045,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white
+                                          .withOpacity(0.9),
+                                      borderRadius:
+                                          BorderRadius.circular(3),
+                                    ),
+                                  ),
+                                  SizedBox(height: size * 0.02),
+                                  Container(
+                                    width: size * 0.24,
+                                    height: size * 0.03,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white
+                                          .withOpacity(0.35),
+                                      borderRadius:
+                                          BorderRadius.circular(3),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: size * 0.07),
+
+                      // Thin divider
+                      Opacity(
+                        opacity: headerProgress,
+                        child: Container(
+                          height: 1,
+                          width: double.infinity,
+                          color: Colors.white.withOpacity(0.08),
+                        ),
+                      ),
+
+                      SizedBox(height: size * 0.07),
+
+                      // ── Line items ────────────────────────────────────
+                      _buildRow(size, row1Progress,
+                          const Color(0xFF60A5FA), 0.55),
+                      SizedBox(height: size * 0.045),
+                      _buildRow(size, row2Progress,
+                          const Color(0xFF34D399), 0.45),
+                      SizedBox(height: size * 0.045),
+                      _buildRow(size, row3Progress,
+                          const Color(0xFFA78BFA), 0.50),
+
+                      SizedBox(height: size * 0.07),
+
+                      // ── Total row ─────────────────────────────────────
+                      Opacity(
+                        opacity: totalProgress,
+                        child: Container(
+                          height: size * 0.085,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB)
+                                .withOpacity(
+                                    0.15 + totalProgress * 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: const Color(0xFF2563EB)
+                                  .withOpacity(
+                                      totalProgress * 0.5),
+                              width: 1,
+                            ),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: size * 0.05),
+                          child: Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                width: size * 0.22,
+                                height: size * 0.035,
+                                decoration: BoxDecoration(
+                                  color: Colors.white
+                                      .withOpacity(0.6),
+                                  borderRadius:
+                                      BorderRadius.circular(3),
+                                ),
+                              ),
+                              Container(
+                                width: size * 0.22,
+                                height: size * 0.04,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFD700)
+                                      .withOpacity(0.85),
+                                  borderRadius:
+                                      BorderRadius.circular(3),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Gold seal ─────────────────────────────────────────────
+            if (sealProgress > 0)
+              Positioned(
+                top: -10,
+                right: -6,
+                child: Transform.scale(
+                  scale: Curves.elasticOut
+                      .transform(sealProgress)
+                      .clamp(0.0, 1.4),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFFFFD700),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFFD700)
+                              .withOpacity(0.5),
+                          blurRadius: 12,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.check_rounded,
+                        color: Colors.black, size: 20),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
-}
 
-/// Painter: animated invoice document (diagonal reveal, same pattern as csvforge)
-class _InvoiceDocPainter extends CustomPainter {
-  final Animation<double> animation;
-  final Color baseColor;
-  final Color highlightColor;
-
-  _InvoiceDocPainter({
-    required this.animation,
-    required this.baseColor,
-    required this.highlightColor,
-  }) : super(repaint: animation);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()
-      ..color = baseColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-
-    final cw = size.width / 3;
-    final ch = size.height / 3;
-    _drawGrid(canvas, size, cw, ch, bgPaint);
-
-    final highlightPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          const Color(0xFF60A5FA),
-          highlightColor,
-          const Color(0xFF1D4ED8),
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-
-    // Diagonal reveal (same logic as csvforge _TablePainter)
-    final maxExtent = size.width + size.height;
-    final currentExtent = maxExtent * animation.value;
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(currentExtent, 0)
-      ..lineTo(0, currentExtent)
-      ..close();
-
-    canvas.save();
-    canvas.clipPath(path);
-    highlightPaint.maskFilter = const MaskFilter.blur(BlurStyle.solid, 3);
-    _drawGrid(canvas, size, cw, ch, highlightPaint);
-    highlightPaint.maskFilter = null;
-    _drawGrid(canvas, size, cw, ch, highlightPaint);
-    _drawDots(canvas, size, cw, ch, highlightColor);
-    canvas.restore();
+  Widget _buildRow(
+      double size, double progress, Color dotColor, double barFraction) {
+    return ClipRect(
+      child: Align(
+        widthFactor: progress,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          children: [
+            Container(
+              width: size * 0.05,
+              height: size * 0.05,
+              decoration: BoxDecoration(
+                color: dotColor.withOpacity(0.8),
+                shape: BoxShape.circle,
+              ),
+            ),
+            SizedBox(width: size * 0.04),
+            Expanded(
+              child: Container(
+                height: size * 0.032,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+            SizedBox(width: size * 0.04),
+            Container(
+              width: size * barFraction * 0.4,
+              height: size * 0.032,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.55),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
-
-  void _drawGrid(
-      Canvas canvas, Size size, double cw, double ch, Paint paint) {
-    for (int i = 0; i <= 3; i++) {
-      double x = i * cw;
-      if (i == 0) x += 1;
-      if (i == 3) x -= 1;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (int i = 0; i <= 3; i++) {
-      double y = i * ch;
-      if (i == 0) y += 1;
-      if (i == 3) y -= 1;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  void _drawDots(
-      Canvas canvas, Size size, double cw, double ch, Color color) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    for (int i = 0; i <= 3; i++) {
-      for (int j = 0; j <= 3; j++) {
-        double x = i * cw;
-        double y = j * ch;
-        if (i == 0) x += 1;
-        if (i == 3) x -= 1;
-        if (j == 0) y += 1;
-        if (j == 3) y -= 1;
-        canvas.drawCircle(Offset(x, y), 2.5, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _InvoiceDocPainter old) => true;
 }
