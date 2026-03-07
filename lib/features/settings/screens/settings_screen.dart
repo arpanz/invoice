@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/ads/banner_ad_widget.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/providers/currency_provider.dart';
@@ -89,6 +90,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: 'Version 1.0.0 • 100% Offline & Private',
             onTap: null,
           ),
+          const SizedBox(height: 12),
+          const BannerAdWidget(),
           const SizedBox(height: 32),
         ],
       ),
