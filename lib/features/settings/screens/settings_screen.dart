@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/ads/ad_manager.dart';
 import '../../../core/ads/banner_ad_widget.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
-import '../widgets/paywall_bottom_sheet.dart';
+import '../../paywall/paywall_screen.dart';
 import 'business_profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -16,11 +17,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  @override
-  void initState() {
-    super.initState();
-  }
-
   @override
   Widget build(BuildContext context) {
     final billing = context.watch<BillingService>();
@@ -82,7 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 16),
 
-          // App Info
+          // About
           _buildSectionHeader('About'),
           _buildListTile(
             icon: Icons.info_outline,
@@ -98,9 +94,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _openPaywall() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PaywallScreen()),
+    );
+  }
+
   Widget _buildProUpsellCard(BuildContext context) {
+    // Fetch the lifetime price live from AdManager (Play Store) — never hardcoded
+    final lifetimeProduct = AdManager.instance.products
+        .where((p) => p.id == AdManager.productId)
+        .firstOrNull;
+    final priceLabel = lifetimeProduct?.price ?? 'PRO';
+
     return GestureDetector(
-      onTap: () => PaywallBottomSheet.show(context),
+      onTap: _openPaywall,
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -163,9 +172,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: AppColors.proGold,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                '\$4.99',
-                style: TextStyle(
+              child: Text(
+                priceLabel,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -262,8 +271,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle,
           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
-        trailing:
-            trailing ??
+        trailing: trailing ??
             (onTap != null
                 ? const Icon(Icons.chevron_right, color: AppColors.slate400)
                 : null),
@@ -346,7 +354,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: AppColors.slate100,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.percent, size: 18, color: AppColors.slate600),
+          child: const Icon(
+            Icons.percent,
+            size: 18,
+            color: AppColors.slate600,
+          ),
         ),
         title: Text(
           'Default ${defaultTax.shortName} Rate',
@@ -426,12 +438,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await currencyProvider.clearCustomTaxRate();
       return;
     }
-
     if (action == 'save') {
       final parsed = double.tryParse(controller.text.trim());
-      if (parsed != null) {
-        await currencyProvider.setCustomTaxRate(parsed);
-      }
+      if (parsed != null) await currencyProvider.setCustomTaxRate(parsed);
     }
   }
 
@@ -466,7 +475,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 /// Currency picker bottom sheet
 class _CurrencyPickerSheet extends StatefulWidget {
   final Function(Currency) onCurrencySelected;
-
   const _CurrencyPickerSheet({required this.onCurrencySelected});
 
   @override
@@ -478,11 +486,9 @@ class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
 
   void _filterCurrencies(String query) {
     setState(() {
-      if (query.isEmpty) {
-        _filteredCurrencies = SupportedCurrencies.all;
-      } else {
-        _filteredCurrencies = SupportedCurrencies.search(query);
-      }
+      _filteredCurrencies = query.isEmpty
+          ? SupportedCurrencies.all
+          : SupportedCurrencies.search(query);
     });
   }
 
@@ -532,15 +538,10 @@ class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
                 decoration: const InputDecoration(
                   hintText: 'Search currency...',
                   hintStyle: TextStyle(color: AppColors.textHint),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: AppColors.textSecondary,
-                  ),
+                  prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
               ),
             ),
