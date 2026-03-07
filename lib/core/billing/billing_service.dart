@@ -6,17 +6,29 @@ class BillingService extends ChangeNotifier {
   static const String _proProductId = 'invoice_maker_pro_lifetime';
   static const String _prefKeyIsPro = 'is_pro_user';
 
+  BillingService({this.forceProForSession = false});
+
+  final bool forceProForSession;
+
   bool _isPro = false;
   bool _isLoading = false;
   String? _errorMessage;
 
-  bool get isPro => _isPro;
+  bool get isPro => forceProForSession || _isPro;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
   final InAppPurchase _iap = InAppPurchase.instance;
 
   Future<void> initialize() async {
+    if (forceProForSession) {
+      _isPro = true;
+      _isLoading = false;
+      _errorMessage = null;
+      notifyListeners();
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     _isPro = prefs.getBool(_prefKeyIsPro) ?? false;
     notifyListeners();
@@ -29,6 +41,8 @@ class BillingService extends ChangeNotifier {
   }
 
   Future<void> purchasePro() async {
+    if (forceProForSession) return;
+
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -62,6 +76,8 @@ class BillingService extends ChangeNotifier {
   }
 
   Future<void> restorePurchases() async {
+    if (forceProForSession) return;
+
     try {
       await _iap.restorePurchases();
     } catch (e) {

@@ -67,9 +67,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double overdue = 0;
 
     for (final inv in invoices) {
-      if (inv.status == InvoiceStatus.unpaid) {
+      if (inv.status == InvoiceStatus.unpaid || inv.status == InvoiceStatus.overdue) {
         outstanding += inv.grandTotal;
-        if (inv.isOverdue) overdue += inv.grandTotal;
+        if (inv.status == InvoiceStatus.overdue || inv.isOverdue) {
+          overdue += inv.grandTotal;
+        }
       } else if (inv.status == InvoiceStatus.paid) {
         if (inv.updatedAt.isAfter(startOfMonth)) {
           paidThisMonth += inv.grandTotal;
@@ -280,7 +282,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ).then((_) => _loadData()),
                             icon: const Icon(Icons.add, size: 22),
                             label: const Text(
-                              '+ New Invoice',
+                              'New Invoice',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
