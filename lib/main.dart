@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/ads/ad_manager.dart';
 import 'core/billing/billing_service.dart';
 import 'core/database/db_provider.dart';
@@ -34,6 +35,9 @@ void main() async {
   // Initialize database
   await DbProvider.database;
 
+  // Remove legacy screenshot/demo seed data if present.
+  await _cleanupLegacyMockData();
+
   // Initialize ads and billing
   await AdManager.instance.initialize();
 
@@ -49,6 +53,69 @@ void main() async {
       child: const InvoiceMakerProApp(),
     ),
   );
+}
+
+Future<void> _cleanupLegacyMockData() async {
+  final db = await DbProvider.database;
+
+  const demoClientIds = ['demo-client-1', 'demo-client-2', 'demo-client-3'];
+  const demoInvoiceIds = [
+    'demo-invoice-1',
+    'demo-invoice-2',
+    'demo-invoice-3',
+    'demo-invoice-4',
+    'demo-invoice-5',
+  ];
+
+  await db.transaction((txn) async {
+    await txn.delete(
+      DbProvider.tableLineItems,
+      where: "id LIKE 'demo-li-%' OR invoice_id IN (?, ?, ?, ?, ?)",
+      whereArgs: demoInvoiceIds,
+    );
+
+    await txn.delete(
+      DbProvider.tableInvoices,
+      where: 'id IN (?, ?, ?, ?, ?)',
+      whereArgs: demoInvoiceIds,
+    );
+
+    await txn.delete(
+      DbProvider.tableClients,
+      where: 'id IN (?, ?, ?)',
+      whereArgs: demoClientIds,
+    );
+  });
+
+  // Only clear profile fields if they still match known mock values.
+  final prefs = await SharedPreferences.getInstance();
+  const mockValuesByKey = {
+    'biz_name': ['Northstar Design Studio', 'Blue Pine Studio'],
+    'biz_address': [
+      '245 Market Street, San Francisco, CA 94105',
+      '22 Park Street, Kolkata, West Bengal 700016',
+    ],
+    'biz_phone': ['+1 (415) 555-0139', '+91 98765 43210'],
+    'biz_email': [
+      'accounts@northstardesign.com',
+      'accounts@bluepinestudio.com',
+    ],
+    'biz_bank_name': ['Chase Bank', 'State Bank of India'],
+    'biz_account': ['7894561230', '123456789012'],
+    'biz_ifsc': ['021000021', 'SBIN0000456'],
+  };
+
+  for (final entry in mockValuesByKey.entries) {
+    final current = prefs.getString(entry.key);
+    if (current != null && entry.value.contains(current)) {
+      await prefs.remove(entry.key);
+    }
+  }
+
+  final gstin = prefs.getString('biz_gstin');
+  if (gstin == '19ABCDE1234F1Z5') {
+    await prefs.remove('biz_gstin');
+  }
 }
 
 class InvoiceMakerProApp extends StatelessWidget {
