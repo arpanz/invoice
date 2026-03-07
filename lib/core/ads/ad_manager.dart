@@ -33,7 +33,7 @@ class AdManager {
   static const String yearlyProductId = 'invoice_pro_yearly';
   static const String legacyProductId = 'invoice_maker_pro_lifetime';
   static const String appStoreUrl =
-      'https://play.google.com/store/apps/details?id=com.arpanz.invoice';
+      'https://play.google.com/store/apps/details?id=com.livinlabs.invoice';
   List<ProductDetails> products = [];
 
   // ── Paywall trigger hook ───────────────────────────────────────────────────
@@ -43,18 +43,19 @@ class AdManager {
 
   // ── Ad Unit IDs ───────────────────────────────────────────────────────────
   // TODO: Replace real banner/interstitial IDs before publishing
-  final String _realBannerId       = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
+  final String _realBannerId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
   final String _realInterstitialId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
-  final String _realNativeId       = 'ca-app-pub-4397005408366648/8428583804';
+  final String _realNativeId = 'ca-app-pub-4397005408366648/8428583804';
 
   // Google test IDs
-  final String _testBannerId       = 'ca-app-pub-3940256099942544/6300978111';
+  final String _testBannerId = 'ca-app-pub-3940256099942544/6300978111';
   final String _testInterstitialId = 'ca-app-pub-3940256099942544/1033173712';
-  final String _testNativeId       = 'ca-app-pub-3940256099942544/2247696110';
+  final String _testNativeId = 'ca-app-pub-3940256099942544/2247696110';
 
-  String get _bannerId       => kDebugMode ? _testBannerId       : _realBannerId;
-  String get _interstitialId => kDebugMode ? _testInterstitialId : _realInterstitialId;
-  String get _nativeId       => kDebugMode ? _testNativeId       : _realNativeId;
+  String get _bannerId => kDebugMode ? _testBannerId : _realBannerId;
+  String get _interstitialId =>
+      kDebugMode ? _testInterstitialId : _realInterstitialId;
+  String get _nativeId => kDebugMode ? _testNativeId : _realNativeId;
 
   static const List<String> _testDeviceIds = [
     // Add your AdMob test device hash from logcat here
@@ -86,21 +87,18 @@ class AdManager {
       if (!await iap.isAvailable()) return;
 
       StreamSubscription<List<PurchaseDetails>>? sub;
-      sub = iap.purchaseStream.listen(
-        (purchases) {
-          final hasPro = purchases.any(
-            (p) =>
-                (p.productID == productId ||
-                    p.productID == yearlyProductId ||
-                    p.productID == legacyProductId) &&
-                (p.status == PurchaseStatus.purchased ||
-                    p.status == PurchaseStatus.restored),
-          );
-          if (!hasPro) _disableProVersion();
-          sub?.cancel();
-        },
-        onError: (_) => sub?.cancel(),
-      );
+      sub = iap.purchaseStream.listen((purchases) {
+        final hasPro = purchases.any(
+          (p) =>
+              (p.productID == productId ||
+                  p.productID == yearlyProductId ||
+                  p.productID == legacyProductId) &&
+              (p.status == PurchaseStatus.purchased ||
+                  p.status == PurchaseStatus.restored),
+        );
+        if (!hasPro) _disableProVersion();
+        sub?.cancel();
+      }, onError: (_) => sub?.cancel());
 
       await iap.restorePurchases();
       Future.delayed(const Duration(seconds: 10), () => sub?.cancel());
@@ -218,7 +216,8 @@ class AdManager {
     _nativeAd = NativeAd(
       adUnitId: _nativeId,
       request: const AdRequest(),
-      factoryId: 'listTile', // matches the native factory registered in MainActivity
+      factoryId:
+          'listTile', // matches the native factory registered in MainActivity
       listener: NativeAdListener(
         onAdLoaded: (ad) {
           debugPrint('AdManager: Native ad loaded.');
@@ -373,10 +372,8 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
   static const int _maxRetries = 4;
 
   // Test native ID — production ID comes from AdManager
-  static const String _testNativeId =
-      'ca-app-pub-3940256099942544/2247696110';
-  static const String _realNativeId =
-      'ca-app-pub-4397005408366648/8428583804';
+  static const String _testNativeId = 'ca-app-pub-3940256099942544/2247696110';
+  static const String _realNativeId = 'ca-app-pub-4397005408366648/8428583804';
 
   String get _adUnitId => kDebugMode ? _testNativeId : _realNativeId;
 
@@ -412,7 +409,8 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
           _retryLoad();
         },
         onAdClicked: (_) => debugPrint('NativeAdWidget: Ad clicked.'),
-        onAdImpression: (_) => debugPrint('NativeAdWidget: Impression recorded.'),
+        onAdImpression: (_) =>
+            debugPrint('NativeAdWidget: Impression recorded.'),
       ),
     );
     _nativeAd!.load();
