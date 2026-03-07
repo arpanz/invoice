@@ -34,6 +34,7 @@ class AdManager {
   // TODO: Replace real IDs before publishing
   final String _realBannerId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
   final String _realInterstitialId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
+  final String _realNativeId = 'ca-app-pub-4397005408366648/8428583804';
 
   // Test IDs
   final String _testBannerId = 'ca-app-pub-3940256099942544/6300978111';
