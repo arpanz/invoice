@@ -33,15 +33,16 @@ class AdManager {
   int _paywallThreshold = 3;
 
   // TODO: Replace real IDs before publishing
-  final String _realBannerId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
-  final String _realInterstitialId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
+  final String _realBannerId = 'ca-app-pub-4397005408366648/9027020038';
+  final String _realInterstitialId = 'ca-app-pub-4397005408366648/7889198185';
 
   // Test IDs
   final String _testBannerId = 'ca-app-pub-3940256099942544/6300978111';
   final String _testInterstitialId = 'ca-app-pub-3940256099942544/1033173712';
 
   String get _bannerId => kDebugMode ? _testBannerId : _realBannerId;
-  String get _interstitialId => kDebugMode ? _testInterstitialId : _realInterstitialId;
+  String get _interstitialId =>
+      kDebugMode ? _testInterstitialId : _realInterstitialId;
 
   static const List<String> _testDeviceIds = [
     // Add your AdMob test device hash from logcat here
@@ -71,23 +72,20 @@ class AdManager {
       if (!await iap.isAvailable()) return;
 
       StreamSubscription<List<PurchaseDetails>>? sub;
-      sub = iap.purchaseStream.listen(
-        (purchases) {
-          bool hasPro = purchases.any(
-            (p) =>
-                (p.productID == productId ||
-                    p.productID == yearlyProductId ||
-                    p.productID == legacyProductId) &&
-                (p.status == PurchaseStatus.purchased ||
-                    p.status == PurchaseStatus.restored),
-          );
-          if (!hasPro) {
-            _disableProVersion();
-          }
-          sub?.cancel();
-        },
-        onError: (_) => sub?.cancel(),
-      );
+      sub = iap.purchaseStream.listen((purchases) {
+        bool hasPro = purchases.any(
+          (p) =>
+              (p.productID == productId ||
+                  p.productID == yearlyProductId ||
+                  p.productID == legacyProductId) &&
+              (p.status == PurchaseStatus.purchased ||
+                  p.status == PurchaseStatus.restored),
+        );
+        if (!hasPro) {
+          _disableProVersion();
+        }
+        sub?.cancel();
+      }, onError: (_) => sub?.cancel());
 
       await iap.restorePurchases();
       Future.delayed(const Duration(seconds: 10), () => sub?.cancel());
@@ -107,7 +105,9 @@ class AdManager {
     }
     await MobileAds.instance.initialize();
     _loadInterstitial();
-    debugPrint('AdManager: Premium disabled (subscription expired or missing).');
+    debugPrint(
+      'AdManager: Premium disabled (subscription expired or missing).',
+    );
   }
 
   /// Call this when purchase is successful

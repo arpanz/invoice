@@ -554,7 +554,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
       // Show interstitial ad for free users
       if (!isPro) {
-        AdManager.showInterstitialAd(
+        AdManager.instance.showInterstitial(
+          context,
           onAdDismissed: () {
             if (mounted) _showPdfPreview(pdfBytes, invoice);
           },

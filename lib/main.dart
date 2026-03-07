@@ -40,7 +40,7 @@ void main() async {
 
   // Initialize ads only when not forcing Pro mode.
   if (!MockupSession.forceProForSession) {
-    await AdManager.initialize();
+    await AdManager.instance.initialize();
   }
 
   // Initialize billing
