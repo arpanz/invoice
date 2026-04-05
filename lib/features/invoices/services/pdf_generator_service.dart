@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -37,6 +36,8 @@ class BusinessProfile {
 class PdfGeneratorService {
   PdfGeneratorService._();
 
+  static Future<_PdfFonts>? _fontsFuture;
+
   static final PdfColor _primaryColor = PdfColor.fromHex('#2563EB');
   static final PdfColor _darkColor = PdfColor.fromHex('#0F172A');
   static final PdfColor _slateColor = PdfColor.fromHex('#64748B');
@@ -50,6 +51,7 @@ class PdfGeneratorService {
     required BusinessProfile businessProfile,
     required bool isPro,
   }) async {
+    final fonts = await _loadFonts();
     final pdf = pw.Document(
       title: 'Invoice ${invoice.invoiceNumber}',
       author: businessProfile.businessName,
@@ -66,13 +68,22 @@ class PdfGeneratorService {
       } catch (_) {}
     }
 
-    final currencySymbol = CurrencyFormatter.getCurrencySymbol(businessProfile.currency);
+    final currencySymbol = CurrencyFormatter.getCurrencySymbol(
+      businessProfile.currency,
+    );
     final dateFormat = DateFormat('dd MMM yyyy');
 
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(40),
+        pageTheme: pw.PageTheme(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(40),
+          theme: pw.ThemeData.withFont(
+            base: fonts.base,
+            bold: fonts.bold,
+            fontFallback: fonts.fallback,
+          ),
+        ),
         build: (context) => [
           _buildHeader(invoice, businessProfile, logoImage, dateFormat),
           pw.SizedBox(height: 32),
@@ -116,13 +127,23 @@ class PdfGeneratorService {
               )
             else
               pw.Container(
-                padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 decoration: pw.BoxDecoration(
                   color: _primaryColor,
                   borderRadius: pw.BorderRadius.circular(8),
                 ),
                 child: pw.Text(
-                  profile.businessName.substring(0, profile.businessName.length > 2 ? 2 : profile.businessName.length).toUpperCase(),
+                  profile.businessName
+                      .substring(
+                        0,
+                        profile.businessName.length > 2
+                            ? 2
+                            : profile.businessName.length,
+                      )
+                      .toUpperCase(),
                   style: pw.TextStyle(
                     color: PdfColors.white,
                     fontSize: 20,
@@ -169,7 +190,10 @@ class PdfGeneratorService {
                   _buildInfoRow('Date', dateFormat.format(invoice.invoiceDate)),
                   if (invoice.dueDate != null) ...[
                     pw.SizedBox(height: 4),
-                    _buildInfoRow('Due Date', dateFormat.format(invoice.dueDate!)),
+                    _buildInfoRow(
+                      'Due Date',
+                      dateFormat.format(invoice.dueDate!),
+                    ),
                   ],
                   pw.SizedBox(height: 4),
                   _buildStatusBadge(invoice.status),
@@ -241,7 +265,10 @@ class PdfGeneratorService {
     );
   }
 
-  static pw.Widget _buildAddressSection(InvoiceModel invoice, BusinessProfile profile) {
+  static pw.Widget _buildAddressSection(
+    InvoiceModel invoice,
+    BusinessProfile profile,
+  ) {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -276,15 +303,24 @@ class PdfGeneratorService {
                 ),
                 if (profile.address != null) ...[
                   pw.SizedBox(height: 4),
-                  pw.Text(profile.address!, style: pw.TextStyle(fontSize: 10, color: _slateColor)),
+                  pw.Text(
+                    profile.address!,
+                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                  ),
                 ],
                 if (profile.phone != null) ...[
                   pw.SizedBox(height: 2),
-                  pw.Text(profile.phone!, style: pw.TextStyle(fontSize: 10, color: _slateColor)),
+                  pw.Text(
+                    profile.phone!,
+                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                  ),
                 ],
                 if (profile.email != null) ...[
                   pw.SizedBox(height: 2),
-                  pw.Text(profile.email!, style: pw.TextStyle(fontSize: 10, color: _slateColor)),
+                  pw.Text(
+                    profile.email!,
+                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                  ),
                 ],
                 if (profile.gstin != null) ...[
                   pw.SizedBox(height: 4),
@@ -329,15 +365,24 @@ class PdfGeneratorService {
                 ),
                 if (invoice.clientAddress != null) ...[
                   pw.SizedBox(height: 4),
-                  pw.Text(invoice.clientAddress!, style: pw.TextStyle(fontSize: 10, color: _slateColor)),
+                  pw.Text(
+                    invoice.clientAddress!,
+                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                  ),
                 ],
                 if (invoice.clientPhone != null) ...[
                   pw.SizedBox(height: 2),
-                  pw.Text(invoice.clientPhone!, style: pw.TextStyle(fontSize: 10, color: _slateColor)),
+                  pw.Text(
+                    invoice.clientPhone!,
+                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                  ),
                 ],
                 if (invoice.clientEmail != null) ...[
                   pw.SizedBox(height: 2),
-                  pw.Text(invoice.clientEmail!, style: pw.TextStyle(fontSize: 10, color: _slateColor)),
+                  pw.Text(
+                    invoice.clientEmail!,
+                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                  ),
                 ],
                 if (invoice.clientGstin != null) ...[
                   pw.SizedBox(height: 4),
@@ -354,8 +399,10 @@ class PdfGeneratorService {
     );
   }
 
-  static pw.Widget _buildLineItemsTable(InvoiceModel invoice, String currencySymbol) {
-    const headerStyle = pw.TextStyle(color: PdfColors.white, fontSize: 10);
+  static pw.Widget _buildLineItemsTable(
+    InvoiceModel invoice,
+    String currencySymbol,
+  ) {
     final headerBold = pw.TextStyle(
       color: PdfColors.white,
       fontSize: 10,
@@ -376,9 +423,24 @@ class PdfGeneratorService {
           decoration: pw.BoxDecoration(color: _tableHeaderBg),
           children: [
             _tableCell('DESCRIPTION', style: headerBold, isHeader: true),
-            _tableCell('QTY', style: headerBold, isHeader: true, align: pw.Alignment.centerRight),
-            _tableCell('UNIT PRICE', style: headerBold, isHeader: true, align: pw.Alignment.centerRight),
-            _tableCell('TOTAL', style: headerBold, isHeader: true, align: pw.Alignment.centerRight),
+            _tableCell(
+              'QTY',
+              style: headerBold,
+              isHeader: true,
+              align: pw.Alignment.centerRight,
+            ),
+            _tableCell(
+              'UNIT PRICE',
+              style: headerBold,
+              isHeader: true,
+              align: pw.Alignment.centerRight,
+            ),
+            _tableCell(
+              'TOTAL',
+              style: headerBold,
+              isHeader: true,
+              align: pw.Alignment.centerRight,
+            ),
           ],
         ),
         // Item rows
@@ -388,7 +450,10 @@ class PdfGeneratorService {
           final isAlt = index % 2 == 1;
           final rowBg = isAlt ? _lightGray : PdfColors.white;
           final rowStyle = pw.TextStyle(fontSize: 10, color: _darkColor);
-          final rowStyleSecondary = pw.TextStyle(fontSize: 10, color: _slateColor);
+          final rowStyleSecondary = pw.TextStyle(
+            fontSize: 10,
+            color: _slateColor,
+          );
 
           return pw.TableRow(
             decoration: pw.BoxDecoration(color: rowBg),
@@ -431,7 +496,10 @@ class PdfGeneratorService {
     );
   }
 
-  static pw.Widget _buildTotalsSection(InvoiceModel invoice, String currencySymbol) {
+  static pw.Widget _buildTotalsSection(
+    InvoiceModel invoice,
+    String currencySymbol,
+  ) {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.end,
       children: [
@@ -443,8 +511,12 @@ class PdfGeneratorService {
           ),
           child: pw.Column(
             children: [
-              _buildTotalRow('Subtotal', '$currencySymbol${invoice.subtotal.toStringAsFixed(2)}'),
-              if (invoice.discountType != DiscountType.none && invoice.discountAmount > 0) ...[
+              _buildTotalRow(
+                'Subtotal',
+                '$currencySymbol${invoice.subtotal.toStringAsFixed(2)}',
+              ),
+              if (invoice.discountType != DiscountType.none &&
+                  invoice.discountAmount > 0) ...[
                 pw.Divider(color: _borderColor, height: 1),
                 _buildTotalRow(
                   invoice.discountType == DiscountType.percentage
@@ -483,7 +555,10 @@ class PdfGeneratorService {
                     bottomRight: pw.Radius.circular(7),
                   ),
                 ),
-                padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
@@ -514,7 +589,11 @@ class PdfGeneratorService {
     );
   }
 
-  static pw.Widget _buildTotalRow(String label, String value, {PdfColor? valueColor}) {
+  static pw.Widget _buildTotalRow(
+    String label,
+    String value, {
+    PdfColor? valueColor,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: pw.Row(
@@ -584,14 +663,20 @@ class PdfGeneratorService {
                     ),
                     pw.SizedBox(height: 6),
                     if (profile.bankName != null)
-                      pw.Text('Bank: ${profile.bankName}',
-                          style: pw.TextStyle(fontSize: 10, color: _slateColor)),
+                      pw.Text(
+                        'Bank: ${profile.bankName}',
+                        style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                      ),
                     if (profile.accountNumber != null)
-                      pw.Text('Account: ${profile.accountNumber}',
-                          style: pw.TextStyle(fontSize: 10, color: _slateColor)),
+                      pw.Text(
+                        'Account: ${profile.accountNumber}',
+                        style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                      ),
                     if (profile.ifscCode != null)
-                      pw.Text('IFSC: ${profile.ifscCode}',
-                          style: pw.TextStyle(fontSize: 10, color: _slateColor)),
+                      pw.Text(
+                        'IFSC: ${profile.ifscCode}',
+                        style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                      ),
                   ],
                 ),
               ),
@@ -647,5 +732,36 @@ class PdfGeneratorService {
     String invoiceNumber,
   ) async {
     return await PdfHelper.savePdf(pdfBytes, invoiceNumber);
+  }
+
+  static Future<_PdfFonts> _loadFonts() {
+    return _fontsFuture ??= _PdfFonts.load();
+  }
+}
+
+class _PdfFonts {
+  const _PdfFonts({
+    required this.base,
+    required this.bold,
+    required this.fallback,
+  });
+
+  final pw.Font base;
+  final pw.Font bold;
+  final List<pw.Font> fallback;
+
+  static Future<_PdfFonts> load() async {
+    final base = await _loadFont('assets/fonts/NotoSans-Regular.ttf');
+    final bold = await _loadFont('assets/fonts/NotoSans-Bold.ttf');
+    final arabic = await _loadFont('assets/fonts/NotoSansArabic-Regular.ttf');
+    final bengali = await _loadFont('assets/fonts/NotoSansBengali-Regular.ttf');
+    final thai = await _loadFont('assets/fonts/NotoSansThai-Regular.ttf');
+
+    return _PdfFonts(base: base, bold: bold, fallback: [arabic, bengali, thai]);
+  }
+
+  static Future<pw.Font> _loadFont(String assetPath) async {
+    final fontData = await rootBundle.load(assetPath);
+    return pw.Font.ttf(fontData);
   }
 }

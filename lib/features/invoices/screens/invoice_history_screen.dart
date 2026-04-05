@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/ads/ad_manager.dart';
 import '../../../core/ads/banner_ad_widget.dart';
+import '../../../core/app/app_review_service.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/providers/currency_provider.dart';
@@ -220,6 +221,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     await Share.shareXFiles([
       XFile(path),
     ], text: 'Invoice ${invoice.invoiceNumber}');
+    await AppReviewService.instance.registerSignificantAction();
   }
 
   Future<void> _savePdf(InvoiceModel invoice) async {
@@ -228,6 +230,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       pdfBytes,
       invoice.invoiceNumber,
     );
+    await AppReviewService.instance.registerSignificantAction();
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,

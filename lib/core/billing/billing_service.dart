@@ -6,7 +6,6 @@ import '../ads/ad_manager.dart';
 class BillingService extends ChangeNotifier {
   static const String _proProductId = 'invoice_pro_lifetime';
   static const String _yearlyProductId = 'invoice_pro_yearly';
-  static const String _legacyProductId = 'invoice_maker_pro_lifetime';
   static const String _prefKeyIsPro = 'is_premium_user';
 
   BillingService();
@@ -74,7 +73,7 @@ class BillingService extends ChangeNotifier {
 
   void _onPurchaseUpdate(List<PurchaseDetails> purchases) async {
     for (final purchase in purchases) {
-      final knownIds = {_proProductId, _yearlyProductId, _legacyProductId};
+      final knownIds = {_proProductId, _yearlyProductId};
       if (knownIds.contains(purchase.productID)) {
         if (purchase.status == PurchaseStatus.purchased ||
             purchase.status == PurchaseStatus.restored) {

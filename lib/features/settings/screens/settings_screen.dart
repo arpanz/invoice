@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/ads/ad_manager.dart';
 import '../../../core/ads/banner_ad_widget.dart';
+import '../../../core/app/app_review_service.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/providers/currency_provider.dart';
@@ -27,7 +28,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Pro Upsell Card (only if not pro)
           if (!billing.isPro) ...[
             _buildProUpsellCard(context),
             const SizedBox(height: 16),
@@ -35,8 +35,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildProBadgeCard(),
             const SizedBox(height: 16),
           ],
-
-          // Business Profile
           _buildSectionHeader('Workspace'),
           _buildListTile(
             icon: Icons.business_outlined,
@@ -48,20 +46,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // Preferences
           _buildSectionHeader('Preferences'),
           _buildCurrencyTile(currencyProvider.selectedCurrency),
           const Divider(height: 1, indent: 56),
           _buildTaxRateTile(currencyProvider),
           const SizedBox(height: 16),
-
-          // Support
           _buildSectionHeader('Support'),
           _buildListTile(
             icon: Icons.star_outline,
-            title: 'Rate Invoice Maker Pro',
-            subtitle: 'Love the app? Leave us a 5-star review!',
+            title: 'Rate Us on Play Store',
+            subtitle: 'Leave a rating for com.livinlabs.invoice',
             onTap: _showRateDialog,
             trailing: const Icon(
               Icons.open_in_new,
@@ -77,13 +71,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () {},
           ),
           const SizedBox(height: 16),
-
-          // About
           _buildSectionHeader('About'),
           _buildListTile(
             icon: Icons.info_outline,
             title: 'Invoice Maker Pro',
-            subtitle: 'Version 1.0.0 • 100% Offline & Private',
+            subtitle: 'Version 1.0.0 | 100% Offline & Private',
             onTap: null,
           ),
           const SizedBox(height: 12),
@@ -102,7 +94,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildProUpsellCard(BuildContext context) {
-    // Fetch the lifetime price live from AdManager (Play Store) — never hardcoded
     final lifetimeProduct = AdManager.instance.products
         .where((p) => p.id == AdManager.productId)
         .firstOrNull;
@@ -157,7 +148,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Remove watermarks & ads. Add your logo.',
+                    'Remove watermarks and ads. Add your logo.',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.7),
                       fontSize: 12,
@@ -212,7 +203,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 Text(
-                  'Watermarks removed • Ads disabled • Logo enabled',
+                  'Watermarks removed | Ads disabled | Logo enabled',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: AppColors.slate600, fontSize: 12),
@@ -271,7 +262,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle,
           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
-        trailing: trailing ??
+        trailing:
+            trailing ??
             (onTap != null
                 ? const Icon(Icons.chevron_right, color: AppColors.slate400)
                 : null),
@@ -336,7 +328,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final defaultTax = currencyProvider.defaultTax;
     final sourceLabel = currencyProvider.hasCustomTaxRate
         ? 'Custom ${defaultTax.shortName} rate'
-        : '${defaultTax.name}';
+        : defaultTax.name;
 
     return Container(
       decoration: const BoxDecoration(
@@ -354,18 +346,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: AppColors.slate100,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(
-            Icons.percent,
-            size: 18,
-            color: AppColors.slate600,
-          ),
+          child: const Icon(Icons.percent, size: 18, color: AppColors.slate600),
         ),
         title: Text(
           'Default ${defaultTax.shortName} Rate',
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
-          '${defaultTax.rate}% • $sourceLabel',
+          '${defaultTax.rate}% | $sourceLabel',
           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
         trailing: Text(
@@ -387,50 +375,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final controller = TextEditingController(text: currentRate.toString());
     final formKey = GlobalKey<FormState>();
 
-    final action = await showDialog<String>(
+    final action = await showModalBottomSheet<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Edit ${currencyProvider.defaultTax.shortName} Rate'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Tax Rate (%)',
-              hintText: 'e.g. 8.875',
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+        child: _SettingsActionSheet(
+          icon: Icons.percent_rounded,
+          iconColor: AppColors.primary,
+          iconBackground: AppColors.primaryLight.withOpacity(0.12),
+          title: 'Edit ${currencyProvider.defaultTax.shortName} rate',
+          subtitle: 'Set the default tax rate used when you create invoices.',
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Tax Rate (%)',
+                hintText: 'e.g. 8.875',
+              ),
+              validator: (value) {
+                final parsed = double.tryParse((value ?? '').trim());
+                if (parsed == null) return 'Enter a valid number';
+                if (parsed < 0 || parsed > 100) {
+                  return 'Use a value between 0 and 100';
+                }
+                return null;
+              },
             ),
-            validator: (value) {
-              final parsed = double.tryParse((value ?? '').trim());
-              if (parsed == null) return 'Enter a valid number';
-              if (parsed < 0 || parsed > 100)
-                return 'Use a value between 0 and 100';
-              return null;
-            },
+          ),
+          footer: Row(
+            children: [
+              if (currencyProvider.hasCustomTaxRate)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx, 'reset'),
+                    child: const Text('Reset'),
+                  ),
+                ),
+              if (currencyProvider.hasCustomTaxRate) const SizedBox(width: 12),
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (formKey.currentState!.validate()) {
+                      Navigator.pop(ctx, 'save');
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          if (currencyProvider.hasCustomTaxRate)
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, 'reset'),
-              child: const Text('Reset'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(ctx, 'save');
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
 
@@ -438,41 +446,175 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await currencyProvider.clearCustomTaxRate();
       return;
     }
+
     if (action == 'save') {
       final parsed = double.tryParse(controller.text.trim());
-      if (parsed != null) await currencyProvider.setCustomTaxRate(parsed);
+      if (parsed != null) {
+        await currencyProvider.setCustomTaxRate(parsed);
+      }
     }
   }
 
-  void _showRateDialog() {
-    showDialog(
+  Future<void> _showRateDialog() async {
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Enjoying Invoice Maker Pro?'),
-        content: const Text(
-          'Your 5-star review helps other business owners discover the app and keeps it free!',
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _SettingsActionSheet(
+        icon: Icons.favorite_outline,
+        iconColor: AppColors.proGold,
+        iconBackground: AppColors.proGoldLight,
+        title: 'Rate us on Play Store',
+        subtitle: 'Open the Play Store listing for com.livinlabs.invoice.',
+        content: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.slate50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: const Text(
+            'Your rating helps other business owners discover the app and gives us a clear signal about what is working well.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.45,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Maybe Later'),
+        footer: Row(
+          children: [
+            Expanded(
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Maybe later'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  final opened = await AppReviewService.instance
+                      .openPlayStoreListing();
+                  if (!mounted) return;
+                  _showStatusSnackBar(
+                    opened
+                        ? 'Opening Play Store...'
+                        : 'Play Store rating is not available on this device yet.',
+                  );
+                },
+                child: const Text('Open Play Store'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showStatusSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+  }
+}
+
+class _SettingsActionSheet extends StatelessWidget {
+  const _SettingsActionSheet({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBackground,
+    required this.title,
+    required this.subtitle,
+    required this.content,
+    required this.footer,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBackground;
+  final String title;
+  final String subtitle;
+  final Widget content;
+  final Widget footer;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: AppColors.cardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 28,
+                offset: const Offset(0, 12),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              // TODO: Launch store review URL
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            child: const Text('Rate Now ⭐'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.slate300,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: iconBackground,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: iconColor, size: 26),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.45,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              content,
+              const SizedBox(height: 20),
+              footer,
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// Currency picker bottom sheet
 class _CurrencyPickerSheet extends StatefulWidget {
   final Function(Currency) onCurrencySelected;
   const _CurrencyPickerSheet({required this.onCurrencySelected});
@@ -538,10 +680,15 @@ class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
                 decoration: const InputDecoration(
                   hintText: 'Search currency...',
                   hintStyle: TextStyle(color: AppColors.textHint),
-                  prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: AppColors.textSecondary,
+                  ),
                   border: InputBorder.none,
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                 ),
               ),
             ),

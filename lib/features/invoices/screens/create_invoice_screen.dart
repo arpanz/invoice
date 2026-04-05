@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/ads/ad_manager.dart';
+import '../../../core/app/app_review_service.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -550,6 +551,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
       setState(() => _isGenerating = false);
 
+      if (!mounted) return;
+
+      await AppReviewService.instance.registerSignificantAction();
       if (!mounted) return;
 
       // Show interstitial ad for free users

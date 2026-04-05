@@ -2,7 +2,7 @@ name: invoice
 description: "Invoice Maker Pro - Generate professional GST-ready invoices in 60 seconds."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ^3.9.2
@@ -47,6 +47,8 @@ dependencies:
   # IAP
   in_app_purchase: ^3.2.0
   change_app_package_name: ^1.5.0
+  in_app_review: ^2.0.11
+  in_app_update: ^4.2.5
 
 dev_dependencies:
   flutter_test:
@@ -59,6 +61,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/fonts/
 
 flutter_launcher_icons:
   android: "launcher_icon"
@@ -66,13 +69,13 @@ flutter_launcher_icons:
   image_path: "assets/icon.png"
   min_sdk_android: 21
   adaptive_icon_foreground_inset: 12
-  adaptive_icon_background: "#B2D8FC"
+  adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon.png"
   adaptive_icon_monochrome: "assets/icon.png"
 
 flutter_native_splash:
-  color: "#B2D8FC" 
+  color: "#FFFFFF" 
   image: "assets/icon.png"
   android_12:
     image: "assets/icon.png"
-    color: "#B2D8FC"
+    color: "#FFFFFF"

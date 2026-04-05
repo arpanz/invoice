@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:in_app_update/in_app_update.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/ads/ad_manager.dart';
+import 'core/app/app_review_service.dart';
+import 'core/app/app_update_service.dart';
 import 'core/billing/billing_service.dart';
 import 'core/database/db_provider.dart';
 import 'core/providers/currency_provider.dart';
@@ -180,6 +183,55 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await AppReviewService.instance.registerLaunch();
+      if (!mounted) return;
+      await _maybePromptForAppUpdate();
+    });
+  }
+
+  Future<void> _maybePromptForAppUpdate() async {
+    final result = await AppUpdateService.instance.checkForUpdate();
+    if (!mounted || result.status != AppUpdateAvailability.available) return;
+
+    final info = result.info!;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _StartupUpdateSheet(
+        info: info,
+        onUpdateNow: () async {
+          Navigator.pop(ctx);
+          final updateResult = await AppUpdateService.instance.startUpdate();
+          if (!mounted) return;
+
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              content: Text(switch (updateResult) {
+                AppUpdateStartResult.started =>
+                  'Update flow started. Follow the system prompt to finish.',
+                AppUpdateStartResult.cancelled =>
+                  'Update cancelled. You can install it later when prompted again.',
+                AppUpdateStartResult.unavailable =>
+                  'This update is not ready to install yet.',
+                AppUpdateStartResult.unsupported =>
+                  'In-app updates are only supported on Android.',
+                AppUpdateStartResult.failed =>
+                  'The update could not be started. Please try again later.',
+              }),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
@@ -265,6 +317,135 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               label: 'Settings',
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StartupUpdateSheet extends StatelessWidget {
+  const _StartupUpdateSheet({required this.info, required this.onUpdateNow});
+
+  final AppUpdateInfo info;
+  final Future<void> Function() onUpdateNow;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: AppColors.cardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 28,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.slate300,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.statusPaidBg,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.system_update_alt_rounded,
+                  color: AppColors.accent,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Update available',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'A newer version of Invoice Maker Pro is ready with the latest fixes and improvements.',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.45,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.slate50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Available version',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '#${info.availableVersionCode ?? '-'}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Later'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: onUpdateNow,
+                      child: const Text('Update now'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
