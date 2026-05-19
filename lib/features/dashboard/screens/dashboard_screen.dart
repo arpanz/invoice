@@ -91,119 +91,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _previewInvoice(InvoiceModel invoice) async {
-    final isPro = context.read<BillingService>().isPro;
-    final prefs = await SharedPreferences.getInstance();
-    final profile = BusinessProfile(
-      businessName: prefs.getString('biz_name') ?? 'My Business',
-      address: prefs.getString('biz_address'),
-      phone: prefs.getString('biz_phone'),
-      email: prefs.getString('biz_email'),
-      gstin: prefs.getString('biz_gstin'),
-      bankName: prefs.getString('biz_bank_name'),
-      accountNumber: prefs.getString('biz_account'),
-      ifscCode: prefs.getString('biz_ifsc'),
-      logoPath: prefs.getString('biz_logo_path'),
-      currency: _currency,
-    );
-    final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
-      invoice: invoice,
-      businessProfile: profile,
-      isPro: isPro,
-    );
-
-    if (!mounted) return;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(ctx).size.height * 0.9,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-              child: Row(
-                children: [
-                  const Text(
-                    'Invoice Preview',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: PdfPreview(
-                build: (_) async => pdfBytes,
-                allowPrinting: false,
-                allowSharing: false,
-                canChangePageFormat: false,
-                canChangeOrientation: false,
-                canDebug: false,
-                pdfFileName: 'Invoice_${invoice.invoiceNumber}.pdf',
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        Navigator.pop(ctx);
-                        await Printing.layoutPdf(
-                          onLayout: (_) async => pdfBytes,
-                        );
-                      },
-                      icon: const Icon(Icons.print_outlined, size: 18),
-                      label: const Text('Print'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        Navigator.pop(ctx);
-                        final path = await PdfGeneratorService.saveAndGetPath(
-                          pdfBytes,
-                          invoice.invoiceNumber,
-                        );
-                        await Share.shareXFiles([
-                          XFile(path),
-                        ], text: 'Invoice ${invoice.invoiceNumber}');
-                      },
-                      icon: const Icon(Icons.share_outlined, size: 18),
-                      label: const Text('Share'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+      builder: (ctx) => _InvoicePreviewSheet(
+        invoice: invoice,
+        currency: _currency,
       ),
     );
   }
@@ -623,6 +517,167 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InvoicePreviewSheet extends StatefulWidget {
+  final InvoiceModel invoice;
+  final String currency;
+  const _InvoicePreviewSheet({required this.invoice, required this.currency});
+
+  @override
+  State<_InvoicePreviewSheet> createState() => _InvoicePreviewSheetState();
+}
+
+class _InvoicePreviewSheetState extends State<_InvoicePreviewSheet> {
+  Uint8List? _pdfBytes;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _generatePdf();
+  }
+
+  Future<void> _generatePdf() async {
+    final isPro = context.read<BillingService>().isPro;
+    final prefs = await SharedPreferences.getInstance();
+    final profile = BusinessProfile(
+      businessName: prefs.getString('biz_name') ?? 'My Business',
+      address: prefs.getString('biz_address'),
+      phone: prefs.getString('biz_phone'),
+      email: prefs.getString('biz_email'),
+      gstin: prefs.getString('biz_gstin'),
+      bankName: prefs.getString('biz_bank_name'),
+      accountNumber: prefs.getString('biz_account'),
+      ifscCode: prefs.getString('biz_ifsc'),
+      logoPath: prefs.getString('biz_logo_path'),
+      currency: widget.currency,
+    );
+
+    final bytes = await PdfGeneratorService.generateInvoicePdf(
+      invoice: widget.invoice,
+      businessProfile: profile,
+      isPro: isPro,
+    );
+
+    if (mounted) {
+      setState(() {
+        _pdfBytes = bytes;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.9,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            child: Row(
+              children: [
+                const Text(
+                  'Invoice Preview',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const CircularProgressIndicator(color: AppColors.primary),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Generating PDF...',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : PdfPreview(
+                    build: (_) async => _pdfBytes!,
+                    allowPrinting: false,
+                    allowSharing: false,
+                    canChangePageFormat: false,
+                    canChangeOrientation: false,
+                    canDebug: false,
+                    pdfFileName: 'Invoice_${widget.invoice.invoiceNumber}.pdf',
+                  ),
+          ),
+          if (!_isLoading && _pdfBytes != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        await Printing.layoutPdf(
+                          onLayout: (_) async => _pdfBytes!,
+                        );
+                      },
+                      icon: const Icon(Icons.print_outlined, size: 18),
+                      label: const Text('Print'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        final path = await PdfGeneratorService.saveAndGetPath(
+                          _pdfBytes!,
+                          widget.invoice.invoiceNumber,
+                        );
+                        await Share.shareXFiles([
+                          XFile(path),
+                        ], text: 'Invoice ${widget.invoice.invoiceNumber}');
+                      },
+                      icon: const Icon(Icons.share_outlined, size: 18),
+                      label: const Text('Share'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
