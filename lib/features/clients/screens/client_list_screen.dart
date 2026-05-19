@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/empty_state_view.dart';
 import '../../../shared_widgets/primary_button.dart';
+import '../../paywall/paywall_screen.dart';
 import '../models/client_model.dart';
 
 class ClientListScreen extends StatefulWidget {
@@ -56,6 +57,17 @@ class _ClientListScreenState extends State<ClientListScreen> {
   }
 
   Future<void> _showAddEditDialog({ClientModel? client}) async {
+    if (client == null) {
+      final billing = context.read<BillingService>();
+      if (!billing.isPro && _clients.length >= 5) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PaywallScreen()),
+        );
+        return;
+      }
+    }
+
     final nameCtrl = TextEditingController(text: client?.name ?? '');
     final emailCtrl = TextEditingController(text: client?.email ?? '');
     final phoneCtrl = TextEditingController(text: client?.phone ?? '');

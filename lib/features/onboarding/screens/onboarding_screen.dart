@@ -21,20 +21,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     OnboardingPage(
       title: 'Create Professional\nInvoices',
       description: 'Generate beautiful, professional invoices in seconds. Impress your clients with stunning designs.',
-      icon: Icons.receipt_long_rounded,
-      gradientColors: [AppColors.primary, AppColors.primaryDark],
+      illustration: const _InvoiceIllustration(),
     ),
     OnboardingPage(
       title: 'Manage Your\nClients',
       description: 'Keep all your client information organized. Never lose track of who owes you money.',
-      icon: Icons.people_rounded,
-      gradientColors: [AppColors.accent, const Color(0xFF059669)],
+      illustration: const _ClientsIllustration(),
     ),
     OnboardingPage(
       title: 'Track Your\nRevenue',
       description: 'Monitor your business performance with detailed analytics and insights.',
-      icon: Icons.trending_up_rounded,
-      gradientColors: [AppColors.accentOrange, const Color(0xFFD97706)],
+      illustration: const _ChartIllustration(),
     ),
   ];
 
@@ -141,31 +138,7 @@ class _OnboardingPageWidget extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icon with gradient background
-          Container(
-            width: 140,
-            height: 140,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: page.gradientColors,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(40),
-              boxShadow: [
-                BoxShadow(
-                  color: page.gradientColors[0].withOpacity(0.3),
-                  blurRadius: 30,
-                  offset: const Offset(0, 15),
-                ),
-              ],
-            ),
-            child: Icon(
-              page.icon,
-              size: 64,
-              color: Colors.white,
-            ),
-          ),
+          page.illustration,
           const SizedBox(height: 48),
           // Title
           Text(
@@ -190,28 +163,9 @@ class _OnboardingPageWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 48),
-          // Continue button
-          if (_isLastPage(context))
-            SizedBox(
-              width: double.infinity,
-              child: PrimaryButton(
-                onPressed: () => _showCurrencySelection(context), label: 'Get Started',
-              ),
-            ),
         ],
       ),
     );
-  }
-
-  bool _isLastPage(BuildContext context) {
-    // This is a workaround - we'd need access to the page index
-    return false;
-  }
-
-  void _showCurrencySelection(BuildContext context) {
-    // Navigate to currency selection
-    final pageController = PageController();
-    pageController.animateToPage(3, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
   }
 }
 
@@ -219,15 +173,253 @@ class _OnboardingPageWidget extends StatelessWidget {
 class OnboardingPage {
   final String title;
   final String description;
-  final IconData icon;
-  final List<Color> gradientColors;
+  final Widget illustration;
 
   OnboardingPage({
     required this.title,
     required this.description,
-    required this.icon,
-    required this.gradientColors,
+    required this.illustration,
   });
+}
+
+class _InvoiceIllustration extends StatelessWidget {
+  const _InvoiceIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 160,
+      height: 160,
+      decoration: const BoxDecoration(
+        color: AppColors.slate50,
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Transform.rotate(
+          angle: -0.05,
+          child: Container(
+            width: 100,
+            height: 130,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    Container(
+                      width: 30,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: AppColors.slate200,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: AppColors.slate100,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: 40,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: AppColors.slate100,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  width: double.infinity,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: 30,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ClientsIllustration extends StatelessWidget {
+  const _ClientsIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 160,
+      height: 160,
+      decoration: const BoxDecoration(
+        color: AppColors.slate50,
+        shape: BoxShape.circle,
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Transform.translate(
+            offset: const Offset(-15, -15),
+            child: _buildMiniClientCard(opacity: 0.6),
+          ),
+          Transform.translate(
+            offset: const Offset(15, 15),
+            child: _buildMiniClientCard(opacity: 1.0, hasBorder: true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniClientCard({required double opacity, bool hasBorder = false}) {
+    return Container(
+      width: 110,
+      height: 60,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(opacity),
+        borderRadius: BorderRadius.circular(12),
+        border: hasBorder ? Border.all(color: AppColors.cardBorder) : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04 * opacity),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 36,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: AppColors.slate300,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: 24,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.slate200,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChartIllustration extends StatelessWidget {
+  const _ChartIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 160,
+      height: 160,
+      decoration: const BoxDecoration(
+        color: AppColors.slate50,
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Container(
+          width: 110,
+          height: 100,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildBar(height: 30, color: AppColors.slate200),
+              _buildBar(height: 50, color: AppColors.slate200),
+              _buildBar(height: 40, color: AppColors.accentOrange.withOpacity(0.4)),
+              _buildBar(height: 60, color: AppColors.accentOrange),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBar({required double height, required Color color}) {
+    return Container(
+      width: 12,
+      height: height,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
+  }
 }
 
 /// Currency selection page
@@ -363,11 +555,122 @@ class _CurrencySelectionPageState extends State<CurrencySelectionPage> {
   void _selectCurrency(BuildContext context, Currency currency) async {
     final currencyProvider = context.read<CurrencyProvider>();
     await currencyProvider.setCurrency(currency);
-    await currencyProvider.completeOnboarding();
-    
-    if (context.mounted) {
-      Navigator.of(context).pushReplacementNamed('/home');
-    }
+
+    if (!context.mounted) return;
+
+    final currentRate = currency.defaultTax.rate;
+    final controller = TextEditingController(text: currentRate.toString());
+    final formKey = GlobalKey<FormState>();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: AppColors.cardBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 28,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Confirm Tax Rate',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Set the default tax rate for ${currency.code}. You can always change this later in Settings.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Form(
+                    key: formKey,
+                    child: TextFormField(
+                      controller: controller,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: '${currency.defaultTax.shortName} Rate (%)',
+                        hintText: 'e.g. 8.875',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      validator: (value) {
+                        final parsed = double.tryParse((value ?? '').trim());
+                        if (parsed == null) return 'Enter a valid number';
+                        if (parsed < 0 || parsed > 100) return 'Must be 0-100';
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () async {
+                        if (formKey.currentState!.validate()) {
+                          final parsed = double.tryParse(controller.text.trim());
+                          if (parsed != null && parsed != currentRate) {
+                            await currencyProvider.setCustomTaxRate(parsed);
+                          }
+                          await currencyProvider.completeOnboarding();
+                          if (ctx.mounted) {
+                            Navigator.of(ctx).pop();
+                          }
+                          if (context.mounted) {
+                            Navigator.of(context).pushReplacementNamed('/home');
+                          }
+                        }
+                      },
+                      child: const Text(
+                        'Confirm & Continue',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
