@@ -260,6 +260,10 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     String action,
     InvoiceModel invoice,
   ) async {
+    if (action == 'paid') {
+      await _markAsPaid(invoice);
+      return;
+    }
     if (action == 'edit') {
       await Navigator.push(
         context,
@@ -429,15 +433,15 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
           return false;
         }
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
+      child: Material(
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorder),
+          side: const BorderSide(color: AppColors.cardBorder),
         ),
         child: InkWell(
           onTap: () => _showInvoicePreview(invoice),
-          borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -547,27 +551,74 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                         Icons.more_vert,
                         color: AppColors.slate500,
                       ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      color: Colors.white,
+                      elevation: 4,
                       onSelected: (value) =>
                           _handleInvoiceMenuAction(value, invoice),
                       itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                        const PopupMenuItem(
+                        if (invoice.status != InvoiceStatus.paid)
+                          PopupMenuItem(
+                            value: 'paid',
+                            child: Row(
+                              children: const [
+                                Icon(Icons.check_circle_outline, size: 20, color: AppColors.statusPaid),
+                                SizedBox(width: 12),
+                                Text('Mark as Paid'),
+                              ],
+                            ),
+                          ),
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: const [
+                              Icon(Icons.edit_outlined, size: 20, color: AppColors.slate600),
+                              SizedBox(width: 12),
+                              Text('Edit'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
                           value: 'save',
-                          child: Text('Save PDF'),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.download_outlined, size: 20, color: AppColors.slate600),
+                              SizedBox(width: 12),
+                              Text('Save PDF'),
+                            ],
+                          ),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'print',
-                          child: Text('Print'),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.print_outlined, size: 20, color: AppColors.slate600),
+                              SizedBox(width: 12),
+                              Text('Print'),
+                            ],
+                          ),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'share',
-                          child: Text('Share'),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.share_outlined, size: 20, color: AppColors.slate600),
+                              SizedBox(width: 12),
+                              Text('Share'),
+                            ],
+                          ),
                         ),
-                        const PopupMenuItem(
+                        const PopupMenuDivider(),
+                        PopupMenuItem(
                           value: 'delete',
-                          child: Text(
-                            'Delete',
-                            style: TextStyle(color: AppColors.accentRed),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.delete_outline, size: 20, color: AppColors.accentRed),
+                              SizedBox(width: 12),
+                              Text('Delete', style: TextStyle(color: AppColors.accentRed)),
+                            ],
                           ),
                         ),
                       ],

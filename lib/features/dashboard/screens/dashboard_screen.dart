@@ -18,7 +18,9 @@ import '../../../shared_widgets/empty_state_view.dart';
 import '../../invoices/models/invoice_model.dart';
 import '../../invoices/models/line_item_model.dart';
 import '../../invoices/screens/create_invoice_screen.dart';
+import '../../invoices/screens/invoice_history_screen.dart';
 import '../../invoices/services/pdf_generator_service.dart';
+import '../../../core/app/app_review_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -100,6 +102,114 @@ class _DashboardScreenState extends State<DashboardScreen> {
         currency: _currency,
       ),
     );
+  }
+
+  Future<void> _handleInvoiceMenuAction(String action, InvoiceModel invoice) async {
+    if (action == 'paid') {
+      await _markAsPaid(invoice);
+      return;
+    }
+    if (action == 'edit') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreateInvoiceScreen(existingInvoice: invoice),
+        ),
+      );
+      if (mounted) _loadData();
+      return;
+    }
+    if (action == 'delete') {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Delete Invoice?'),
+          content: const Text('This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.accentRed),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+      if (confirm == true) {
+        await DbProvider.delete(
+          DbProvider.tableInvoices,
+          'id = ?',
+          [invoice.id],
+        );
+        if (mounted) _loadData();
+      }
+      return;
+    }
+    
+    if (action == 'print' || action == 'share' || action == 'save') {
+       final isPro = context.read<BillingService>().isPro;
+       if (!isPro) {
+          final completer = Completer<void>();
+          AdManager.instance.showInterstitial(
+            context,
+            onAdDismissed: () {
+              if (!completer.isCompleted) completer.complete();
+            },
+          );
+          await completer.future;
+       }
+       if (!mounted) return;
+
+       final prefs = await SharedPreferences.getInstance();
+       final profile = BusinessProfile(
+         businessName: prefs.getString('biz_name') ?? 'My Business',
+         address: prefs.getString('biz_address'),
+         phone: prefs.getString('biz_phone'),
+         email: prefs.getString('biz_email'),
+         gstin: prefs.getString('biz_gstin'),
+         bankName: prefs.getString('biz_bank_name'),
+         accountNumber: prefs.getString('biz_account'),
+         ifscCode: prefs.getString('biz_ifsc'),
+         logoPath: prefs.getString('biz_logo_path'),
+         currency: _currency,
+       );
+
+       final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
+         invoice: invoice,
+         businessProfile: profile,
+         isPro: isPro,
+       );
+
+       if (action == 'print') {
+         await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
+       } else if (action == 'share') {
+         final path = await PdfGeneratorService.saveAndGetPath(pdfBytes, invoice.invoiceNumber);
+         await Share.shareXFiles([XFile(path)], text: 'Invoice ${invoice.invoiceNumber}');
+         AppReviewService.instance.registerSignificantAction();
+       } else if (action == 'save') {
+         final path = await PdfGeneratorService.saveAndGetPath(pdfBytes, invoice.invoiceNumber);
+         AppReviewService.instance.registerSignificantAction();
+         if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invoice saved at $path')));
+         }
+       }
+    }
+  }
+
+  Future<void> _markAsPaid(InvoiceModel invoice) async {
+    await DbProvider.update(
+      DbProvider.tableInvoices,
+      {
+        'status': InvoiceStatus.paid.value,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      'id = ?',
+      [invoice.id],
+    );
+    if (mounted) _loadData();
   }
 
   @override
@@ -297,11 +407,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               ),
                               if (_recentInvoices.isNotEmpty)
-                                Text(
-                                  '${_recentInvoices.length} shown',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const InvoiceHistoryScreen(),
+                                      ),
+                                    ).then((_) => _loadData());
+                                  },
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text(
+                                    'View All',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -511,6 +637,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       fontWeight: FontWeight.w700,
                       color: statusText,
                     ),
+                  ),
+                ),
+              ],
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: AppColors.slate500),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              color: Colors.white,
+              elevation: 4,
+              onSelected: (value) => _handleInvoiceMenuAction(value, invoice),
+              itemBuilder: (_) => [
+                if (invoice.status != InvoiceStatus.paid)
+                  PopupMenuItem(
+                    value: 'paid',
+                    child: Row(
+                      children: const [
+                        Icon(Icons.check_circle_outline, size: 20, color: AppColors.statusPaid),
+                        SizedBox(width: 12),
+                        Text('Mark as Paid'),
+                      ],
+                    ),
+                  ),
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: const [
+                      Icon(Icons.edit_outlined, size: 20, color: AppColors.slate600),
+                      SizedBox(width: 12),
+                      Text('Edit'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'save',
+                  child: Row(
+                    children: const [
+                      Icon(Icons.download_outlined, size: 20, color: AppColors.slate600),
+                      SizedBox(width: 12),
+                      Text('Save PDF'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'print',
+                  child: Row(
+                    children: const [
+                      Icon(Icons.print_outlined, size: 20, color: AppColors.slate600),
+                      SizedBox(width: 12),
+                      Text('Print'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'share',
+                  child: Row(
+                    children: const [
+                      Icon(Icons.share_outlined, size: 20, color: AppColors.slate600),
+                      SizedBox(width: 12),
+                      Text('Share'),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: const [
+                      Icon(Icons.delete_outline, size: 20, color: AppColors.accentRed),
+                      SizedBox(width: 12),
+                      Text('Delete', style: TextStyle(color: AppColors.accentRed)),
+                    ],
                   ),
                 ),
               ],
