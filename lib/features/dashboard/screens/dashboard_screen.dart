@@ -148,6 +148,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 allowSharing: false,
                 canChangePageFormat: false,
                 canChangeOrientation: false,
+                canDebug: false,
                 pdfFileName: 'Invoice_${invoice.invoiceNumber}.pdf',
               ),
             ),

@@ -639,6 +639,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 allowSharing: true,
                 canChangePageFormat: false,
                 canChangeOrientation: false,
+                canDebug: false,
                 pdfFileName: 'Invoice_${invoice.invoiceNumber}.pdf',
               ),
             ),
