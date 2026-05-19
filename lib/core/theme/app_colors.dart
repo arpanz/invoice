@@ -4,9 +4,9 @@ class AppColors {
   AppColors._();
 
   // Primary Brand Colors
-  static const Color primary = Color(0xFF2563EB); // Deep Blue
-  static const Color primaryDark = Color(0xFF1D4ED8);
-  static const Color primaryLight = Color(0xFF3B82F6);
+  static const Color primary = Color(0xFF1E3A5F); // Slate Navy
+  static const Color primaryDark = Color(0xFF162E4A); // Deep Navy
+  static const Color primaryLight = Color(0xFF2D5282); // Mid Navy
 
   // Accent
   static const Color accent = Color(0xFF10B981); // Emerald Green (Paid status)

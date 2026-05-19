@@ -280,62 +280,56 @@ class DashboardScreenState extends State<DashboardScreen> {
                           // Outstanding card
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(24),
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                                colors: [AppColors.primary, AppColors.primaryDark],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.3),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.account_balance_wallet_outlined,
-                                      color: Colors.white70,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      'Total Outstanding',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.account_balance_wallet_outlined,
+                                    color: Colors.white70,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Total Outstanding',
+                                        style: TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  CurrencyFormatter.format(
-                                    _totalOutstanding,
-                                    currencySymbol: currencySymbol,
-                                  ),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 36,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -1,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Awaiting payment from clients',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
-                                    fontSize: 12,
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        CurrencyFormatter.format(
+                                          _totalOutstanding,
+                                          currencySymbol: currencySymbol,
+                                        ),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -0.5,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -373,35 +367,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 24),
-
-                          // New Invoice button
-                          ElevatedButton.icon(
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const CreateInvoiceScreen(),
-                              ),
-                            ).then((_) => _loadData()),
-                            icon: const Icon(Icons.add, size: 22),
-                            label: const Text(
-                              'New Invoice',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(double.infinity, 56),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              elevation: 0,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 20),
 
                           // Recent Invoices header
                           Row(
