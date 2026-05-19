@@ -123,10 +123,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       final invoiceCount = await _getNextInvoiceNumber();
       _invoiceNumberCtrl.text =
           'INV-${invoiceCount.toString().padLeft(3, '0')}';
-      
+
       final prefs = await SharedPreferences.getInstance();
       final defaultTerms = prefs.getString('default_payment_terms') ?? 'Net 30';
-      
+
       _dueDatePreset = defaultTerms;
       switch (defaultTerms) {
         case 'Net 15':
@@ -636,7 +636,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               child: PdfPreview(
                 build: (_) async => pdfBytes,
                 allowPrinting: true,
-                allowSharing: true,
+                allowSharing: false,
                 canChangePageFormat: false,
                 canChangeOrientation: false,
                 canDebug: false,
