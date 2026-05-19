@@ -607,6 +607,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         height: MediaQuery.of(ctx).size.height * 0.9,
@@ -633,15 +634,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               ),
             ),
             Expanded(
-              child: PdfPreview(
-                build: (_) async => pdfBytes,
-                allowPrinting: true,
-                allowSharing: false,
-                canChangePageFormat: false,
-                canChangeOrientation: false,
-                canDebug: false,
-                pdfFileName: 'Invoice_${invoice.invoiceNumber}.pdf',
-              ),
+              child: _PdfRasterViewer(pdfBytes: pdfBytes),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
@@ -1492,5 +1485,82 @@ class _LineItemEntry {
     descCtrl.dispose();
     qtyCtrl.dispose();
     priceCtrl.dispose();
+  }
+}
+
+class _PdfRasterViewer extends StatefulWidget {
+  final Uint8List pdfBytes;
+  const _PdfRasterViewer({required this.pdfBytes});
+
+  @override
+  State<_PdfRasterViewer> createState() => _PdfRasterViewerState();
+}
+
+class _PdfRasterViewerState extends State<_PdfRasterViewer> {
+  List<MemoryImage>? _pages;
+  int _currentPage = 0;
+  final _pageController = PageController();
+
+  @override
+  void initState() {
+    super.initState();
+    _rasterize();
+  }
+
+  Future<void> _rasterize() async {
+    final images = <MemoryImage>[];
+    await for (final page in Printing.raster(widget.pdfBytes, dpi: 200)) {
+      final png = await page.toPng();
+      images.add(MemoryImage(png));
+    }
+    if (mounted) setState(() => _pages = images);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_pages == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF30CF7B)),
+      );
+    }
+    return Stack(
+      children: [
+        PageView.builder(
+          controller: _pageController,
+          onPageChanged: (p) => setState(() => _currentPage = p),
+          itemCount: _pages!.length,
+          itemBuilder: (_, i) => InteractiveViewer(
+            minScale: 0.8,
+            maxScale: 5.0,
+            child: Center(
+              child: Image(image: _pages![i], fit: BoxFit.contain),
+            ),
+          ),
+        ),
+        if (_pages!.length > 1)
+          Positioned(
+            bottom: 8, left: 0, right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${_currentPage + 1} / ${_pages!.length}',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }

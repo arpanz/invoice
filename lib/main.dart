@@ -174,12 +174,15 @@ class MainNavigationShell extends StatefulWidget {
 class _MainNavigationShellState extends State<MainNavigationShell> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    ClientListScreen(),
-    CreateInvoiceScreen(),
-    _HistoryScreen(),
-    SettingsScreen(),
+  final _dashboardKey = GlobalKey<DashboardScreenState>();
+  final _historyKey = GlobalKey<InvoiceHistoryScreenState>();
+
+  List<Widget> get _screens => [
+    DashboardScreen(key: _dashboardKey),
+    const ClientListScreen(),
+    const CreateInvoiceScreen(),
+    _HistoryScreen(historyKey: _historyKey),
+    const SettingsScreen(),
   ];
 
   @override
@@ -253,6 +256,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               return;
             }
             setState(() => _currentIndex = index);
+            // Reload data on the target tab so changes are always fresh
+            if (index == 0) _dashboardKey.currentState?.reload();
+            if (index == 3) _historyKey.currentState?.reload();
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: AppColors.surface,
@@ -453,13 +459,14 @@ class _StartupUpdateSheet extends StatelessWidget {
 }
 
 class _HistoryScreen extends StatelessWidget {
-  const _HistoryScreen();
+  final GlobalKey<InvoiceHistoryScreenState>? historyKey;
+  const _HistoryScreen({this.historyKey});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('History')),
-      body: const InvoiceHistoryScreen(),
+      body: InvoiceHistoryScreen(key: historyKey),
     );
   }
 }

@@ -21,15 +21,16 @@ import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
 import '../services/pdf_generator_service.dart';
 import 'create_invoice_screen.dart';
+import '../../paywall/paywall_screen.dart';
 
 class InvoiceHistoryScreen extends StatefulWidget {
   const InvoiceHistoryScreen({super.key});
 
   @override
-  State<InvoiceHistoryScreen> createState() => _InvoiceHistoryScreenState();
+  State<InvoiceHistoryScreen> createState() => InvoiceHistoryScreenState();
 }
 
-class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
+class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   List<InvoiceModel> _invoices = [];
   bool _isLoading = true;
   String _filterStatus = 'all';
@@ -39,6 +40,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     super.initState();
     _loadInvoices();
   }
+
+  /// Public entry-point so the nav shell can trigger a refresh via GlobalKey.
+  void reload() => _loadInvoices();
 
   Future<void> _loadInvoices() async {
     setState(() => _isLoading = true);
@@ -68,11 +72,11 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     return _invoices.where((i) => i.status.value == _filterStatus).toList();
   }
 
-  Future<void> _markAsPaid(InvoiceModel invoice) async {
+  Future<void> _markAs(InvoiceModel invoice, InvoiceStatus status) async {
     await DbProvider.update(
       DbProvider.tableInvoices,
       {
-        'status': InvoiceStatus.paid.value,
+        'status': status.value,
         'updated_at': DateTime.now().millisecondsSinceEpoch,
       },
       'id = ?',
@@ -128,6 +132,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         height: MediaQuery.of(ctx).size.height * 0.9,
@@ -154,15 +159,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               ),
             ),
             Expanded(
-              child: PdfPreview(
-                build: (_) async => pdfBytes,
-                allowPrinting: false,
-                allowSharing: false,
-                canChangePageFormat: false,
-                canChangeOrientation: false,
-                canDebug: false,
-                pdfFileName: 'Invoice_${invoice.invoiceNumber}.pdf',
-              ),
+              child: _PdfRasterViewer(pdfBytes: pdfBytes),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
@@ -261,7 +258,11 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     InvoiceModel invoice,
   ) async {
     if (action == 'paid') {
-      await _markAsPaid(invoice);
+      await _markAs(invoice, InvoiceStatus.paid);
+      return;
+    }
+    if (action == 'unpaid') {
+      await _markAs(invoice, InvoiceStatus.unpaid);
       return;
     }
     if (action == 'edit') {
@@ -314,19 +315,22 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     final billing = context.watch<BillingService>();
     final filtered = _filteredInvoices;
 
+    // Cap list at 5 for free users; pro users see everything
+    const int freeLimit = 5;
+    final visibleInvoices = (!billing.isPro && filtered.length > freeLimit)
+        ? filtered.sublist(0, freeLimit)
+        : filtered;
+    final isLimited = !billing.isPro && filtered.length > freeLimit;
+
     // Build a list that injects a NativeAdWidget every 5 invoices (free users only)
     List<Widget> listItems = [];
-    for (int i = 0; i < filtered.length; i++) {
-      listItems.add(_buildInvoiceCard(filtered[i]));
-      // Insert native ad after every 5th invoice
-      if (!billing.isPro && (i + 1) % 5 == 0 && i != filtered.length - 1) {
-        listItems.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: NativeAdWidget(height: 80),
-          ),
-        );
-      }
+    for (int i = 0; i < visibleInvoices.length; i++) {
+      listItems.add(_buildInvoiceCard(visibleInvoices[i]));
+    }
+
+    // If free user has more invoices, add paywall upsell card
+    if (isLimited) {
+      listItems.add(_buildProUpsellCard(context, filtered.length - freeLimit));
     }
 
     return Column(
@@ -404,6 +408,86 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     );
   }
 
+  Widget _buildProUpsellCard(BuildContext context, int hiddenCount) {
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withOpacity(0.08),
+            AppColors.primary.withOpacity(0.03),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.lock_outline_rounded,
+                color: AppColors.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '$hiddenCount more invoice${hiddenCount > 1 ? 's' : ''} hidden',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Upgrade to Pro to access your full invoice history and unlock all features.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Unlock Full History — Go Pro',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildInvoiceCard(InvoiceModel invoice) {
     final dateFormat = DateFormat('dd MMM yyyy');
     final currencySymbol = CurrencyFormatter.getCurrencySymbol(
@@ -426,7 +510,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          if (invoice.status != InvoiceStatus.paid) await _markAsPaid(invoice);
+          if (invoice.status != InvoiceStatus.paid) await _markAs(invoice, InvoiceStatus.paid);
           return false;
         } else {
           await _deleteInvoice(invoice);
@@ -570,6 +654,17 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                               ],
                             ),
                           ),
+                        if (invoice.status == InvoiceStatus.paid)
+                          PopupMenuItem(
+                            value: 'unpaid',
+                            child: Row(
+                              children: const [
+                                Icon(Icons.radio_button_unchecked, size: 20, color: AppColors.statusUnpaid),
+                                SizedBox(width: 12),
+                                Text('Mark as Unpaid'),
+                              ],
+                            ),
+                          ),
                         PopupMenuItem(
                           value: 'edit',
                           child: Row(
@@ -697,6 +792,83 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
           color: text,
         ),
       ),
+    );
+  }
+}
+
+class _PdfRasterViewer extends StatefulWidget {
+  final Uint8List pdfBytes;
+  const _PdfRasterViewer({required this.pdfBytes});
+
+  @override
+  State<_PdfRasterViewer> createState() => _PdfRasterViewerState();
+}
+
+class _PdfRasterViewerState extends State<_PdfRasterViewer> {
+  List<MemoryImage>? _pages;
+  int _currentPage = 0;
+  final _pageController = PageController();
+
+  @override
+  void initState() {
+    super.initState();
+    _rasterize();
+  }
+
+  Future<void> _rasterize() async {
+    final images = <MemoryImage>[];
+    await for (final page in Printing.raster(widget.pdfBytes, dpi: 200)) {
+      final png = await page.toPng();
+      images.add(MemoryImage(png));
+    }
+    if (mounted) setState(() => _pages = images);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_pages == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+    return Stack(
+      children: [
+        PageView.builder(
+          controller: _pageController,
+          onPageChanged: (p) => setState(() => _currentPage = p),
+          itemCount: _pages!.length,
+          itemBuilder: (_, i) => InteractiveViewer(
+            minScale: 0.8,
+            maxScale: 5.0,
+            child: Center(
+              child: Image(image: _pages![i], fit: BoxFit.contain),
+            ),
+          ),
+        ),
+        if (_pages!.length > 1)
+          Positioned(
+            bottom: 8, left: 0, right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${_currentPage + 1} / ${_pages!.length}',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
