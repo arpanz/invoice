@@ -28,6 +28,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   final _ifscCtrl = TextEditingController();
 
   String? _logoPath;
+  String? _signaturePath;
   bool _isSaving = false;
 
   static const String _prefPrefix = 'biz_';
@@ -50,6 +51,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       _accountCtrl.text = prefs.getString('${_prefPrefix}account') ?? '';
       _ifscCtrl.text = prefs.getString('${_prefPrefix}ifsc') ?? '';
       _logoPath = prefs.getString('${_prefPrefix}logo_path');
+      _signaturePath = prefs.getString('${_prefPrefix}signature_path');
     });
   }
 
@@ -68,6 +70,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     await prefs.setString('${_prefPrefix}ifsc', _ifscCtrl.text.trim());
     if (_logoPath != null) {
       await prefs.setString('${_prefPrefix}logo_path', _logoPath!);
+    }
+    if (_signaturePath != null) {
+      await prefs.setString('${_prefPrefix}signature_path', _signaturePath!);
     }
 
     setState(() => _isSaving = false);
@@ -94,6 +99,14 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked != null) {
       setState(() => _logoPath = picked.path);
+    }
+  }
+
+  Future<void> _pickSignature() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (picked != null) {
+      setState(() => _signaturePath = picked.path);
     }
   }
 
@@ -207,6 +220,54 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                     ),
                   ),
                 ],
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Signature Section
+            _buildSectionCard(
+              title: 'Authorized Signature',
+              children: [
+                GestureDetector(
+                  onTap: _pickSignature,
+                  child: Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: AppColors.slate50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.cardBorder,
+                        style: BorderStyle.solid,
+                      ),
+                    ),
+                    child: _signaturePath != null && File(_signaturePath!).existsSync()
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(
+                              File(_signaturePath!),
+                              fit: BoxFit.contain,
+                            ),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(
+                                Icons.draw_outlined,
+                                size: 36,
+                                color: AppColors.slate400,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Tap to upload signature',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),

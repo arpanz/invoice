@@ -17,6 +17,7 @@ class BusinessProfile {
   final String? accountNumber;
   final String? ifscCode;
   final String? logoPath;
+  final String? signaturePath;
   final String currency;
 
   const BusinessProfile({
@@ -29,6 +30,7 @@ class BusinessProfile {
     this.accountNumber,
     this.ifscCode,
     this.logoPath,
+    this.signaturePath,
     this.currency = 'INR',
   });
 }
@@ -68,6 +70,17 @@ class PdfGeneratorService {
       } catch (_) {}
     }
 
+    pw.MemoryImage? signatureImage;
+    if (businessProfile.signaturePath != null) {
+      try {
+        final sigFile = File(businessProfile.signaturePath!);
+        if (await sigFile.exists()) {
+          final bytes = await sigFile.readAsBytes();
+          signatureImage = pw.MemoryImage(bytes);
+        }
+      } catch (_) {}
+    }
+
     final currencySymbol = CurrencyFormatter.getCurrencySymbol(
       businessProfile.currency,
     );
@@ -97,7 +110,7 @@ class PdfGeneratorService {
             _buildNotesSection(invoice.notes!),
           ],
           pw.SizedBox(height: 32),
-          _buildFooter(businessProfile, isPro),
+          _buildFooter(businessProfile, isPro, signatureImage),
         ],
       ),
     );
@@ -639,7 +652,7 @@ class PdfGeneratorService {
     );
   }
 
-  static pw.Widget _buildFooter(BusinessProfile profile, bool isPro) {
+  static pw.Widget _buildFooter(BusinessProfile profile, bool isPro, pw.MemoryImage? signatureImage) {
     return pw.Column(
       children: [
         if (profile.bankName != null || profile.accountNumber != null) ...[
@@ -684,6 +697,23 @@ class PdfGeneratorService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
+                    if (signatureImage != null) ...[
+                      pw.Container(
+                        height: 50,
+                        width: 100,
+                        child: pw.Image(signatureImage, fit: pw.BoxFit.contain),
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        'Authorized Signatory',
+                        style: pw.TextStyle(
+                          fontSize: 9,
+                          fontWeight: pw.FontWeight.bold,
+                          color: _slateColor,
+                        ),
+                      ),
+                      pw.SizedBox(height: 12),
+                    ],
                     pw.Text(
                       'Thank you for your business!',
                       style: pw.TextStyle(
@@ -700,6 +730,33 @@ class PdfGeneratorService {
         ] else ...[
           pw.Divider(color: _borderColor),
           pw.SizedBox(height: 8),
+          if (signatureImage != null) ...[
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.end,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Container(
+                      height: 50,
+                      width: 100,
+                      child: pw.Image(signatureImage, fit: pw.BoxFit.contain),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'Authorized Signatory',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                        color: _slateColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 12),
+          ],
           pw.Center(
             child: pw.Text(
               'Thank you for your business!',

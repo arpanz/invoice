@@ -169,6 +169,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         accountNumber: prefs.getString('biz_account'),
         ifscCode: prefs.getString('biz_ifsc'),
         logoPath: prefs.getString('biz_logo_path'),
+        signaturePath: prefs.getString('biz_signature_path'),
         currency: _currency,
       );
 
@@ -698,6 +699,7 @@ class _InvoicePreviewSheetState extends State<_InvoicePreviewSheet> {
       accountNumber: prefs.getString('biz_account'),
       ifscCode: prefs.getString('biz_ifsc'),
       logoPath: prefs.getString('biz_logo_path'),
+      signaturePath: prefs.getString('biz_signature_path'),
       currency: widget.currency,
     );
 
