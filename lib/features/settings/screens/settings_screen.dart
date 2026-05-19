@@ -7,6 +7,7 @@ import '../../../core/billing/billing_service.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../onboarding/screens/onboarding_screen.dart';
 import '../../paywall/paywall_screen.dart';
 import 'business_profile_screen.dart';
 
@@ -77,6 +78,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'Invoice Maker Pro',
             subtitle: 'Version 1.0.0 | 100% Offline & Private',
             onTap: null,
+          ),
+          const SizedBox(height: 12),
+          _buildListTile(
+            icon: Icons.bug_report_outlined,
+            title: 'Debug: Show Onboarding',
+            subtitle: 'Temporarily view the onboarding flow',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+              );
+            },
           ),
           const SizedBox(height: 12),
           const BannerAdWidget(),
