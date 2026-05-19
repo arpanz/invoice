@@ -158,7 +158,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Remove watermarks and ads. Add your logo.',
+                    'Remove watermark. Unlimited invoices & clients.',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.7),
                       fontSize: 12,
@@ -213,7 +213,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 Text(
-                  'Watermarks removed | Ads disabled | Logo enabled',
+                  'Unlimited Invoices | Unlimited Clients | Clean PDF (No Watermark)',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: AppColors.slate600, fontSize: 12),

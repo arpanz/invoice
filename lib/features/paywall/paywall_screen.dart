@@ -16,7 +16,7 @@ class _PaywallScreenState extends State<PaywallScreen>
   final InAppPurchase _iap = InAppPurchase.instance;
   bool _available = true;
   bool _isLoading = false;
-  bool _isLifetimeSelected = true;
+  String _selectedProductId = AdManager.productId;
 
   List<ProductDetails> _products = [];
   StreamSubscription<List<PurchaseDetails>>? _subscription;
@@ -85,6 +85,7 @@ class _PaywallScreenState extends State<PaywallScreen>
           await _iap.queryProductDetails({
         AdManager.productId,
         AdManager.yearlyProductId,
+        AdManager.monthlyProductId,
       });
       if (mounted) {
         setState(() {
@@ -125,6 +126,7 @@ class _PaywallScreenState extends State<PaywallScreen>
           final knownIds = {
             AdManager.productId,
             AdManager.yearlyProductId,
+            AdManager.monthlyProductId,
             AdManager.legacyProductId,
           };
           if (knownIds.contains(purchase.productID)) {
@@ -174,9 +176,7 @@ class _PaywallScreenState extends State<PaywallScreen>
       );
       return;
     }
-    final selectedId = _isLifetimeSelected
-        ? AdManager.productId
-        : AdManager.yearlyProductId;
+    final selectedId = _selectedProductId;
     final product = _getProduct(selectedId);
     if (product == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -269,12 +269,7 @@ class _PaywallScreenState extends State<PaywallScreen>
                     opacity: _fadeAnimation,
                     child: Column(
                       children: [
-                        const SizedBox(height: 4),
-                        ScaleTransition(
-                          scale: _scaleAnimation,
-                          child: const _InvoiceProAnimation(size: 120),
-                        ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 12),
                         const Padding(
                           padding:
                               EdgeInsets.symmetric(horizontal: 32),
@@ -295,7 +290,7 @@ class _PaywallScreenState extends State<PaywallScreen>
                           padding:
                               EdgeInsets.symmetric(horizontal: 40),
                           child: Text(
-                            'Create unlimited GST-ready invoices, share as PDF, and grow your business — ad-free.',
+                            'Create unlimited invoices, save more clients, access full history, and remove PDF watermarks.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13.5,
@@ -313,38 +308,26 @@ class _PaywallScreenState extends State<PaywallScreen>
                               _buildFeatureRow(
                                 Icons.all_inclusive_rounded,
                                 'Unlimited Invoices',
-                                'Create & send as many invoices as you need.',
+                                'Create and send more than 10 invoices per calendar month.',
                                 Colors.blueAccent,
-                              ),
-                              _buildFeatureRow(
-                                Icons.picture_as_pdf_outlined,
-                                'PDF Export & Share',
-                                'Professional PDF invoices with your logo & GST.',
-                                const Color(0xFFEF4444),
                               ),
                               _buildFeatureRow(
                                 Icons.people_outline_rounded,
                                 'Unlimited Clients',
-                                'Save and manage your entire client list.',
+                                'Save and manage more than 5 clients in your workspace.',
                                 const Color(0xFF10B981),
                               ),
                               _buildFeatureRow(
-                                Icons.business_center_outlined,
-                                'Business Profile',
-                                'Add your signature, logo & GSTIN to every invoice.',
-                                Colors.purpleAccent,
-                              ),
-                              _buildFeatureRow(
-                                Icons.insights_rounded,
-                                'Revenue Dashboard',
-                                'Track paid, unpaid & overdue invoices at a glance.',
+                                Icons.history_rounded,
+                                'Full Invoice History',
+                                'Access all your past invoices (free is limited to the last 5).',
                                 Colors.orangeAccent,
                               ),
                               _buildFeatureRow(
-                                Icons.block_flipped,
-                                'Ad-Free Experience',
-                                'No ads, no interruptions — pure focus.',
-                                const Color(0xFFFF6B6B),
+                                Icons.star_rounded,
+                                'Remove PDF Watermark',
+                                'Export clean PDF invoices with no app branding.',
+                                const Color(0xFFFFD700),
                               ),
                             ],
                           ),
@@ -384,30 +367,40 @@ class _PaywallScreenState extends State<PaywallScreen>
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                      _buildPricingCard(
-                        title: 'Lifetime',
-                        price: _getProduct(AdManager.productId)
-                                ?.price ??
-                            '...',
-                        subtitle: 'One-time payment. Own forever.',
-                        badge: 'BEST VALUE',
-                        badgeColor: accentColor,
-                        isSelected: _isLifetimeSelected,
-                        onTap: () => setState(
-                            () => _isLifetimeSelected = true),
-                      ),
-                      const SizedBox(height: 10),
-                      _buildPricingCard(
-                        title: 'Yearly',
-                        price: _getProduct(AdManager.yearlyProductId)
-                                ?.price ??
-                            '...',
-                        subtitle: 'Billed annually. Cancel anytime.',
-                        badge: null,
-                        badgeColor: Colors.white30,
-                        isSelected: !_isLifetimeSelected,
-                        onTap: () => setState(
-                            () => _isLifetimeSelected = false),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildPricingBox(
+                            title: 'Monthly',
+                            price: _getProduct(AdManager.monthlyProductId)?.price ?? '...',
+                            subtitle: 'Cancel anytime',
+                            badge: null,
+                            badgeColor: Colors.white30,
+                            isSelected: _selectedProductId == AdManager.monthlyProductId,
+                            onTap: () => setState(() => _selectedProductId = AdManager.monthlyProductId),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildPricingBox(
+                            title: 'Yearly',
+                            price: _getProduct(AdManager.yearlyProductId)?.price ?? '...',
+                            subtitle: 'Save big',
+                            badge: 'BEST VALUE',
+                            badgeColor: accentColor,
+                            isSelected: _selectedProductId == AdManager.yearlyProductId,
+                            onTap: () => setState(() => _selectedProductId = AdManager.yearlyProductId),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildPricingBox(
+                            title: 'Lifetime',
+                            price: _getProduct(AdManager.productId)?.price ?? '...',
+                            subtitle: 'Own forever',
+                            badge: 'POPULAR',
+                            badgeColor: const Color(0xFFEF4444),
+                            isSelected: _selectedProductId == AdManager.productId,
+                            onTap: () => setState(() => _selectedProductId = AdManager.productId),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
@@ -424,7 +417,7 @@ class _PaywallScreenState extends State<PaywallScreen>
                             shadowColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
                                 borderRadius:
-                                    BorderRadius.circular(18)),
+                                      BorderRadius.circular(18)),
                           ),
                           child: _isLoading
                               ? const SizedBox(
@@ -436,9 +429,11 @@ class _PaywallScreenState extends State<PaywallScreen>
                                   ),
                                 )
                               : Text(
-                                  _isLifetimeSelected
+                                  _selectedProductId == AdManager.productId
                                       ? 'Get Lifetime Access'
-                                      : 'Start Yearly Plan',
+                                      : _selectedProductId == AdManager.yearlyProductId
+                                          ? 'Start Yearly Plan'
+                                          : 'Start Monthly Plan',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
@@ -451,11 +446,13 @@ class _PaywallScreenState extends State<PaywallScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildTrustBadge(_isLifetimeSelected
+                          _buildTrustBadge(_selectedProductId == AdManager.productId
                               ? '✓  Lifetime'
-                              : '✓  Yearly'),
+                              : _selectedProductId == AdManager.yearlyProductId
+                                  ? '✓  Yearly'
+                                  : '✓  Monthly'),
                           _dot(),
-                          _buildTrustBadge(_isLifetimeSelected
+                          _buildTrustBadge(_selectedProductId == AdManager.productId
                               ? '✓  No subscription'
                               : '✓  Cancel anytime'),
                           _dot(),
@@ -506,7 +503,7 @@ class _PaywallScreenState extends State<PaywallScreen>
             fontWeight: FontWeight.w600),
       );
 
-  Widget _buildPricingCard({
+  Widget _buildPricingBox({
     required String title,
     required String price,
     required String subtitle,
@@ -516,104 +513,91 @@ class _PaywallScreenState extends State<PaywallScreen>
     required VoidCallback onTap,
   }) {
     const accentColor = Color(0xFFFFD700);
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? accentColor.withValues(alpha: 0.08)
-              : const Color(0xFF222540),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          decoration: BoxDecoration(
             color: isSelected
-                ? accentColor
-                : Colors.white.withValues(alpha: 0.08),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? accentColor : Colors.white24,
-                  width: 2,
-                ),
-                color: isSelected ? accentColor : Colors.transparent,
-              ),
-              child: isSelected
-                  ? const Icon(Icons.check,
-                      color: Colors.black, size: 14)
-                  : null,
+                ? accentColor.withValues(alpha: 0.08)
+                : const Color(0xFF222540),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected
+                  ? accentColor
+                  : Colors.white.withValues(alpha: 0.08),
+              width: isSelected ? 2 : 1,
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14.5,
-                          color: isSelected
-                              ? Colors.white
-                              : Colors.white70,
-                        ),
-                      ),
-                      if (badge != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: badgeColor,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            badge,
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 9.5,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                  const SizedBox(height: 6),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isSelected ? Colors.white : Colors.white70,
+                    ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 6),
+                  Text(
+                    price,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 19,
+                      color: isSelected ? accentColor : Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: isSelected
-                          ? Colors.white54
-                          : Colors.white38,
-                      fontSize: 11.5,
+                      color: isSelected ? Colors.white54 : Colors.white38,
+                      fontSize: 10,
                     ),
                   ),
                 ],
               ),
-            ),
-            Text(
-              price,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-                color: isSelected ? accentColor : Colors.white60,
-              ),
-            ),
-          ],
+              if (badge != null)
+                Positioned(
+                  top: -24,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: badgeColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        badge,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 7.5,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

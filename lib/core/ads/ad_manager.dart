@@ -15,6 +15,7 @@ class AdManager {
   // ── IAP Product IDs ────────────────────────────────────────────────────────
   static const String productId = 'invoice_pro_lifetime';
   static const String yearlyProductId = 'invoice_pro_yearly';
+  static const String monthlyProductId = 'invoice_pro_monthly';
   static const String legacyProductId = 'invoice_maker_pro_lifetime';
   static const String appStoreUrl =
       'https://play.google.com/store/apps/details?id=com.livinlabs.invoice';
@@ -50,6 +51,7 @@ class AdManager {
           (p) =>
               (p.productID == productId ||
                   p.productID == yearlyProductId ||
+                  p.productID == monthlyProductId ||
                   p.productID == legacyProductId) &&
               (p.status == PurchaseStatus.purchased ||
                   p.status == PurchaseStatus.restored),
