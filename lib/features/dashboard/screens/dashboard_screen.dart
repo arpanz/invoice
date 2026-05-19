@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/ads/ad_manager.dart';
 import '../../../core/ads/banner_ad_widget.dart';
@@ -106,9 +110,101 @@ class _DashboardScreenState extends State<DashboardScreen> {
       businessProfile: profile,
       isPro: isPro,
     );
-    if (mounted) {
-      await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
-    }
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(ctx).size.height * 0.9,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              child: Row(
+                children: [
+                  const Text(
+                    'Invoice Preview',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: PdfPreview(
+                build: (_) async => pdfBytes,
+                allowPrinting: false,
+                allowSharing: false,
+                canChangePageFormat: false,
+                canChangeOrientation: false,
+                pdfFileName: 'Invoice_${invoice.invoiceNumber}.pdf',
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await Printing.layoutPdf(
+                          onLayout: (_) async => pdfBytes,
+                        );
+                      },
+                      icon: const Icon(Icons.print_outlined, size: 18),
+                      label: const Text('Print'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        final path = await PdfGeneratorService.saveAndGetPath(
+                          pdfBytes,
+                          invoice.invoiceNumber,
+                        );
+                        await Share.shareXFiles([
+                          XFile(path),
+                        ], text: 'Invoice ${invoice.invoiceNumber}');
+                      },
+                      icon: const Icon(Icons.share_outlined, size: 18),
+                      label: const Text('Share'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -136,13 +232,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: AppColors.primary,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.receipt_long,
-                        color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.receipt_long,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 10),
-                  const Text('Overview',
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w800)),
+                  const Text(
+                    'Overview',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
                 ],
               ),
               actions: [
@@ -170,10 +270,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF2563EB),
-                                  Color(0xFF1D4ED8)
-                                ],
+                                colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
@@ -200,9 +297,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     const Text(
                                       'Total Outstanding',
                                       style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500),
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -273,16 +371,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ).then((_) => _loadData()),
                             icon: const Icon(Icons.add, size: 22),
-                            label: const Text('New Invoice',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700)),
+                            label: const Text(
+                              'New Invoice',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                               minimumSize: const Size(double.infinity, 56),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14)),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                               elevation: 0,
                             ),
                           ),
@@ -292,16 +394,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Recent Invoices',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700)),
+                              const Text(
+                                'Recent Invoices',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                               if (_recentInvoices.isNotEmpty)
                                 Text(
                                   '${_recentInvoices.length} shown',
                                   style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary),
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
                                 ),
                             ],
                           ),
@@ -318,8 +424,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             // ── Invoice list with native ad injected after 3rd item ──
                             ...List.generate(
                               _recentInvoices.length +
-                                  (!billing.isPro &&
-                                          _recentInvoices.length >= 3
+                                  (!billing.isPro && _recentInvoices.length >= 3
                                       ? 1
                                       : 0),
                               (index) {
@@ -329,22 +434,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     index == 3) {
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 8),
-                                    child: NativeAdWidget(
-                                      height: 80,
-                                    ),
+                                    child: NativeAdWidget(height: 80),
                                   );
                                 }
-                                final invoiceIndex = (!billing.isPro &&
+                                final invoiceIndex =
+                                    (!billing.isPro &&
                                         _recentInvoices.length >= 3 &&
                                         index > 3)
                                     ? index - 1
                                     : index;
-                                final invoice =
-                                    _recentInvoices[invoiceIndex];
+                                final invoice = _recentInvoices[invoiceIndex];
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: _buildRecentInvoiceCard(
-                                      invoice, currencySymbol),
+                                    invoice,
+                                    currencySymbol,
+                                  ),
                                 );
                               },
                             ),
@@ -399,16 +504,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: AppColors.textSecondary)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildRecentInvoiceCard(
-      InvoiceModel invoice, String currencySymbol) {
+  Widget _buildRecentInvoiceCard(InvoiceModel invoice, String currencySymbol) {
     final dateFormat = DateFormat('dd MMM');
     Color statusBg, statusText;
     String statusLabel;
@@ -448,8 +556,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: AppColors.slate100,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.receipt_outlined,
-                  size: 20, color: AppColors.slate500),
+              child: const Icon(
+                Icons.receipt_outlined,
+                size: 20,
+                color: AppColors.slate500,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -459,14 +570,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Text(
                     invoice.clientName,
                     style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     '${invoice.invoiceNumber} • ${dateFormat.format(invoice.invoiceDate)}',
                     style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary),
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -475,15 +590,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  CurrencyFormatter.format(invoice.grandTotal,
-                      currencySymbol: currencySymbol),
+                  CurrencyFormatter.format(
+                    invoice.grandTotal,
+                    currencySymbol: currencySymbol,
+                  ),
                   style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w700),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: statusBg,
                     borderRadius: BorderRadius.circular(5),
@@ -491,9 +612,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Text(
                     statusLabel,
                     style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: statusText),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: statusText,
+                    ),
                   ),
                 ),
               ],
