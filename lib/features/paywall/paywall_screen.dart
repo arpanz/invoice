@@ -270,18 +270,28 @@ class _PaywallScreenState extends State<PaywallScreen>
                     child: Column(
                       children: [
                         const SizedBox(height: 12),
-                        const Padding(
+                        Padding(
                           padding:
-                              EdgeInsets.symmetric(horizontal: 32),
-                          child: Text(
-                            'Unlock\nInvoice Maker Pro',
+                              const EdgeInsets.symmetric(horizontal: 32),
+                          child: RichText(
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: -0.8,
-                              height: 1.15,
+                            text: const TextSpan(
+                              style: TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: -0.8,
+                                height: 1.15,
+                              ),
+                              children: [
+                                TextSpan(text: 'Unlock\nInvoice Maker '),
+                                TextSpan(
+                                  text: 'Pro',
+                                  style: TextStyle(
+                                    color: Color(0xFFFFD700),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
