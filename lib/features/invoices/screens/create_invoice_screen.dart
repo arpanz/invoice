@@ -123,7 +123,30 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       final invoiceCount = await _getNextInvoiceNumber();
       _invoiceNumberCtrl.text =
           'INV-${invoiceCount.toString().padLeft(3, '0')}';
-      _dueDate = DateTime.now().add(const Duration(days: 30));
+      
+      final prefs = await SharedPreferences.getInstance();
+      final defaultTerms = prefs.getString('default_payment_terms') ?? 'Net 30';
+      
+      _dueDatePreset = defaultTerms;
+      switch (defaultTerms) {
+        case 'Net 15':
+          _dueDate = _invoiceDate.add(const Duration(days: 15));
+          break;
+        case 'Net 30':
+          _dueDate = _invoiceDate.add(const Duration(days: 30));
+          break;
+        case 'Net 45':
+          _dueDate = _invoiceDate.add(const Duration(days: 45));
+          break;
+        case 'Net 60':
+          _dueDate = _invoiceDate.add(const Duration(days: 60));
+          break;
+        case 'Due on Receipt':
+          _dueDate = _invoiceDate;
+          break;
+        default:
+          _dueDate = _invoiceDate.add(const Duration(days: 30));
+      }
 
       if (defaultTax > 0) {
         _hasTax = true;
@@ -224,6 +247,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           break;
         case 'Net 30':
           _dueDate = _invoiceDate.add(const Duration(days: 30));
+          break;
+        case 'Net 45':
+          _dueDate = _invoiceDate.add(const Duration(days: 45));
           break;
         case 'Net 60':
           _dueDate = _invoiceDate.add(const Duration(days: 60));
