@@ -622,67 +622,126 @@ class _BusinessSetupPageState extends State<_BusinessSetupPage> {
             ),
             const SizedBox(height: 32),
 
-            // Logo Picker
-            GestureDetector(
-              onTap: _pickLogo,
-              child: Container(
-                height: 100,
-                width: 100,
-                decoration: BoxDecoration(
-                  color: AppColors.slate50,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.cardBorder),
-                ),
-                child: _logoPath != null && File(_logoPath!).existsSync()
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.file(
-                          File(_logoPath!),
-                          fit: BoxFit.contain,
-                        ),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            isPro
-                                ? Icons.add_photo_alternate_outlined
-                                : Icons.lock_outline,
-                            color: AppColors.slate400,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            isPro ? 'Add Logo' : 'Pro feature',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+            // Group fields in a nice card
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.cardBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 24),
-
-            CustomTextField(
-              label: 'Business Name',
-              hint: 'e.g. Acme Corp',
-              controller: _nameCtrl,
-              textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Email (Optional)',
-              hint: 'e.g. contact@acme.com',
-              controller: _emailCtrl,
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Phone (Optional)',
-              hint: 'e.g. +1 234 567 8900',
-              controller: _phoneCtrl,
-              keyboardType: TextInputType.phone,
+              child: Column(
+                children: [
+                  // Prominent Logo Picker
+                  GestureDetector(
+                    onTap: _pickLogo,
+                    child: Container(
+                      height: 140,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: AppColors.slate50,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.slate200, width: 2),
+                      ),
+                      child: _logoPath != null && File(_logoPath!).existsSync()
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: Image.file(
+                                File(_logoPath!),
+                                fit: BoxFit.contain,
+                              ),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.04),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    isPro
+                                        ? Icons.add_photo_alternate_rounded
+                                        : Icons.lock_outline_rounded,
+                                    color: AppColors.primary,
+                                    size: 28,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  isPro
+                                      ? 'Upload Company Logo'
+                                      : 'Pro Feature: Add Logo',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                if (!isPro) ...[
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Tap to unlock',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  CustomTextField(
+                    label: 'Business Name',
+                    hint: 'e.g. Acme Corp',
+                    controller: _nameCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    prefixIcon: const Icon(
+                      Icons.business_rounded,
+                      color: AppColors.slate400,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Email (Optional)',
+                    hint: 'e.g. contact@acme.com',
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    prefixIcon: const Icon(
+                      Icons.email_rounded,
+                      color: AppColors.slate400,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Phone (Optional)',
+                    hint: 'e.g. +1 234 567 8900',
+                    controller: _phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    prefixIcon: const Icon(
+                      Icons.phone_rounded,
+                      color: AppColors.slate400,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 32),
 
@@ -1068,31 +1127,66 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
             ),
             const SizedBox(height: 32),
 
-            CustomTextField(
-              label: 'Bank Name',
-              hint: 'e.g. Chase, State Bank of India',
-              controller: _bankCtrl,
-              textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Account Number',
-              hint: 'e.g. 1234567890',
-              controller: _accCtrl,
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Routing / IFSC Code',
-              hint: 'e.g. CHASUS33 / SBIN0001234',
-              controller: _ifscCtrl,
-              textCapitalization: TextCapitalization.characters,
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'UPI / PayPal / Other Instructions',
-              hint: 'e.g. PayPal: user@email.com',
-              controller: _upiCtrl,
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.cardBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  CustomTextField(
+                    label: 'Bank Name',
+                    hint: 'e.g. Chase, SBI',
+                    controller: _bankCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    prefixIcon: const Icon(
+                      Icons.account_balance_rounded,
+                      color: AppColors.slate400,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Account Number',
+                    hint: 'e.g. 1234567890',
+                    controller: _accCtrl,
+                    keyboardType: TextInputType.number,
+                    prefixIcon: const Icon(
+                      Icons.numbers_rounded,
+                      color: AppColors.slate400,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Routing / IFSC Code',
+                    hint: 'e.g. CHASUS33',
+                    controller: _ifscCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    prefixIcon: const Icon(
+                      Icons.account_tree_rounded,
+                      color: AppColors.slate400,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'UPI / PayPal / Other',
+                    hint: 'e.g. PayPal: user@email.com',
+                    controller: _upiCtrl,
+                    prefixIcon: const Icon(
+                      Icons.payment_rounded,
+                      color: AppColors.slate400,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 32),
 
@@ -1186,41 +1280,84 @@ class _PaymentTermsPageState extends State<_PaymentTermsPage> {
             ),
             const SizedBox(height: 32),
 
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: _termsOptions.map((term) {
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _termsOptions.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final term = _termsOptions[index];
                 final isSelected = _selectedTerms == term;
-                return ChoiceChip(
-                  label: Text(term),
-                  selected: isSelected,
-                  onSelected: (selected) {
+                return GestureDetector(
+                  onTap: () {
                     HapticFeedback.lightImpact();
-                    setState(() => _selectedTerms = selected ? term : null);
-                    if (selected) {
+                    setState(() => _selectedTerms = term);
+                    // Add a tiny delay so the user sees the selection before navigating away
+                    Future.delayed(const Duration(milliseconds: 150), () {
                       _finishOnboarding(context);
-                    }
+                    });
                   },
-                  selectedColor: AppColors.primary,
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : AppColors.textPrimary,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                  ),
-                  backgroundColor: AppColors.surface,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
                       color: isSelected
-                          ? AppColors.primary
-                          : AppColors.cardBorder,
+                          ? AppColors.primary.withOpacity(0.05)
+                          : AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.cardBorder,
+                        width: isSelected ? 2 : 1,
+                      ),
+                      boxShadow: [
+                        if (!isSelected)
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : AppColors.slate300,
+                              width: isSelected ? 7 : 2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          term,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
-              }).toList(),
+              },
             ),
-            const SizedBox(height: 48),
+            const SizedBox(height: 32),
 
             Center(
               child: TextButton(
