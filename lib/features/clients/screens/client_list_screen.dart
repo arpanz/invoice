@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import '../../../core/ads/ad_manager.dart';
-import '../../../core/ads/banner_ad_widget.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -221,19 +219,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
     final billing = context.watch<BillingService>();
     final filtered = _filteredClients;
 
-    // Build list items with native ad injected every 4 clients (free only)
-    List<Widget> listItems = [];
-    for (int i = 0; i < filtered.length; i++) {
-      listItems.add(_buildClientCard(filtered[i]));
-      if (!billing.isPro && (i + 1) % 4 == 0 && i != filtered.length - 1) {
-        listItems.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: NativeAdWidget(height: 72),
-          ),
-        );
-      }
-    }
+    final listItems = filtered.map((c) => _buildClientCard(c)).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -277,10 +263,6 @@ class _ClientListScreenState extends State<ClientListScreen> {
                             const SizedBox(height: 8),
                         itemBuilder: (_, index) => listItems[index],
                       ),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: BannerAdWidget(),
           ),
         ],
       ),

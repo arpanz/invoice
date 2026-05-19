@@ -7,8 +7,6 @@ import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/ads/ad_manager.dart';
-import '../../../core/ads/banner_ad_widget.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/providers/currency_provider.dart';
@@ -156,54 +154,43 @@ class DashboardScreenState extends State<DashboardScreen> {
       }
       return;
     }
-    
     if (action == 'print' || action == 'share' || action == 'save') {
-       final isPro = context.read<BillingService>().isPro;
-       if (!isPro) {
-          final completer = Completer<void>();
-          AdManager.instance.showInterstitial(
-            context,
-            onAdDismissed: () {
-              if (!completer.isCompleted) completer.complete();
-            },
-          );
-          await completer.future;
-       }
-       if (!mounted) return;
+      final isPro = context.read<BillingService>().isPro;
+      if (!mounted) return;
 
-       final prefs = await SharedPreferences.getInstance();
-       final profile = BusinessProfile(
-         businessName: prefs.getString('biz_name') ?? 'My Business',
-         address: prefs.getString('biz_address'),
-         phone: prefs.getString('biz_phone'),
-         email: prefs.getString('biz_email'),
-         gstin: prefs.getString('biz_gstin'),
-         bankName: prefs.getString('biz_bank_name'),
-         accountNumber: prefs.getString('biz_account'),
-         ifscCode: prefs.getString('biz_ifsc'),
-         logoPath: prefs.getString('biz_logo_path'),
-         currency: _currency,
-       );
+      final prefs = await SharedPreferences.getInstance();
+      final profile = BusinessProfile(
+        businessName: prefs.getString('biz_name') ?? 'My Business',
+        address: prefs.getString('biz_address'),
+        phone: prefs.getString('biz_phone'),
+        email: prefs.getString('biz_email'),
+        gstin: prefs.getString('biz_gstin'),
+        bankName: prefs.getString('biz_bank_name'),
+        accountNumber: prefs.getString('biz_account'),
+        ifscCode: prefs.getString('biz_ifsc'),
+        logoPath: prefs.getString('biz_logo_path'),
+        currency: _currency,
+      );
 
-       final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
-         invoice: invoice,
-         businessProfile: profile,
-         isPro: isPro,
-       );
+      final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
+        invoice: invoice,
+        businessProfile: profile,
+        isPro: isPro,
+      );
 
-       if (action == 'print') {
-         await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
-       } else if (action == 'share') {
-         final path = await PdfGeneratorService.saveAndGetPath(pdfBytes, invoice.invoiceNumber);
-         await Share.shareXFiles([XFile(path)], text: 'Invoice ${invoice.invoiceNumber}');
-         AppReviewService.instance.registerSignificantAction();
-       } else if (action == 'save') {
-         final path = await PdfGeneratorService.saveAndGetPath(pdfBytes, invoice.invoiceNumber);
-         AppReviewService.instance.registerSignificantAction();
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invoice saved at $path')));
-         }
-       }
+      if (action == 'print') {
+        await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
+      } else if (action == 'share') {
+        final path = await PdfGeneratorService.saveAndGetPath(pdfBytes, invoice.invoiceNumber);
+        await Share.shareXFiles([XFile(path)], text: 'Invoice ${invoice.invoiceNumber}');
+        AppReviewService.instance.registerSignificantAction();
+      } else if (action == 'save') {
+        final path = await PdfGeneratorService.saveAndGetPath(pdfBytes, invoice.invoiceNumber);
+        AppReviewService.instance.registerSignificantAction();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invoice saved at $path')));
+        }
+      }
     }
   }
 
@@ -416,41 +403,15 @@ class DashboardScreenState extends State<DashboardScreen> {
                                   'Tap "+ New Invoice" to create your first invoice',
                             )
                           else
-                            // ── Invoice list with native ad injected after 3rd item ──
-                            ...List.generate(
-                              _recentInvoices.length +
-                                  (!billing.isPro && _recentInvoices.length >= 3
-                                      ? 1
-                                      : 0),
-                              (index) {
-                                // Insert native ad between 3rd and 4th invoice
-                                if (!billing.isPro &&
-                                    _recentInvoices.length >= 3 &&
-                                    index == 3) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: NativeAdWidget(height: 80),
-                                  );
-                                }
-                                final invoiceIndex =
-                                    (!billing.isPro &&
-                                        _recentInvoices.length >= 3 &&
-                                        index > 3)
-                                    ? index - 1
-                                    : index;
-                                final invoice = _recentInvoices[invoiceIndex];
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: _buildRecentInvoiceCard(
-                                    invoice,
-                                    currencySymbol,
-                                  ),
-                                );
-                              },
-                            ),
+                            ..._recentInvoices.map((invoice) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _buildRecentInvoiceCard(
+                                invoice,
+                                currencySymbol,
+                              ),
+                            )),
 
                           const SizedBox(height: 16),
-                          const BannerAdWidget(),
                         ],
                       ),
                     ),

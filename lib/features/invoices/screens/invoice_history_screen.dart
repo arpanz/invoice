@@ -7,8 +7,6 @@ import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/ads/ad_manager.dart';
-import '../../../core/ads/banner_ad_widget.dart';
 import '../../../core/app/app_review_service.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
@@ -236,20 +234,6 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   }
 
   Future<void> _runWithInterstitial(Future<void> Function() action) async {
-    final isPro = context.read<BillingService>().isPro;
-    if (isPro) {
-      await action();
-      return;
-    }
-    final completer = Completer<void>();
-    AdManager.instance.showInterstitial(
-      context,
-      onAdDismissed: () {
-        if (!completer.isCompleted) completer.complete();
-      },
-    );
-    await completer.future;
-    if (!mounted) return;
     await action();
   }
 
@@ -373,10 +357,6 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                     itemBuilder: (_, index) => listItems[index],
                   ),
                 ),
-        ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
-          child: BannerAdWidget(),
         ),
       ],
     );

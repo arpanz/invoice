@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/ads/ad_manager.dart';
-import '../../../core/ads/banner_ad_widget.dart';
 import '../../../core/app/app_review_service.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/models/currency_model.dart';
@@ -91,8 +90,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
           ),
-          const SizedBox(height: 12),
-          const BannerAdWidget(),
           const SizedBox(height: 32),
         ],
       ),
