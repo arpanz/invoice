@@ -60,7 +60,7 @@ class PdfGeneratorService {
     );
 
     pw.MemoryImage? logoImage;
-    if (isPro && businessProfile.logoPath != null) {
+    if (businessProfile.logoPath != null) {
       try {
         final logoFile = File(businessProfile.logoPath!);
         if (await logoFile.exists()) {

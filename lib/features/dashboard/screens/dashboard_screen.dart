@@ -19,6 +19,7 @@ import '../../invoices/screens/create_invoice_screen.dart';
 import '../../invoices/screens/invoice_history_screen.dart';
 import '../../invoices/services/pdf_generator_service.dart';
 import '../../../core/app/app_review_service.dart';
+import '../../paywall/paywall_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -32,6 +33,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   double _totalOutstanding = 0;
   double _paidThisMonth = 0;
   double _totalOverdue = 0;
+  int _monthlyInvoiceCount = 0;
   bool _isLoading = true;
   String _currency = 'INR';
 
@@ -84,11 +86,14 @@ class DashboardScreenState extends State<DashboardScreen> {
       }
     }
 
+    final monthlyCount = await DbProvider.countInvoicesThisMonth();
+
     setState(() {
       _recentInvoices = invoices.take(5).toList();
       _totalOutstanding = outstanding;
       _paidThisMonth = paidThisMonth;
       _totalOverdue = overdue;
+      _monthlyInvoiceCount = monthlyCount;
       _isLoading = false;
     });
   }
@@ -99,14 +104,15 @@ class DashboardScreenState extends State<DashboardScreen> {
       isScrollControlled: true,
       enableDrag: false,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _InvoicePreviewSheet(
-        invoice: invoice,
-        currency: _currency,
-      ),
+      builder: (ctx) =>
+          _InvoicePreviewSheet(invoice: invoice, currency: _currency),
     );
   }
 
-  Future<void> _handleInvoiceMenuAction(String action, InvoiceModel invoice) async {
+  Future<void> _handleInvoiceMenuAction(
+    String action,
+    InvoiceModel invoice,
+  ) async {
     if (action == 'paid') {
       await _markAs(invoice, InvoiceStatus.paid);
       return;
@@ -145,11 +151,9 @@ class DashboardScreenState extends State<DashboardScreen> {
         ),
       );
       if (confirm == true) {
-        await DbProvider.delete(
-          DbProvider.tableInvoices,
-          'id = ?',
-          [invoice.id],
-        );
+        await DbProvider.delete(DbProvider.tableInvoices, 'id = ?', [
+          invoice.id,
+        ]);
         if (mounted) _loadData();
       }
       return;
@@ -182,14 +186,24 @@ class DashboardScreenState extends State<DashboardScreen> {
       if (action == 'print') {
         await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
       } else if (action == 'share') {
-        final path = await PdfGeneratorService.saveAndGetPath(pdfBytes, invoice.invoiceNumber);
-        await Share.shareXFiles([XFile(path)], text: 'Invoice ${invoice.invoiceNumber}');
+        final path = await PdfGeneratorService.saveAndGetPath(
+          pdfBytes,
+          invoice.invoiceNumber,
+        );
+        await Share.shareXFiles([
+          XFile(path),
+        ], text: 'Invoice ${invoice.invoiceNumber}');
         AppReviewService.instance.registerSignificantAction();
       } else if (action == 'save') {
-        final path = await PdfGeneratorService.saveAndGetPath(pdfBytes, invoice.invoiceNumber);
+        final path = await PdfGeneratorService.saveAndGetPath(
+          pdfBytes,
+          invoice.invoiceNumber,
+        );
         AppReviewService.instance.registerSignificantAction();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invoice saved at $path')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Invoice saved at $path')));
         }
       }
     }
@@ -250,24 +264,34 @@ class DashboardScreenState extends State<DashboardScreen> {
                           // Outstanding card
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 24,
+                            ),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [AppColors.primary, AppColors.primaryDark],
+                                colors: [
+                                  AppColors.primary,
+                                  AppColors.primaryDark,
+                                ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(24),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.primary.withAlpha(76), // 30% opacity
+                                  color: AppColors.primary.withAlpha(
+                                    76,
+                                  ), // 30% opacity
                                   blurRadius: 24,
                                   spreadRadius: -4,
                                   offset: const Offset(0, 12),
                                 ),
                               ],
                               border: Border.all(
-                                color: Colors.white.withAlpha(25), // 10% opacity subtle border glow
+                                color: Colors.white.withAlpha(
+                                  25,
+                                ), // 10% opacity subtle border glow
                                 width: 1.5,
                               ),
                             ),
@@ -276,10 +300,14 @@ class DashboardScreenState extends State<DashboardScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withAlpha(25), // 10% opacity
+                                    color: Colors.white.withAlpha(
+                                      25,
+                                    ), // 10% opacity
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: Colors.white.withAlpha(51), // 20% opacity
+                                      color: Colors.white.withAlpha(
+                                        51,
+                                      ), // 20% opacity
                                       width: 1,
                                     ),
                                   ),
@@ -292,7 +320,8 @@ class DashboardScreenState extends State<DashboardScreen> {
                                 const SizedBox(width: 18),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'Total Outstanding',
@@ -323,6 +352,81 @@ class DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
+
+                          if (!billing.isPro) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.slate50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.cardBorder),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.receipt_long_outlined,
+                                    size: 20,
+                                    color: AppColors.slate600,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Free Plan Limit',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.slate800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '$_monthlyInvoiceCount of 10 invoices created this month',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppColors.slate600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const PaywallScreen(),
+                                      ),
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 4,
+                                      ),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      backgroundColor: AppColors.proGoldLight,
+                                      foregroundColor: AppColors.proGold,
+                                    ),
+                                    child: const Text(
+                                      'Upgrade',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
 
                           // Metrics row
                           Row(
@@ -373,14 +477,16 @@ class DashboardScreenState extends State<DashboardScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => const InvoiceHistoryScreen(),
+                                        builder: (_) =>
+                                            const InvoiceHistoryScreen(),
                                       ),
                                     ).then((_) => _loadData());
                                   },
                                   style: TextButton.styleFrom(
                                     padding: EdgeInsets.zero,
                                     minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                   child: const Text(
                                     'View All',
@@ -403,13 +509,15 @@ class DashboardScreenState extends State<DashboardScreen> {
                                   'Tap "+ New Invoice" to create your first invoice',
                             )
                           else
-                            ..._recentInvoices.map((invoice) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _buildRecentInvoiceCard(
-                                invoice,
-                                currencySymbol,
+                            ..._recentInvoices.map(
+                              (invoice) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _buildRecentInvoiceCard(
+                                  invoice,
+                                  currencySymbol,
+                                ),
                               ),
-                            )),
+                            ),
 
                           const SizedBox(height: 16),
                         ],
@@ -590,7 +698,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                     value: 'paid',
                     child: Row(
                       children: const [
-                        Icon(Icons.check_circle_outline, size: 20, color: AppColors.statusPaid),
+                        Icon(
+                          Icons.check_circle_outline,
+                          size: 20,
+                          color: AppColors.statusPaid,
+                        ),
                         SizedBox(width: 12),
                         Text('Mark as Paid'),
                       ],
@@ -601,7 +713,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                     value: 'unpaid',
                     child: Row(
                       children: const [
-                        Icon(Icons.radio_button_unchecked, size: 20, color: AppColors.statusUnpaid),
+                        Icon(
+                          Icons.radio_button_unchecked,
+                          size: 20,
+                          color: AppColors.statusUnpaid,
+                        ),
                         SizedBox(width: 12),
                         Text('Mark as Unpaid'),
                       ],
@@ -611,7 +727,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                   value: 'edit',
                   child: Row(
                     children: const [
-                      Icon(Icons.edit_outlined, size: 20, color: AppColors.slate600),
+                      Icon(
+                        Icons.edit_outlined,
+                        size: 20,
+                        color: AppColors.slate600,
+                      ),
                       SizedBox(width: 12),
                       Text('Edit'),
                     ],
@@ -621,7 +741,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                   value: 'save',
                   child: Row(
                     children: const [
-                      Icon(Icons.download_outlined, size: 20, color: AppColors.slate600),
+                      Icon(
+                        Icons.download_outlined,
+                        size: 20,
+                        color: AppColors.slate600,
+                      ),
                       SizedBox(width: 12),
                       Text('Save PDF'),
                     ],
@@ -631,7 +755,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                   value: 'print',
                   child: Row(
                     children: const [
-                      Icon(Icons.print_outlined, size: 20, color: AppColors.slate600),
+                      Icon(
+                        Icons.print_outlined,
+                        size: 20,
+                        color: AppColors.slate600,
+                      ),
                       SizedBox(width: 12),
                       Text('Print'),
                     ],
@@ -641,7 +769,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                   value: 'share',
                   child: Row(
                     children: const [
-                      Icon(Icons.share_outlined, size: 20, color: AppColors.slate600),
+                      Icon(
+                        Icons.share_outlined,
+                        size: 20,
+                        color: AppColors.slate600,
+                      ),
                       SizedBox(width: 12),
                       Text('Share'),
                     ],
@@ -652,9 +784,16 @@ class DashboardScreenState extends State<DashboardScreen> {
                   value: 'delete',
                   child: Row(
                     children: const [
-                      Icon(Icons.delete_outline, size: 20, color: AppColors.accentRed),
+                      Icon(
+                        Icons.delete_outline,
+                        size: 20,
+                        color: AppColors.accentRed,
+                      ),
                       SizedBox(width: 12),
-                      Text('Delete', style: TextStyle(color: AppColors.accentRed)),
+                      Text(
+                        'Delete',
+                        style: TextStyle(color: AppColors.accentRed),
+                      ),
                     ],
                   ),
                 ),
@@ -749,7 +888,9 @@ class _InvoicePreviewSheetState extends State<_InvoicePreviewSheet> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const CircularProgressIndicator(color: AppColors.primary),
+                        const CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           'Generating PDF...',
@@ -874,10 +1015,7 @@ class _PdfRasterViewerState extends State<_PdfRasterViewer> {
             minScale: 0.8,
             maxScale: 5.0,
             child: Center(
-              child: Image(
-                image: _pages![i],
-                fit: BoxFit.contain,
-              ),
+              child: Image(image: _pages![i], fit: BoxFit.contain),
             ),
           ),
         ),
@@ -888,7 +1026,10 @@ class _PdfRasterViewerState extends State<_PdfRasterViewer> {
             right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(12),

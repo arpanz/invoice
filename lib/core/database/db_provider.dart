@@ -155,4 +155,17 @@ class DbProvider {
     final db = await database;
     return await db.rawQuery(sql, args);
   }
+
+  static Future<int> countInvoicesThisMonth() async {
+    final db = await database;
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1).millisecondsSinceEpoch;
+    
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) FROM $tableInvoices WHERE created_at >= ?',
+      [startOfMonth],
+    );
+    
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
 }

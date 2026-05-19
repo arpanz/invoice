@@ -246,13 +246,16 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (index) {
+          onTap: (index) async {
             // For "Create Invoice" tab, always push a fresh screen
             if (index == 2) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
-              );
+              if (await CreateInvoiceScreen.canCreateNewInvoice(context)) {
+                if (!context.mounted) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
+                );
+              }
               return;
             }
             setState(() => _currentIndex = index);

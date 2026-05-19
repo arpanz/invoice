@@ -89,12 +89,6 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   }
 
   Future<void> _pickLogo() async {
-    final isPro = context.read<BillingService>().isPro;
-    if (!isPro) {
-      PaywallBottomSheet.show(context);
-      return;
-    }
-
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked != null) {
@@ -125,8 +119,6 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isPro = context.watch<BillingService>().isPro;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Business Profile'),
@@ -168,16 +160,16 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
+                            children: const [
                               Icon(
-                                isPro ? Icons.add_photo_alternate_outlined : Icons.lock_outline,
+                                Icons.add_photo_alternate_outlined,
                                 size: 36,
                                 color: AppColors.slate400,
                               ),
-                              const SizedBox(height: 8),
+                              SizedBox(height: 8),
                               Text(
-                                isPro ? 'Tap to upload logo' : 'Pro feature – Unlock to add logo',
-                                style: const TextStyle(
+                                'Tap to upload logo',
+                                style: TextStyle(
                                   color: AppColors.textSecondary,
                                   fontSize: 13,
                                 ),
@@ -186,40 +178,6 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           ),
                   ),
                 ),
-                if (!isPro) ...[
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () => PaywallBottomSheet.show(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.proGoldLight,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.proGold.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.workspace_premium, color: AppColors.proGold, size: 16),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'Upgrade to Pro to add your logo',
-                              style: TextStyle(fontSize: 12, color: AppColors.slate700),
-                            ),
-                          ),
-                          const Text(
-                            'Unlock →',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.proGold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
             const SizedBox(height: 16),

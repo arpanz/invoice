@@ -19,11 +19,26 @@ import '../../clients/screens/client_list_screen.dart';
 import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
 import '../services/pdf_generator_service.dart';
+import '../../paywall/paywall_screen.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   final InvoiceModel? existingInvoice;
 
   const CreateInvoiceScreen({super.key, this.existingInvoice});
+
+  static Future<bool> canCreateNewInvoice(BuildContext context) async {
+    final isPro = context.read<BillingService>().isPro;
+    if (isPro) return true;
+
+    final count = await DbProvider.countInvoicesThisMonth();
+    if (count >= 10) {
+      if (context.mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const PaywallScreen()));
+      }
+      return false;
+    }
+    return true;
+  }
 
   @override
   State<CreateInvoiceScreen> createState() => _CreateInvoiceScreenState();
@@ -63,6 +78,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
   final _notesCtrl = TextEditingController();
   String _currency = 'INR';
+  String? _activeInvoiceId;
 
   bool _isGenerating = false;
 
@@ -79,6 +95,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
     if (widget.existingInvoice != null) {
       final inv = widget.existingInvoice!;
+      _activeInvoiceId = inv.id;
       _invoiceNumberCtrl.text = inv.invoiceNumber;
       _invoiceDate = inv.invoiceDate;
       _dueDate = inv.dueDate;
@@ -497,7 +514,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
       // Build invoice model
       final now = DateTime.now();
-      final invoiceId = widget.existingInvoice?.id ?? const Uuid().v4();
+      final invoiceId = _activeInvoiceId ?? const Uuid().v4();
+      _activeInvoiceId = invoiceId;
 
       final lineItems = _lineItems.asMap().entries.map((e) {
         final item = e.value;
