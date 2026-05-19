@@ -223,27 +223,9 @@ class DashboardScreenState extends State<DashboardScreen> {
               floating: true,
               snap: true,
               backgroundColor: AppColors.surface,
-              title: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.receipt_long,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Overview',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                ],
+              title: const Text(
+                'Overview',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
               actions: [
                 IconButton(
@@ -267,30 +249,46 @@ class DashboardScreenState extends State<DashboardScreen> {
                           // Outstanding card
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [AppColors.primary, AppColors.primaryDark],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withAlpha(76), // 30% opacity
+                                  blurRadius: 24,
+                                  spreadRadius: -4,
+                                  offset: const Offset(0, 12),
+                                ),
+                              ],
+                              border: Border.all(
+                                color: Colors.white.withAlpha(25), // 10% opacity subtle border glow
+                                width: 1.5,
+                              ),
                             ),
                             child: Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(8),
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(10),
+                                    color: Colors.white.withAlpha(25), // 10% opacity
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.white.withAlpha(51), // 20% opacity
+                                      width: 1,
+                                    ),
                                   ),
                                   child: const Icon(
                                     Icons.account_balance_wallet_outlined,
-                                    color: Colors.white70,
-                                    size: 18,
+                                    color: Colors.white,
+                                    size: 26,
                                   ),
                                 ),
-                                const SizedBox(width: 14),
+                                const SizedBox(width: 18),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,12 +296,13 @@ class DashboardScreenState extends State<DashboardScreen> {
                                       const Text(
                                         'Total Outstanding',
                                         style: TextStyle(
-                                          color: Colors.white60,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
+                                          color: Colors.white70,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.5,
                                         ),
                                       ),
-                                      const SizedBox(height: 2),
+                                      const SizedBox(height: 6),
                                       Text(
                                         CurrencyFormatter.format(
                                           _totalOutstanding,
@@ -311,9 +310,9 @@ class DashboardScreenState extends State<DashboardScreen> {
                                         ),
                                         style: const TextStyle(
                                           color: Colors.white,
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: -0.5,
+                                          fontSize: 30,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: -1.2,
                                         ),
                                       ),
                                     ],
