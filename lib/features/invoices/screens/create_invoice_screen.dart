@@ -723,13 +723,36 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd MMM yyyy');
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.existingInvoice != null ? 'Edit Invoice' : 'New Invoice',
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF0F172A),
+            Color(0xFF1E40AF),
+            Color(0xFF2563EB),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
       ),
-      body: Form(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          systemOverlayStyle: SystemUiOverlayStyle.light,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: Text(
+            widget.existingInvoice != null ? 'Edit Invoice' : 'New Invoice',
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        body: Form(
         key: _formKey,
         child: Stack(
           children: [
@@ -1255,6 +1278,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

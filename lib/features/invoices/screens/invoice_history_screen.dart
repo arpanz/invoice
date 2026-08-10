@@ -347,7 +347,7 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         // Invoice list
         Expanded(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              ? const Center(child: CircularProgressIndicator(color: Colors.white))
               : filtered.isEmpty
               ? EmptyStateView(
                   icon: Icons.receipt_long_rounded,
@@ -355,6 +355,7 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   subtitle: _filterStatus == 'all'
                       ? 'Create your first invoice to get started'
                       : 'No $_filterStatus invoices found',
+                  isDarkBackground: true,
                 )
               : RefreshIndicator(
                   onRefresh: _loadInvoices,
@@ -381,28 +382,28 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
+          color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.16),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.cardBorder,
+            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.25),
             width: 1.5,
           ),
           boxShadow: isSelected
-              ? [
+              ? const [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.3),
+                    color: Color.fromRGBO(0, 0, 0, 0.15),
                     blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    offset: Offset(0, 4),
                   ),
                 ]
-              : AppColors.cardShadow,
+              : null,
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: isSelected ? Colors.white : AppColors.textSecondary,
+            color: isSelected ? AppColors.primary : Colors.white,
           ),
         ),
       ),

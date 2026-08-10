@@ -291,19 +291,9 @@ class DashboardScreenState extends State<DashboardScreen> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(24),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.16),
+                                  color: Colors.white,
                                   borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.25),
-                                    width: 1.5,
-                                  ),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color.fromRGBO(0, 0, 0, 0.15),
-                                      blurRadius: 20,
-                                      offset: Offset(0, 8),
-                                    ),
-                                  ],
+                                  boxShadow: AppColors.cardShadow,
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,12 +303,12 @@ class DashboardScreenState extends State<DashboardScreen> {
                                         Container(
                                           padding: const EdgeInsets.all(10),
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: 0.2),
+                                            color: AppColors.primaryMuted,
                                             borderRadius: BorderRadius.circular(14),
                                           ),
                                           child: const Icon(
                                             Icons.account_balance_wallet_rounded,
-                                            color: Colors.white,
+                                            color: AppColors.primary,
                                             size: 24,
                                           ),
                                         ),
@@ -326,7 +316,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                                         const Text(
                                           'TOTAL OUTSTANDING',
                                           style: TextStyle(
-                                            color: Colors.white70,
+                                            color: AppColors.textSecondary,
                                             fontSize: 11,
                                             fontWeight: FontWeight.w800,
                                             letterSpacing: 1.0,
@@ -341,7 +331,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                                         currencySymbol: currencySymbol,
                                       ),
                                       style: const TextStyle(
-                                        color: Colors.white,
+                                        color: AppColors.textPrimary,
                                         fontSize: 34,
                                         fontWeight: FontWeight.w900,
                                         letterSpacing: -1.0,
@@ -362,24 +352,22 @@ class DashboardScreenState extends State<DashboardScreen> {
                                     vertical: 14,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.14),
+                                    color: Colors.white,
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.2),
-                                    ),
+                                    boxShadow: AppColors.cardShadow,
                                   ),
                                   child: Row(
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.2),
+                                          color: AppColors.primaryMuted,
                                           borderRadius: BorderRadius.circular(10),
                                         ),
                                         child: const Icon(
                                           Icons.receipt_long_rounded,
                                           size: 20,
-                                          color: Colors.white,
+                                          color: AppColors.primary,
                                         ),
                                       ),
                                       const SizedBox(width: 12),
@@ -392,7 +380,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w800,
-                                                color: Colors.white,
+                                                color: AppColors.textPrimary,
                                               ),
                                             ),
                                             const SizedBox(height: 2),
@@ -400,7 +388,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                                               '$_monthlyInvoiceCount of 10 invoices created this month',
                                               style: const TextStyle(
                                                 fontSize: 11,
-                                                color: Colors.white70,
+                                                color: AppColors.textSecondary,
                                               ),
                                             ),
                                           ],
@@ -454,8 +442,8 @@ class DashboardScreenState extends State<DashboardScreen> {
                                         currencySymbol: currencySymbol,
                                       ),
                                       icon: Icons.check_circle_rounded,
-                                      iconColor: const Color(0xFF34D399),
-                                      bgColor: AppColors.statusPaid,
+                                      iconColor: AppColors.statusPaid,
+                                      bgColor: AppColors.statusPaidBg,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -467,8 +455,8 @@ class DashboardScreenState extends State<DashboardScreen> {
                                         currencySymbol: currencySymbol,
                                       ),
                                       icon: Icons.warning_rounded,
-                                      iconColor: const Color(0xFFF87171),
-                                      bgColor: AppColors.statusOverdue,
+                                      iconColor: AppColors.statusOverdue,
+                                      bgColor: AppColors.statusOverdueBg,
                                     ),
                                   ),
                                 ],
@@ -558,9 +546,10 @@ class DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: AppColors.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -571,7 +560,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: bgColor.withValues(alpha: 0.25),
+                  color: bgColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, size: 18, color: iconColor),
@@ -593,7 +582,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
+              color: AppColors.textPrimary,
               letterSpacing: -0.5,
             ),
             maxLines: 1,
@@ -605,7 +594,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: Colors.white70,
+              color: AppColors.textSecondary,
             ),
           ),
         ],
@@ -620,18 +609,18 @@ class DashboardScreenState extends State<DashboardScreen> {
 
     switch (invoice.status) {
       case InvoiceStatus.paid:
-        statusBg = const Color(0xFF059669).withValues(alpha: 0.35);
-        statusText = const Color(0xFF6EE7B7);
+        statusBg = AppColors.statusPaidBg;
+        statusText = AppColors.statusPaid;
         statusLabel = 'Paid';
         break;
       case InvoiceStatus.overdue:
-        statusBg = const Color(0xFFDC2626).withValues(alpha: 0.35);
-        statusText = const Color(0xFFFCA5A5);
+        statusBg = AppColors.statusOverdueBg;
+        statusText = AppColors.statusOverdue;
         statusLabel = 'Overdue';
         break;
       default:
-        statusBg = const Color(0xFFD97706).withValues(alpha: 0.35);
-        statusText = const Color(0xFFFDE047);
+        statusBg = AppColors.statusUnpaidBg;
+        statusText = AppColors.statusUnpaid;
         statusLabel = 'Unpaid';
     }
 
@@ -646,19 +635,20 @@ class DashboardScreenState extends State<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.14),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+          border: Border.all(color: AppColors.cardBorder),
+          boxShadow: AppColors.cardShadow,
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 20,
-              backgroundColor: Colors.white.withValues(alpha: 0.2),
+              backgroundColor: AppColors.primaryMuted,
               child: Text(
                 initials.isEmpty ? 'IN' : initials,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.primary,
                   fontWeight: FontWeight.w800,
                   fontSize: 13,
                 ),
@@ -674,7 +664,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -684,7 +674,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                     '${invoice.invoiceNumber} • ${dateFormat.format(invoice.invoiceDate)}',
                     style: const TextStyle(
                       fontSize: 12,
-                      color: Colors.white70,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -701,7 +691,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -726,11 +716,11 @@ class DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
+              icon: const Icon(Icons.more_vert_rounded, color: AppColors.slate400),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              color: AppColors.slate900,
+              color: Colors.white,
               elevation: 4,
               onSelected: (value) => _handleInvoiceMenuAction(value, invoice),
               itemBuilder: (_) => [
@@ -745,7 +735,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                           color: AppColors.statusPaid,
                         ),
                         SizedBox(width: 12),
-                        Text('Mark as Paid', style: TextStyle(color: Colors.white)),
+                        Text('Mark as Paid'),
                       ],
                     ),
                   ),
@@ -760,7 +750,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                           color: AppColors.statusUnpaid,
                         ),
                         SizedBox(width: 12),
-                        Text('Mark as Unpaid', style: TextStyle(color: Colors.white)),
+                        Text('Mark as Unpaid'),
                       ],
                     ),
                   ),
@@ -771,10 +761,10 @@ class DashboardScreenState extends State<DashboardScreen> {
                       Icon(
                         Icons.edit_outlined,
                         size: 20,
-                        color: Colors.white70,
+                        color: AppColors.slate600,
                       ),
                       SizedBox(width: 12),
-                      Text('Edit', style: TextStyle(color: Colors.white)),
+                      Text('Edit'),
                     ],
                   ),
                 ),
@@ -785,10 +775,10 @@ class DashboardScreenState extends State<DashboardScreen> {
                       Icon(
                         Icons.download_outlined,
                         size: 20,
-                        color: Colors.white70,
+                        color: AppColors.slate600,
                       ),
                       SizedBox(width: 12),
-                      Text('Save PDF', style: TextStyle(color: Colors.white)),
+                      Text('Save PDF'),
                     ],
                   ),
                 ),
@@ -799,10 +789,10 @@ class DashboardScreenState extends State<DashboardScreen> {
                       Icon(
                         Icons.print_outlined,
                         size: 20,
-                        color: Colors.white70,
+                        color: AppColors.slate600,
                       ),
                       SizedBox(width: 12),
-                      Text('Print', style: TextStyle(color: Colors.white)),
+                      Text('Print'),
                     ],
                   ),
                 ),
@@ -813,10 +803,10 @@ class DashboardScreenState extends State<DashboardScreen> {
                       Icon(
                         Icons.share_outlined,
                         size: 20,
-                        color: Colors.white70,
+                        color: AppColors.slate600,
                       ),
                       SizedBox(width: 12),
-                      Text('Share', style: TextStyle(color: Colors.white)),
+                      Text('Share'),
                     ],
                   ),
                 ),
