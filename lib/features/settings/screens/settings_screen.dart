@@ -245,31 +245,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
         border: Border.all(color: AppColors.cardBorder),
         boxShadow: AppColors.cardShadow,
       ),
-      child: ListTile(
-        leading: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppColors.primaryMuted,
-            borderRadius: BorderRadius.circular(12),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: ListTile(
+          leading: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.primaryMuted,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 20, color: AppColors.primary),
           ),
-          child: Icon(icon, size: 20, color: AppColors.primary),
+          title: Text(
+            title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+          ),
+          subtitle: Text(
+            subtitle,
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          trailing:
+              trailing ??
+              (onTap != null
+                  ? const Icon(Icons.chevron_right_rounded, color: AppColors.slate400)
+                  : null),
+          onTap: onTap,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        trailing:
-            trailing ??
-            (onTap != null
-                ? const Icon(Icons.chevron_right_rounded, color: AppColors.slate400)
-                : null),
-        onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
@@ -283,30 +287,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
           topRight: Radius.circular(12),
         ),
       ),
-      child: ListTile(
-        leading: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: AppColors.slate100,
-            borderRadius: BorderRadius.circular(10),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
+        ),
+        child: ListTile(
+          leading: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.slate100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.currency_exchange,
+              size: 18,
+              color: AppColors.slate600,
+            ),
           ),
-          child: const Icon(
-            Icons.currency_exchange,
-            size: 18,
-            color: AppColors.slate600,
+          title: const Text(
+            'Default Currency',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
+          subtitle: Text(
+            '${selectedCurrency.symbol} ${selectedCurrency.code}',
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          trailing: const Icon(Icons.chevron_right, color: AppColors.slate400),
+          onTap: () => _showCurrencyPicker(context),
         ),
-        title: const Text(
-          'Default Currency',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          '${selectedCurrency.symbol} ${selectedCurrency.code}',
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.slate400),
-        onTap: () => _showCurrencyPicker(context),
       ),
     );
   }
@@ -339,33 +350,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
           bottomRight: Radius.circular(12),
         ),
       ),
-      child: ListTile(
-        leading: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: AppColors.slate100,
-            borderRadius: BorderRadius.circular(10),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
+        child: ListTile(
+          leading: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.slate100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.percent, size: 18, color: AppColors.slate600),
           ),
-          child: const Icon(Icons.percent, size: 18, color: AppColors.slate600),
-        ),
-        title: Text(
-          'Default ${defaultTax.shortName} Rate',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          '${defaultTax.rate}% | $sourceLabel',
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        trailing: Text(
-          '${defaultTax.rate}%',
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primary,
+          title: Text(
+            'Default ${defaultTax.shortName} Rate',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
+          subtitle: Text(
+            '${defaultTax.rate}% | $sourceLabel',
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          trailing: Text(
+            '${defaultTax.rate}%',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+          ),
+          onTap: _showTaxRateEditor,
         ),
-        onTap: _showTaxRateEditor,
       ),
     );
   }

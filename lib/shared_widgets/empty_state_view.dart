@@ -7,6 +7,7 @@ class EmptyStateView extends StatelessWidget {
   final String subtitle;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final bool isDarkBackground;
 
   const EmptyStateView({
     super.key,
@@ -15,6 +16,7 @@ class EmptyStateView extends StatelessWidget {
     required this.subtitle,
     this.actionLabel,
     this.onAction,
+    this.isDarkBackground = false,
   });
 
   @override
@@ -29,11 +31,15 @@ class EmptyStateView extends StatelessWidget {
               width: 88,
               height: 88,
               decoration: BoxDecoration(
-                color: AppColors.primaryMuted,
+                color: isDarkBackground
+                    ? Colors.white.withValues(alpha: 0.15)
+                    : AppColors.primaryMuted,
                 shape: BoxShape.circle,
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Color.fromRGBO(37, 99, 235, 0.12),
+                    color: isDarkBackground
+                        ? Colors.black.withValues(alpha: 0.15)
+                        : const Color.fromRGBO(37, 99, 235, 0.12),
                     blurRadius: 24,
                     spreadRadius: 4,
                   ),
@@ -42,14 +48,14 @@ class EmptyStateView extends StatelessWidget {
               child: Icon(
                 icon,
                 size: 40,
-                color: AppColors.primary,
+                color: isDarkBackground ? Colors.white : AppColors.primary,
               ),
             ),
             const SizedBox(height: 24),
             Text(
               title,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppColors.textPrimary,
+                    color: isDarkBackground ? Colors.white : AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.4,
                   ),
@@ -59,7 +65,7 @@ class EmptyStateView extends StatelessWidget {
             Text(
               subtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: isDarkBackground ? Colors.white70 : AppColors.textSecondary,
                     height: 1.4,
                   ),
               textAlign: TextAlign.center,
