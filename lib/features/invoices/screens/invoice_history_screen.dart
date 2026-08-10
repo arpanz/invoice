@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +12,7 @@ import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_animations.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/pdf_helper.dart';
 import '../../../shared_widgets/empty_state_view.dart';
@@ -305,15 +306,23 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         : filtered;
     final isLimited = !billing.isPro && filtered.length > freeLimit;
 
-    // Build a list that injects a NativeAdWidget every 5 invoices (free users only)
     List<Widget> listItems = [];
     for (int i = 0; i < visibleInvoices.length; i++) {
-      listItems.add(_buildInvoiceCard(visibleInvoices[i]));
+      listItems.add(
+        StaggeredEntrance(
+          index: i,
+          child: _buildInvoiceCard(visibleInvoices[i]),
+        ),
+      );
     }
 
-    // If free user has more invoices, add paywall upsell card
     if (isLimited) {
-      listItems.add(_buildProUpsellCard(context, filtered.length - freeLimit));
+      listItems.add(
+        StaggeredEntrance(
+          index: visibleInvoices.length,
+          child: _buildProUpsellCard(context, filtered.length - freeLimit),
+        ),
+      );
     }
 
     return Column(
@@ -321,7 +330,7 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         // Filter chips
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
           child: Row(
             children: [
               _buildFilterChip('All', 'all'),
@@ -338,10 +347,10 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         // Invoice list
         Expanded(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
               : filtered.isEmpty
               ? EmptyStateView(
-                  icon: Icons.receipt_long_outlined,
+                  icon: Icons.receipt_long_rounded,
                   title: 'No Invoices',
                   subtitle: _filterStatus == 'all'
                       ? 'Create your first invoice to get started'
@@ -350,9 +359,9 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               : RefreshIndicator(
                   onRefresh: _loadInvoices,
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
                     itemCount: listItems.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (_, index) => listItems[index],
                   ),
                 ),
@@ -364,22 +373,35 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   Widget _buildFilterChip(String label, String value) {
     final isSelected = _filterStatus == value;
     return GestureDetector(
-      onTap: () => setState(() => _filterStatus = value),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setState(() => _filterStatus = value);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.cardBorder,
+            width: 1.5,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : AppColors.cardShadow,
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: isSelected ? Colors.white : AppColors.textSecondary,
           ),
         ),
@@ -391,54 +413,47 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     return Container(
       margin: const EdgeInsets.only(top: 4, bottom: 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primary.withValues(alpha: 0.08),
-            AppColors.primary.withValues(alpha: 0.03),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+        gradient: AppColors.proGradient,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppColors.floatingShadow,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(22),
         child: Column(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
+                color: AppColors.proGold,
+                borderRadius: BorderRadius.circular(16),
               ),
               child: const Icon(
-                Icons.lock_outline_rounded,
-                color: AppColors.primary,
-                size: 24,
+                Icons.lock_rounded,
+                color: Colors.white,
+                size: 26,
               ),
             ),
             const SizedBox(height: 12),
             Text(
               '$hiddenCount more invoice${hiddenCount > 1 ? 's' : ''} hidden',
               style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
               ),
             ),
             const SizedBox(height: 6),
             const Text(
-              'Upgrade to Pro to access your full invoice history and unlock all features.',
+              'Upgrade to Pro to access your full invoice history and unlock clean PDFs without watermarks.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textSecondary,
+                color: Colors.white70,
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -447,17 +462,17 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   MaterialPageRoute(builder: (_) => const PaywallScreen()),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: AppColors.proGold,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   elevation: 0,
                 ),
                 child: const Text(
                   'Unlock Full History — Go Pro',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
                 ),
               ),
             ),
@@ -489,22 +504,24 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          if (invoice.status != InvoiceStatus.paid)
+          if (invoice.status != InvoiceStatus.paid) {
             await _markAs(invoice, InvoiceStatus.paid);
+          }
           return false;
         } else {
           await _deleteInvoice(invoice);
           return false;
         }
       },
-      child: Material(
-        color: Colors.white,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: AppColors.cardBorder),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.cardBorder),
+          boxShadow: AppColors.cardShadow,
         ),
         child: InkWell(
+          borderRadius: BorderRadius.circular(16),
           onTap: () => _showInvoicePreview(invoice),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -520,15 +537,17 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                             invoice.invoiceNumber,
                             style: const TextStyle(
                               fontSize: 15,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w800,
                               color: AppColors.textPrimary,
+                              letterSpacing: -0.2,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             invoice.clientName,
                             style: const TextStyle(
                               fontSize: 13,
+                              fontWeight: FontWeight.w500,
                               color: AppColors.textSecondary,
                             ),
                           ),

@@ -8,30 +8,32 @@ class AppTypography {
   static TextTheme get textTheme => GoogleFonts.interTextTheme(
         TextTheme(
           displayLarge: GoogleFonts.inter(
-            fontSize: 32,
+            fontSize: 34,
             fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
-            letterSpacing: -0.5,
+            letterSpacing: -1.0,
           ),
           displayMedium: GoogleFonts.inter(
             fontSize: 28,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
-            letterSpacing: -0.5,
+            letterSpacing: -0.8,
           ),
           displaySmall: GoogleFonts.inter(
             fontSize: 24,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
+            letterSpacing: -0.5,
           ),
           headlineLarge: GoogleFonts.inter(
             fontSize: 22,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
+            letterSpacing: -0.3,
           ),
           headlineMedium: GoogleFonts.inter(
             fontSize: 20,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
           ),
           headlineSmall: GoogleFonts.inter(
@@ -41,7 +43,7 @@ class AppTypography {
           ),
           titleLarge: GoogleFonts.inter(
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
           ),
           titleMedium: GoogleFonts.inter(
@@ -72,20 +74,20 @@ class AppTypography {
           ),
           labelLarge: GoogleFonts.inter(
             fontSize: 14,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
             letterSpacing: 0.1,
           ),
           labelMedium: GoogleFonts.inter(
             fontSize: 12,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             color: AppColors.textSecondary,
           ),
           labelSmall: GoogleFonts.inter(
             fontSize: 10,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             color: AppColors.textHint,
-            letterSpacing: 0.5,
+            letterSpacing: 0.8,
           ),
         ),
       );
@@ -96,6 +98,7 @@ class AppTypography {
           seedColor: AppColors.primary,
           brightness: Brightness.light,
           primary: AppColors.primary,
+          primaryContainer: AppColors.primaryMuted,
           secondary: AppColors.accent,
           surface: AppColors.surface,
           error: AppColors.accentRed,
@@ -106,11 +109,11 @@ class AppTypography {
           backgroundColor: AppColors.surface,
           foregroundColor: AppColors.textPrimary,
           elevation: 0,
-          scrolledUnderElevation: 1,
-          shadowColor: AppColors.cardBorder,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
           titleTextStyle: GoogleFonts.inter(
             fontSize: 18,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
           ),
         ),
@@ -125,21 +128,21 @@ class AppTypography {
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: AppColors.slate50,
+          fillColor: AppColors.background,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: AppColors.cardBorder),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: AppColors.cardBorder),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: AppColors.accentRed),
           ),
           contentPadding:
@@ -160,24 +163,27 @@ class AppTypography {
             elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             textStyle: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        floatingActionButtonTheme: FloatingActionButtonThemeData(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          elevation: 4,
+          elevation: 6,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
         ),
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: AppColors.surface,
           selectedItemColor: AppColors.primary,
           unselectedItemColor: AppColors.slate400,
-          elevation: 8,
+          elevation: 0,
           type: BottomNavigationBarType.fixed,
         ),
         dividerTheme: const DividerThemeData(
@@ -188,9 +194,11 @@ class AppTypography {
         chipTheme: ChipThemeData(
           backgroundColor: AppColors.slate100,
           labelStyle:
-              GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
         ),
       );
 }

@@ -114,31 +114,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1E293B), Color(0xFF334155)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          gradient: AppColors.heroGradient,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: AppColors.heroShadow,
         ),
         child: Row(
           children: [
             Container(
-              width: 52,
-              height: 52,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
-                color: AppColors.proGold,
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: const Icon(
-                Icons.workspace_premium,
+                Icons.workspace_premium_rounded,
                 color: Colors.white,
                 size: 28,
               ),
@@ -153,14 +143,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Remove watermark. Unlimited invoices & clients.',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 12,
                     ),
                   ),
@@ -168,16 +158,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: AppColors.proGold,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 priceLabel,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -193,12 +183,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.statusPaidBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.statusPaid.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.verified, color: AppColors.statusPaid, size: 28),
+          const Icon(Icons.verified_rounded, color: AppColors.statusPaid, size: 28),
           const SizedBox(width: 12),
           const Expanded(
             child: Column(
@@ -209,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(
                     color: AppColors.statusPaid,
                     fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 Text(
@@ -233,9 +223,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title.toUpperCase(),
         style: const TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
           color: AppColors.textSecondary,
-          letterSpacing: 1,
+          letterSpacing: 1.2,
         ),
       ),
     );
@@ -251,22 +241,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.cardBorder),
+        boxShadow: AppColors.cardShadow,
       ),
       child: ListTile(
         leading: Container(
-          width: 36,
-          height: 36,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
-            color: AppColors.slate100,
-            borderRadius: BorderRadius.circular(10),
+            color: AppColors.primaryMuted,
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, size: 18, color: AppColors.slate600),
+          child: Icon(icon, size: 20, color: AppColors.primary),
         ),
         title: Text(
           title,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
         ),
         subtitle: Text(
           subtitle,
@@ -275,10 +266,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         trailing:
             trailing ??
             (onTap != null
-                ? const Icon(Icons.chevron_right, color: AppColors.slate400)
+                ? const Icon(Icons.chevron_right_rounded, color: AppColors.slate400)
                 : null),
         onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }

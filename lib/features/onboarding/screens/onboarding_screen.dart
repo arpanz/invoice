@@ -10,9 +10,20 @@ import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared_widgets/primary_button.dart';
 import '../../../shared_widgets/custom_text_field.dart';
+import '../../invoices/screens/create_invoice_screen.dart';
 import '../../settings/widgets/paywall_bottom_sheet.dart';
 
-/// Beautiful onboarding screen with currency selection and setup
+enum BusinessType { freelancer, smallBusiness, agency, products, other }
+
+enum OnboardingGoal {
+  sendFaster,
+  trackUnpaid,
+  lookProfessional,
+  understandRevenue,
+  recurringClients,
+}
+
+/// Duolingo-Style Guided Business Journey Onboarding Screen
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -20,527 +31,88 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  final int _totalSteps = 7;
 
-  final List<OnboardingPage> _pages = [
-    OnboardingPage(
-      title: 'Create Professional\nInvoices',
-      description:
-          'Generate beautiful, professional invoices in seconds. Impress your clients with stunning designs.',
-      illustration: const _InvoiceIllustration(),
-    ),
-    OnboardingPage(
-      title: 'Manage Your\nClients',
-      description:
-          'Keep all your client information organized. Never lose track of who owes you money.',
-      illustration: const _ClientsIllustration(),
-    ),
-    OnboardingPage(
-      title: 'Track Your\nRevenue',
-      description:
-          'Monitor your business performance with detailed analytics and insights.',
-      illustration: const _ChartIllustration(),
-    ),
-  ];
+  // Flow State
+  BusinessType? _selectedBusinessType;
+  OnboardingGoal? _selectedGoal;
+  String? _goalFeedback;
+
+  final TextEditingController _bizNameCtrl = TextEditingController();
+  final TextEditingController _bizEmailCtrl = TextEditingController();
+  final TextEditingController _bizPhoneCtrl = TextEditingController();
+  String? _logoPath;
+
+  Currency _selectedCurrency = SupportedCurrencies.popular.first;
+  double _taxRate = 0.0;
+  String _taxName = 'Tax';
+  String _selectedTerms = 'Due on Receipt';
+
+  // Animation controller for Step 1 building invoice
+  late AnimationController _animCtrl;
+  int _invoiceBuildStep = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
+
+    _runInvoiceBuildAnimation();
+
+    _bizNameCtrl.addListener(() => setState(() {}));
+    _bizEmailCtrl.addListener(() => setState(() {}));
+    _bizPhoneCtrl.addListener(() => setState(() {}));
+  }
+
+  void _runInvoiceBuildAnimation() async {
+    for (int i = 1; i <= 5; i++) {
+      await Future.delayed(const Duration(milliseconds: 450));
+      if (mounted) {
+        setState(() => _invoiceBuildStep = i);
+        if (i == 5) {
+          HapticFeedback.mediumImpact();
+        } else {
+          HapticFeedback.selectionClick();
+        }
+      }
+    }
+  }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _animCtrl.dispose();
+    _bizNameCtrl.dispose();
+    _bizEmailCtrl.dispose();
+    _bizPhoneCtrl.dispose();
     super.dispose();
   }
 
   void _nextPage() {
     HapticFeedback.lightImpact();
-    if (_currentPage < _pages.length + 3) {
+    if (_currentPage < _totalSteps - 1) {
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOutCubic,
       );
     }
   }
 
-  void _skipToCurrency() {
+  void _goToStep(int step) {
     HapticFeedback.lightImpact();
     _pageController.animateToPage(
-      _pages.length + 1,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
+      step,
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final isFinalPage = _currentPage == _pages.length + 3;
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Skip button
-            if (!isFinalPage && _currentPage < _pages.length + 1)
-              Align(
-                alignment: Alignment.topRight,
-                child: TextButton(
-                  onPressed: _skipToCurrency,
-                  child: const Text(
-                    'Skip',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              )
-            else
-              const SizedBox(height: 48), // Spacer when skip is hidden
-            // Page view
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                physics:
-                    const NeverScrollableScrollPhysics(), // Disable swipe to force using buttons/forms
-                onPageChanged: (index) {
-                  setState(() => _currentPage = index);
-                },
-                itemCount: _pages.length + 4,
-                itemBuilder: (context, index) {
-                  if (index < _pages.length) {
-                    return _OnboardingPageWidget(
-                      page: _pages[index],
-                      index: index,
-                      currentIndex: _currentPage,
-                    );
-                  } else if (index == _pages.length) {
-                    return _BusinessSetupPage(onNext: _nextPage);
-                  } else if (index == _pages.length + 1) {
-                    return CurrencySelectionPage(onNext: _nextPage);
-                  } else if (index == _pages.length + 2) {
-                    return _PaymentDetailsPage(onNext: _nextPage);
-                  } else {
-                    return const _PaymentTermsPage();
-                  }
-                },
-              ),
-            ),
-
-            // Bottom controls: Indicator and Next button (Only for feature slides)
-            if (_currentPage < _pages.length)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 24,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Page indicator
-                    Row(
-                      children: List.generate(
-                        _pages.length,
-                        (index) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          height: 8,
-                          width: _currentPage == index ? 24 : 8,
-                          decoration: BoxDecoration(
-                            color: _currentPage == index
-                                ? AppColors.primary
-                                : AppColors.slate300,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Next / Continue button
-                    InkWell(
-                      onTap: _nextPage,
-                      borderRadius: BorderRadius.circular(24),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Next',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Icon(
-                              Icons.arrow_forward_rounded,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Individual onboarding page widget (Feature Slides)
-class _OnboardingPageWidget extends StatelessWidget {
-  final OnboardingPage page;
-  final int index;
-  final int currentIndex;
-
-  const _OnboardingPageWidget({
-    required this.page,
-    required this.index,
-    required this.currentIndex,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isActive = index == currentIndex;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: TweenAnimationBuilder<double>(
-        key: ValueKey(index),
-        tween: Tween(begin: 0.0, end: isActive ? 1.0 : 0.0),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOutCubic,
-        builder: (context, value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(0, 20 * (1 - value)),
-              child: child,
-            ),
-          );
-        },
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            page.illustration,
-            const SizedBox(height: 48),
-            // Title
-            Text(
-              page.title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-                height: 1.2,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Description
-            Text(
-              page.description,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 48),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Data class for onboarding pages
-class OnboardingPage {
-  final String title;
-  final String description;
-  final Widget illustration;
-
-  OnboardingPage({
-    required this.title,
-    required this.description,
-    required this.illustration,
-  });
-}
-
-class _InvoiceIllustration extends StatelessWidget {
-  const _InvoiceIllustration();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 160,
-      height: 160,
-      decoration: const BoxDecoration(
-        color: AppColors.slate50,
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: Transform.rotate(
-          angle: -0.05,
-          child: Container(
-            width: 100,
-            height: 130,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    Container(
-                      width: 30,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: AppColors.slate200,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: AppColors.slate100,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  width: 40,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: AppColors.slate100,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  width: double.infinity,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: 30,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ClientsIllustration extends StatelessWidget {
-  const _ClientsIllustration();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 160,
-      height: 160,
-      decoration: const BoxDecoration(
-        color: AppColors.slate50,
-        shape: BoxShape.circle,
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Transform.translate(
-            offset: const Offset(-15, -15),
-            child: _buildMiniClientCard(opacity: 0.6),
-          ),
-          Transform.translate(
-            offset: const Offset(15, 15),
-            child: _buildMiniClientCard(opacity: 1.0, hasBorder: true),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniClientCard({
-    required double opacity,
-    bool hasBorder = false,
-  }) {
-    return Container(
-      width: 110,
-      height: 60,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: opacity),
-        borderRadius: BorderRadius.circular(12),
-        border: hasBorder ? Border.all(color: AppColors.cardBorder) : null,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04 * opacity),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 36,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                width: 24,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.slate200,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChartIllustration extends StatelessWidget {
-  const _ChartIllustration();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 160,
-      height: 160,
-      decoration: const BoxDecoration(
-        color: AppColors.slate50,
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: Container(
-          width: 110,
-          height: 100,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildBar(height: 30, color: AppColors.slate200),
-              _buildBar(height: 50, color: AppColors.slate200),
-              _buildBar(
-                height: 40,
-                color: AppColors.accentOrange.withValues(alpha: 0.4),
-              ),
-              _buildBar(height: 60, color: AppColors.accentOrange),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBar({required double height, required Color color}) {
-    return Container(
-      width: 12,
-      height: height,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(4),
-      ),
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// SETUP PAGES
-// -----------------------------------------------------------------------------
-
-class _BusinessSetupPage extends StatefulWidget {
-  final VoidCallback onNext;
-  const _BusinessSetupPage({required this.onNext});
-
-  @override
-  State<_BusinessSetupPage> createState() => _BusinessSetupPageState();
-}
-
-class _BusinessSetupPageState extends State<_BusinessSetupPage> {
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  String? _logoPath;
 
   Future<void> _pickLogo() async {
     final isPro = context.read<BillingService>().isPro;
@@ -559,815 +131,146 @@ class _BusinessSetupPageState extends State<_BusinessSetupPage> {
     }
   }
 
-  Future<void> _saveAndNext() async {
+  Future<void> _saveBusinessProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    if (_nameCtrl.text.isNotEmpty) {
-      await prefs.setString('biz_name', _nameCtrl.text.trim());
+    if (_bizNameCtrl.text.isNotEmpty) {
+      await prefs.setString('biz_name', _bizNameCtrl.text.trim());
     }
-    if (_emailCtrl.text.isNotEmpty) {
-      await prefs.setString('biz_email', _emailCtrl.text.trim());
+    if (_bizEmailCtrl.text.isNotEmpty) {
+      await prefs.setString('biz_email', _bizEmailCtrl.text.trim());
     }
-    if (_phoneCtrl.text.isNotEmpty) {
-      await prefs.setString('biz_phone', _phoneCtrl.text.trim());
+    if (_bizPhoneCtrl.text.isNotEmpty) {
+      await prefs.setString('biz_phone', _bizPhoneCtrl.text.trim());
     }
     if (_logoPath != null) {
       await prefs.setString('biz_logo_path', _logoPath!);
     }
-    widget.onNext();
+    if (_selectedBusinessType != null) {
+      await prefs.setString('business_type', _selectedBusinessType!.name);
+    }
+    if (_selectedGoal != null) {
+      await prefs.setString('onboarding_goal', _selectedGoal!.name);
+    }
   }
 
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _phoneCtrl.dispose();
-    super.dispose();
-  }
+  Future<void> _finishOnboarding({bool openCreateInvoice = false}) async {
+    await _saveBusinessProfile();
 
-  @override
-  Widget build(BuildContext context) {
-    final isPro = context.watch<BillingService>().isPro;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOutCubic,
-        builder: (context, value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(0, 20 * (1 - value)),
-              child: child,
-            ),
-          );
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            const Text(
-              'Business Details',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Set up your profile to look professional on your invoices.',
-              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 32),
-
-            // Group fields in a nice card
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.cardBorder),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // Prominent Logo Picker
-                  GestureDetector(
-                    onTap: _pickLogo,
-                    child: Container(
-                      height: 140,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: AppColors.slate50,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.slate200, width: 2),
-                      ),
-                      child: _logoPath != null && File(_logoPath!).existsSync()
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: Image.file(
-                                File(_logoPath!),
-                                fit: BoxFit.contain,
-                              ),
-                            )
-                          : Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.04,
-                                        ),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    isPro
-                                        ? Icons.add_photo_alternate_rounded
-                                        : Icons.lock_outline_rounded,
-                                    color: AppColors.primary,
-                                    size: 28,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  isPro
-                                      ? 'Upload Company Logo'
-                                      : 'Pro Feature: Add Logo',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                if (!isPro) ...[
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    'Tap to unlock',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  CustomTextField(
-                    label: 'Business Name',
-                    hint: 'e.g. Acme Corp',
-                    controller: _nameCtrl,
-                    textCapitalization: TextCapitalization.words,
-                    prefixIcon: const Icon(
-                      Icons.business_rounded,
-                      color: AppColors.slate400,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    label: 'Email (Optional)',
-                    hint: 'e.g. contact@acme.com',
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    prefixIcon: const Icon(
-                      Icons.email_rounded,
-                      color: AppColors.slate400,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    label: 'Phone (Optional)',
-                    hint: 'e.g. +1 234 567 8900',
-                    controller: _phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    prefixIcon: const Icon(
-                      Icons.phone_rounded,
-                      color: AppColors.slate400,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            SizedBox(
-              width: double.infinity,
-              child: PrimaryButton(onPressed: _saveAndNext, label: 'Continue'),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: TextButton(
-                onPressed: widget.onNext,
-                child: const Text(
-                  'Skip for now',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Currency selection page
-class CurrencySelectionPage extends StatefulWidget {
-  final VoidCallback onNext;
-  const CurrencySelectionPage({super.key, required this.onNext});
-
-  @override
-  State<CurrencySelectionPage> createState() => _CurrencySelectionPageState();
-}
-
-class _CurrencySelectionPageState extends State<CurrencySelectionPage> {
-  String _searchQuery = '';
-  List<Currency> _filteredCurrencies = SupportedCurrencies.all;
-
-  void _filterCurrencies(String query) {
-    setState(() {
-      _searchQuery = query;
-      if (query.isEmpty) {
-        _filteredCurrencies = SupportedCurrencies.all;
-      } else {
-        _filteredCurrencies = SupportedCurrencies.search(query);
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOutCubic,
-        builder: (context, value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(0, 20 * (1 - value)),
-              child: child,
-            ),
-          );
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            // Header
-            const Text(
-              'Select Your Currency',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This will be your default currency for invoices',
-              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 24),
-            // Search bar
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.cardBorder),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: TextField(
-                onChanged: _filterCurrencies,
-                decoration: const InputDecoration(
-                  hintText: 'Search currency...',
-                  hintStyle: TextStyle(color: AppColors.textHint),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: AppColors.textSecondary,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Popular currencies
-            if (_searchQuery.isEmpty) ...[
-              const Text(
-                'Popular Currencies',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSecondary,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: SupportedCurrencies.popular
-                    .map(
-                      (currency) => _CurrencyChip(
-                        currency: currency,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          _selectCurrency(context, currency);
-                        },
-                      ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 24),
-            ],
-            // All currencies
-            Text(
-              _searchQuery.isEmpty ? 'All Currencies' : 'Search Results',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textSecondary,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Currency list
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _filteredCurrencies.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final currency = _filteredCurrencies[index];
-                return _CurrencyListTile(
-                  currency: currency,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    _selectCurrency(context, currency);
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _selectCurrency(BuildContext context, Currency currency) async {
-    final currencyProvider = context.read<CurrencyProvider>();
-    await currencyProvider.setCurrency(currency);
-
-    if (!context.mounted) return;
-
-    final currentRate = currency.defaultTax.rate;
-    final controller = TextEditingController(text: currentRate.toString());
-    final formKey = GlobalKey<FormState>();
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: true,
-      enableDrag: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: AppColors.cardBorder),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 28,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Confirm Tax Rate',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Set the default tax rate for ${currency.code}. You can always change this later in Settings.',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      height: 1.45,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Form(
-                    key: formKey,
-                    child: TextFormField(
-                      controller: controller,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        labelText: '${currency.defaultTax.shortName} Rate (%)',
-                        hintText: 'e.g. 8.875',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      validator: (value) {
-                        final parsed = double.tryParse((value ?? '').trim());
-                        if (parsed == null) return 'Enter a valid number';
-                        if (parsed < 0 || parsed > 100) return 'Must be 0-100';
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () async {
-                        if (formKey.currentState!.validate()) {
-                          final parsed = double.tryParse(
-                            controller.text.trim(),
-                          );
-                          if (parsed != null && parsed != currentRate) {
-                            await currencyProvider.setCustomTaxRate(parsed);
-                          }
-                          if (ctx.mounted) {
-                            Navigator.of(ctx).pop();
-                          }
-                          widget.onNext();
-                        }
-                      },
-                      child: const Text(
-                        'Confirm & Continue',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaymentDetailsPage extends StatefulWidget {
-  final VoidCallback onNext;
-  const _PaymentDetailsPage({required this.onNext});
-
-  @override
-  State<_PaymentDetailsPage> createState() => _PaymentDetailsPageState();
-}
-
-class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
-  final _bankCtrl = TextEditingController();
-  final _accCtrl = TextEditingController();
-  final _ifscCtrl = TextEditingController();
-  final _upiCtrl = TextEditingController();
-
-  Future<void> _saveAndNext() async {
     final prefs = await SharedPreferences.getInstance();
-    if (_bankCtrl.text.isNotEmpty) {
-      await prefs.setString('biz_bank_name', _bankCtrl.text.trim());
-    }
-    if (_accCtrl.text.isNotEmpty) {
-      await prefs.setString('biz_account', _accCtrl.text.trim());
-    }
-    if (_ifscCtrl.text.isNotEmpty) {
-      await prefs.setString('biz_ifsc', _ifscCtrl.text.trim());
-    }
-    if (_upiCtrl.text.isNotEmpty) {
-      await prefs.setString(
-        'biz_upi',
-        _upiCtrl.text.trim(),
-      ); // using generic 'upi' key for payment instruction
-    }
-    widget.onNext();
-  }
+    await prefs.setString('default_payment_terms', _selectedTerms);
 
-  @override
-  void dispose() {
-    _bankCtrl.dispose();
-    _accCtrl.dispose();
-    _ifscCtrl.dispose();
-    _upiCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOutCubic,
-        builder: (context, value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(0, 20 * (1 - value)),
-              child: child,
-            ),
-          );
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            const Text(
-              'How to Pay You',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Enter your payment details so clients know how to pay. (Optional)',
-              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 32),
-
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.cardBorder),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  CustomTextField(
-                    label: 'Bank Name',
-                    hint: 'e.g. Chase, SBI',
-                    controller: _bankCtrl,
-                    textCapitalization: TextCapitalization.words,
-                    prefixIcon: const Icon(
-                      Icons.account_balance_rounded,
-                      color: AppColors.slate400,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    label: 'Account Number',
-                    hint: 'e.g. 1234567890',
-                    controller: _accCtrl,
-                    keyboardType: TextInputType.number,
-                    prefixIcon: const Icon(
-                      Icons.numbers_rounded,
-                      color: AppColors.slate400,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    label: 'Routing / IFSC Code',
-                    hint: 'e.g. CHASUS33',
-                    controller: _ifscCtrl,
-                    textCapitalization: TextCapitalization.characters,
-                    prefixIcon: const Icon(
-                      Icons.account_tree_rounded,
-                      color: AppColors.slate400,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    label: 'UPI / PayPal / Other',
-                    hint: 'e.g. PayPal: user@email.com',
-                    controller: _upiCtrl,
-                    prefixIcon: const Icon(
-                      Icons.payment_rounded,
-                      color: AppColors.slate400,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            SizedBox(
-              width: double.infinity,
-              child: PrimaryButton(onPressed: _saveAndNext, label: 'Continue'),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: TextButton(
-                onPressed: widget.onNext,
-                child: const Text(
-                  'Skip for now',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PaymentTermsPage extends StatefulWidget {
-  const _PaymentTermsPage();
-
-  @override
-  State<_PaymentTermsPage> createState() => _PaymentTermsPageState();
-}
-
-class _PaymentTermsPageState extends State<_PaymentTermsPage> {
-  final List<String> _termsOptions = [
-    'Due on Receipt',
-    'Net 15',
-    'Net 30',
-    'Net 45',
-    'Net 60',
-  ];
-  String? _selectedTerms;
-
-  Future<void> _finishOnboarding(BuildContext context) async {
-    if (_selectedTerms != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('default_payment_terms', _selectedTerms!);
-    }
-
-    if (!context.mounted) return;
-
+    if (!mounted) return;
     final currencyProvider = context.read<CurrencyProvider>();
+    await currencyProvider.setCurrency(_selectedCurrency);
+    if (_taxRate > 0) {
+      await currencyProvider.setCustomTaxRate(_taxRate);
+    }
     await currencyProvider.completeOnboarding();
 
-    if (context.mounted) {
+    if (!mounted) return;
+    if (openCreateInvoice) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
+      );
+    } else {
       Navigator.of(context).pushReplacementNamed('/home');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOutCubic,
-        builder: (context, value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(0, 20 * (1 - value)),
-              child: child,
-            ),
-          );
-        },
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 20),
-            const Text(
-              'Default Payment Terms',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'When are your invoices usually due? This will be pre-filled on new invoices.',
-              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 32),
-
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _termsOptions.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final term = _termsOptions[index];
-                final isSelected = _selectedTerms == term;
-                return GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    setState(() => _selectedTerms = term);
-                    // Add a tiny delay so the user sees the selection before navigating away
-                    Future.delayed(const Duration(milliseconds: 150), () {
-                      _finishOnboarding(context);
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.primary.withValues(alpha: 0.05)
-                          : AppColors.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.cardBorder,
-                        width: isSelected ? 2 : 1,
+            // Top Navigation & Step Indicator Bar
+            if (_currentPage > 0 && _currentPage < _totalSteps - 1)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: AppColors.textPrimary,
                       ),
-                      boxShadow: [
-                        if (!isSelected)
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                      ],
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        _pageController.previousPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOutCubic,
+                        );
+                      },
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : AppColors.slate300,
-                              width: isSelected ? 7 : 2,
-                            ),
-                          ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryMuted,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'STEP $_currentPage OF ${_totalSteps - 2}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                          letterSpacing: 1.0,
                         ),
-                        const SizedBox(width: 16),
-                        Text(
-                          term,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-
-            Center(
-              child: TextButton(
-                onPressed: () => _finishOnboarding(context),
-                child: const Text(
-                  'Skip for now',
-                  style: TextStyle(color: AppColors.textSecondary),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => _goToStep(_totalSteps - 1),
+                      child: const Text(
+                        'Skip',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+
+            // Top Linear Progress Tracker
+            if (_currentPage > 0 && _currentPage < _totalSteps - 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: _currentPage / (_totalSteps - 2),
+                    backgroundColor: AppColors.slate200,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.primary,
+                    ),
+                    minHeight: 5,
+                  ),
+                ),
+              ),
+
+            // Main Interactive Page Content
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                onPageChanged: (index) => setState(() => _currentPage = index),
+                children: [
+                  _buildWelcomePage(),
+                  _buildBusinessTypePage(),
+                  _buildGoalPage(),
+                  _buildBusinessProfilePage(),
+                  _buildCurrencyPage(),
+                  _buildPaymentTermsPage(),
+                  _buildCelebrationPage(),
+                ],
               ),
             ),
           ],
@@ -1375,163 +278,1420 @@ class _PaymentTermsPageState extends State<_PaymentTermsPage> {
       ),
     );
   }
-}
 
-/// Currency chip widget for popular currencies
-class _CurrencyChip extends StatelessWidget {
-  final Currency currency;
-  final VoidCallback onTap;
+  // ---------------------------------------------------------------------------
+  // STEP 1: WELCOME WITH LIVE BUILDING INVOICE ANiMATION
+  // ---------------------------------------------------------------------------
+  Widget _buildWelcomePage() {
+    return Column(
+      children: [
+        // Top Hero Stage Canvas
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Stripe/Linear-Style High Contrast Document Card Stage
+                GestureDetector(
+                  onTap: () {
+                    setState(() => _invoiceBuildStep = 0);
+                    _runInvoiceBuildAnimation();
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.25),
+                        width: 1.5,
+                      ),
+                      boxShadow: AppColors.heroShadow,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Document Header Bar
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    gradient: AppColors.primaryGradient,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.receipt_long_rounded,
+                                    color: Colors.white,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _invoiceBuildStep >= 1
+                                          ? 'Acme Studio'
+                                          : 'Your Business Name',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                        color: _invoiceBuildStep >= 1
+                                            ? AppColors.textPrimary
+                                            : AppColors.slate400,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    const Text(
+                                      '#INV-2026-001',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _invoiceBuildStep >= 2
+                                    ? AppColors.primaryMuted
+                                    : AppColors.slate100,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: _invoiceBuildStep >= 2
+                                      ? AppColors.primary.withValues(alpha: 0.2)
+                                      : AppColors.slate200,
+                                ),
+                              ),
+                              child: Text(
+                                _invoiceBuildStep >= 2
+                                    ? 'Starlight Inc'
+                                    : '+ Client Name',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: _invoiceBuildStep >= 2
+                                      ? AppColors.primary
+                                      : AppColors.slate500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
 
-  const _CurrencyChip({required this.currency, required this.onTap});
+                        // Itemized Table Rows
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.slate50,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.slate200),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _invoiceBuildStep >= 3
+                                        ? 'Brand Strategy & App UI'
+                                        : '+ Add Line Item',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: _invoiceBuildStep >= 3
+                                          ? AppColors.textPrimary
+                                          : AppColors.slate400,
+                                    ),
+                                  ),
+                                  Text(
+                                    _invoiceBuildStep >= 3
+                                        ? '\$1,800.00'
+                                        : '\$0.00',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w900,
+                                      color: _invoiceBuildStep >= 3
+                                          ? AppColors.textPrimary
+                                          : AppColors.slate400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_invoiceBuildStep >= 3) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: const [
+                                    Text(
+                                      'GST Tax (18%)',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      '\$650.00',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
 
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.cardBorder),
+                        // Grand Total & Emerald Status Tag
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'GRAND TOTAL',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                                Text(
+                                  _invoiceBuildStep >= 4
+                                      ? '\$2,450.00'
+                                      : '\$0.00',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.primary,
+                                    letterSpacing: -0.6,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            AnimatedScale(
+                              scale: _invoiceBuildStep >= 5 ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 350),
+                              curve: Curves.elasticOut,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 7,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.statusPaidBg,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: AppColors.statusPaid.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color.fromRGBO(16, 185, 129, 0.25),
+                                      blurRadius: 12,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: const [
+                                    Icon(
+                                      Icons.check_circle_rounded,
+                                      color: AppColors.statusPaid,
+                                      size: 16,
+                                    ),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'PAID & SENT',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.statusPaid,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // Headlines
+                const Text(
+                  'Invoicing made\neffortless & fast.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -1.0,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Create your first professional invoice in under 60 seconds.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Row(
+        ),
+
+        // Pinned Bottom Action Dock (Always visible & fixed at bottom)
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            border: Border(
+              top: BorderSide(
+                color: AppColors.cardBorder.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(currency.flag, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 8),
-              Text(
-                currency.code,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
+              PrimaryButton(
+                label: 'Create my first invoice',
+                onPressed: _nextPage,
+                icon: Icons.arrow_forward_rounded,
+                height: 54,
+                fontSize: 16,
               ),
-              const SizedBox(width: 4),
-              Text(
-                currency.symbol,
-                style: const TextStyle(color: AppColors.textSecondary),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => _goToStep(1),
+                child: const Text(
+                  'I’m just exploring',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ),
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // STEP 2: BUSINESS TYPE SELECTION
+  // ---------------------------------------------------------------------------
+  Widget _buildBusinessTypePage() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          const Text(
+            'What are you invoicing for?',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.8,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Select your primary business type to customize templates.',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 24),
+
+          _GoalCard(
+            icon: Icons.person_rounded,
+            title: 'Freelance & Consulting',
+            subtitle: 'Services, contracting, and independent work',
+            selected: _selectedBusinessType == BusinessType.freelancer,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() => _selectedBusinessType = BusinessType.freelancer);
+              Future.delayed(const Duration(milliseconds: 180), _nextPage);
+            },
+          ),
+          const SizedBox(height: 12),
+
+          _GoalCard(
+            icon: Icons.store_rounded,
+            title: 'Small Business & Local Services',
+            subtitle: 'Local shops, trades, agencies & services',
+            selected: _selectedBusinessType == BusinessType.smallBusiness,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(
+                () => _selectedBusinessType = BusinessType.smallBusiness,
+              );
+              Future.delayed(const Duration(milliseconds: 180), _nextPage);
+            },
+          ),
+          const SizedBox(height: 12),
+
+          _GoalCard(
+            icon: Icons.palette_rounded,
+            title: 'Agency & Creative Services',
+            subtitle: 'Design, software development & marketing',
+            selected: _selectedBusinessType == BusinessType.agency,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() => _selectedBusinessType = BusinessType.agency);
+              Future.delayed(const Duration(milliseconds: 180), _nextPage);
+            },
+          ),
+          const SizedBox(height: 12),
+
+          _GoalCard(
+            icon: Icons.shopping_bag_rounded,
+            title: 'Products & Retail',
+            subtitle: 'E-commerce, wholesale, or physical goods',
+            selected: _selectedBusinessType == BusinessType.products,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() => _selectedBusinessType = BusinessType.products);
+              Future.delayed(const Duration(milliseconds: 180), _nextPage);
+            },
+          ),
+          const SizedBox(height: 12),
+
+          _GoalCard(
+            icon: Icons.auto_awesome_rounded,
+            title: 'Something else',
+            subtitle: 'Custom business setup',
+            selected: _selectedBusinessType == BusinessType.other,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() => _selectedBusinessType = BusinessType.other);
+              Future.delayed(const Duration(milliseconds: 180), _nextPage);
+            },
+          ),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
-}
 
-/// Currency list tile widget
-class _CurrencyListTile extends StatelessWidget {
-  final Currency currency;
-  final VoidCallback onTap;
-
-  const _CurrencyListTile({required this.currency, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.cardBorder),
+  // ---------------------------------------------------------------------------
+  // STEP 3: GOAL SELECTION WITH INSTANT PERSONALIZED FEEDBACK
+  // ---------------------------------------------------------------------------
+  Widget _buildGoalPage() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          const Text(
+            'What do you want to\nstay on top of?',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.8,
+              height: 1.2,
+            ),
           ),
-          child: Row(
-            children: [
-              // Flag
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.slate100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: Text(
-                    currency.flag,
-                    style: const TextStyle(fontSize: 24),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Currency info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          currency.code,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          currency.symbol,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      currency.name,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
+          const SizedBox(height: 6),
+          const Text(
+            'We’ll tailor your workspace features to match your main focus.',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 20),
+
+          if (_goalFeedback != null)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.statusPaidBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.statusPaid.withValues(alpha: 0.3),
                 ),
               ),
-              // Tax info
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: currency.defaultTax.rate > 0
-                          ? AppColors.primaryLight.withValues(alpha: 0.1)
-                          : AppColors.accent.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
+                  const Icon(
+                    Icons.stars_rounded,
+                    color: AppColors.statusPaid,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
                     child: Text(
-                      currency.defaultTax.rate > 0
-                          ? '${currency.defaultTax.rate}% ${currency.defaultTax.shortName}'
-                          : 'No Tax',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: currency.defaultTax.rate > 0
-                            ? AppColors.primary
-                            : AppColors.accent,
+                      _goalFeedback!,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.statusPaid,
                       ),
                     ),
                   ),
                 ],
               ),
+            ),
+          if (_goalFeedback != null) const SizedBox(height: 20),
+
+          _GoalCard(
+            icon: Icons.bolt_rounded,
+            title: 'Send invoices faster',
+            subtitle: 'Instant PDF generation and sharing',
+            selected: _selectedGoal == OnboardingGoal.sendFaster,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _selectedGoal = OnboardingGoal.sendFaster;
+                _goalFeedback =
+                    'Perfect! We’ll help you send invoices in under 60 seconds.';
+              });
+              Future.delayed(const Duration(milliseconds: 350), _nextPage);
+            },
+          ),
+          const SizedBox(height: 12),
+
+          _GoalCard(
+            icon: Icons.access_time_filled_rounded,
+            title: 'Track unpaid invoices',
+            subtitle: 'Overdue alerts and payment status',
+            selected: _selectedGoal == OnboardingGoal.trackUnpaid,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _selectedGoal = OnboardingGoal.trackUnpaid;
+                _goalFeedback =
+                    'Awesome. You will get instant alerts on overdue payments.';
+              });
+              Future.delayed(const Duration(milliseconds: 350), _nextPage);
+            },
+          ),
+          const SizedBox(height: 12),
+
+          _GoalCard(
+            icon: Icons.workspace_premium_rounded,
+            title: 'Look more professional',
+            subtitle: 'Polished layouts, logos, and custom colors',
+            selected: _selectedGoal == OnboardingGoal.lookProfessional,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _selectedGoal = OnboardingGoal.lookProfessional;
+                _goalFeedback =
+                    'Great choice. Your clients will receive high-end PDF invoices.';
+              });
+              Future.delayed(const Duration(milliseconds: 350), _nextPage);
+            },
+          ),
+          const SizedBox(height: 12),
+
+          _GoalCard(
+            icon: Icons.bar_chart_rounded,
+            title: 'Understand my revenue',
+            subtitle: 'Monthly growth charts and analytics',
+            selected: _selectedGoal == OnboardingGoal.understandRevenue,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _selectedGoal = OnboardingGoal.understandRevenue;
+                _goalFeedback =
+                    'Got it! Your dashboard will highlight sales trends.';
+              });
+              Future.delayed(const Duration(milliseconds: 350), _nextPage);
+            },
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // STEP 4: INTERACTIVE BUSINESS PROFILE WITH LIVE PREVIEW HEADER
+  // ---------------------------------------------------------------------------
+  Widget _buildBusinessProfilePage() {
+    final nameText = _bizNameCtrl.text.trim().isEmpty
+        ? 'YOUR BUSINESS NAME'
+        : _bizNameCtrl.text.trim();
+    final emailText = _bizEmailCtrl.text.trim();
+    final phoneText = _bizPhoneCtrl.text.trim();
+    final initials = nameText.length >= 2
+        ? nameText.substring(0, 2).toUpperCase()
+        : 'YS';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 12),
+
+          // Real Live Mini Invoice Preview Document Card
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+              boxShadow: AppColors.heroShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          _logoPath != null && File(_logoPath!).existsSync()
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.file(
+                                    File(_logoPath!),
+                                    width: 44,
+                                    height: 44,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    gradient: AppColors.primaryGradient,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      initials,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  nameText,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (emailText.isNotEmpty)
+                                  Text(
+                                    emailText,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textSecondary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                if (phoneText.isNotEmpty)
+                                  Text(
+                                    phoneText,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryMuted,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'LIVE PREVIEW',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.slate50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.slate200),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Text(
+                        'Sample Service Item',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        '\$1,200.00',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          const Text(
+            'Business Profile',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.8,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'As you type, your invoice header updates above.',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 20),
+
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.cardBorder),
+              boxShadow: AppColors.cardShadow,
+            ),
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: _pickLogo,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryMuted,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.add_photo_alternate_rounded,
+                          color: AppColors.primary,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Add Company Logo (Optional)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (_logoPath != null)
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: AppColors.statusPaid,
+                            size: 20,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                CustomTextField(
+                  label: 'Business Name',
+                  hint: 'e.g. Acme Studio',
+                  controller: _bizNameCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  prefixIcon: const Icon(
+                    Icons.business_rounded,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                CustomTextField(
+                  label: 'Email Address (Optional)',
+                  hint: 'contact@acme.com',
+                  controller: _bizEmailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  prefixIcon: const Icon(
+                    Icons.email_rounded,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                CustomTextField(
+                  label: 'Phone Number (Optional)',
+                  hint: '+1 234 567 8900',
+                  controller: _bizPhoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  prefixIcon: const Icon(
+                    Icons.phone_rounded,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          PrimaryButton(
+            onPressed: () {
+              _saveBusinessProfile();
+              _nextPage();
+            },
+            label: 'Continue',
+            height: 54,
+            fontSize: 16,
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // STEP 5: CURRENCY & INLINE TAX SELECTION
+  // ---------------------------------------------------------------------------
+  Widget _buildCurrencyPage() {
+    final popularList = SupportedCurrencies.popular;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 12),
+          const Text(
+            'Which currency do you invoice in?',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.8,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Your invoices will pre-fill with this currency symbol.',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 20),
+
+          // Visual Currency Selector Grid
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: popularList.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 2.3,
+            ),
+            itemBuilder: (context, index) {
+              final currency = popularList[index];
+              final isSelected = _selectedCurrency.code == currency.code;
+
+              return GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  setState(() => _selectedCurrency = currency);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primaryMuted : Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.cardBorder,
+                      width: isSelected ? 2.5 : 1,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
+                        : AppColors.cardShadow,
+                  ),
+                  child: Row(
+                    children: [
+                      Text(currency.flag, style: const TextStyle(fontSize: 22)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              currency.code,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              currency.symbol,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // Inline Tax Selector Section
+          const Text(
+            'Do you usually add tax?',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          Row(
+            children: [
+              _buildTaxChip('No Tax', 0.0, 'No Tax'),
               const SizedBox(width: 8),
-              const Icon(Icons.chevron_right, color: AppColors.slate300),
+              _buildTaxChip('GST 18%', 18.0, 'GST'),
+              const SizedBox(width: 8),
+              _buildTaxChip('VAT 20%', 20.0, 'VAT'),
             ],
           ),
+          const SizedBox(height: 28),
+
+          PrimaryButton(
+            onPressed: _nextPage,
+            label:
+                'Continue with ${_selectedCurrency.code} (${_selectedCurrency.symbol})',
+            height: 54,
+            fontSize: 16,
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTaxChip(String label, double rate, String taxName) {
+    final isSelected = _taxRate == rate;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() {
+            _taxRate = rate;
+            _taxName = taxName;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected ? AppColors.primary : AppColors.cardBorder,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: isSelected ? Colors.white : AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // STEP 6: PAYMENT TERMS SELECTION
+  // ---------------------------------------------------------------------------
+  Widget _buildPaymentTermsPage() {
+    final termsList = ['Due on Receipt', 'Net 15', 'Net 30', 'Net 60'];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 12),
+          const Text(
+            'When are your invoices\nusually due?',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.8,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Pre-fills the due date whenever you create a new invoice.',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 24),
+
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: termsList.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final term = termsList[index];
+              final isSelected = _selectedTerms == term;
+
+              return GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  setState(() => _selectedTerms = term);
+                  Future.delayed(const Duration(milliseconds: 200), _nextPage);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 18,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primaryMuted : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.cardBorder,
+                      width: isSelected ? 2.5 : 1,
+                    ),
+                    boxShadow: AppColors.cardShadow,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isSelected
+                              ? AppColors.primary
+                              : Colors.transparent,
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.slate300,
+                            width: isSelected ? 0 : 2,
+                          ),
+                        ),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        term,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: isSelected
+                              ? FontWeight.w900
+                              : FontWeight.w700,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 28),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // STEP 7: CELEBRATION & FIRST SUCCESS MOMENT
+  // ---------------------------------------------------------------------------
+  Widget _buildCelebrationPage() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Spacer(),
+          // Celebration Icon Badge
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              gradient: AppColors.heroGradient,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                  blurRadius: 28,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.auto_awesome_rounded,
+                color: Colors.white,
+                size: 48,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          const Text(
+            'Your workspace is ready!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.8,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Everything is pre-configured to create clean PDF invoices.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 28),
+
+          // Completion Checklist Box
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.cardBorder),
+              boxShadow: AppColors.cardShadow,
+            ),
+            child: Column(
+              children: [
+                _buildCheckItem(
+                  'Business profile configured',
+                  _bizNameCtrl.text.trim().isEmpty
+                      ? 'Acme Studio'
+                      : _bizNameCtrl.text.trim(),
+                ),
+                const Divider(height: 24),
+                _buildCheckItem(
+                  'Currency & Tax set',
+                  '${_selectedCurrency.code} (${_selectedCurrency.symbol}) | ${_taxRate > 0 ? "$_taxName $_taxRate%" : "No Tax"}',
+                ),
+                const Divider(height: 24),
+                _buildCheckItem('Default due date', _selectedTerms),
+                const Divider(height: 24),
+                _buildCheckItem(
+                  'Invoice PDF template',
+                  'Clean Professional Style',
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+
+          PrimaryButton(
+            label: 'Create my first invoice',
+            onPressed: () => _finishOnboarding(openCreateInvoice: true),
+            icon: Icons.add_rounded,
+            height: 54,
+            fontSize: 16,
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => _finishOnboarding(openCreateInvoice: false),
+            child: const Text(
+              'Explore the dashboard',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCheckItem(String title, String subtitle) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: const BoxDecoration(
+            color: AppColors.statusPaidBg,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.check_rounded,
+            color: AppColors.statusPaid,
+            size: 16,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Custom Goal Selectable Card Widget
+class _GoalCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _GoalCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.08)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.cardBorder,
+            width: selected ? 2.5 : 1,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.16),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : AppColors.cardShadow,
+        ),
+        child: Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : AppColors.primaryMuted,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(
+                icon,
+                color: selected ? Colors.white : AppColors.primary,
+                size: 25,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: selected
+                          ? AppColors.primary
+                          : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            AnimatedScale(
+              scale: selected ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 180),
+              child: const Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.primary,
+                size: 22,
+              ),
+            ),
+          ],
         ),
       ),
     );

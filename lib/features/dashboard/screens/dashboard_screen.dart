@@ -11,6 +11,7 @@ import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_animations.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared_widgets/empty_state_view.dart';
 import '../../invoices/models/invoice_model.dart';
@@ -238,15 +239,17 @@ class DashboardScreenState extends State<DashboardScreen> {
               floating: true,
               snap: true,
               backgroundColor: AppColors.surface,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
               title: const Text(
                 'Overview',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.5),
               ),
               actions: [
                 IconButton(
                   onPressed: _loadData,
-                  icon: const Icon(Icons.refresh_outlined),
-                  color: AppColors.slate500,
+                  icon: const Icon(Icons.refresh_rounded),
+                  color: AppColors.primary,
                 ),
               ],
             ),
@@ -254,221 +257,204 @@ class DashboardScreenState extends State<DashboardScreen> {
               child: _isLoading
                   ? const SizedBox(
                       height: 400,
-                      child: Center(child: CircularProgressIndicator()),
+                      child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
                     )
                   : Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Outstanding card
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 24,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  AppColors.primary,
-                                  AppColors.primaryDark,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+                          // Hero Outstanding Card
+                          StaggeredEntrance(
+                            index: 0,
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                gradient: AppColors.heroGradient,
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: AppColors.heroShadow,
                               ),
-                              borderRadius: BorderRadius.circular(24),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withAlpha(
-                                    76,
-                                  ), // 30% opacity
-                                  blurRadius: 24,
-                                  spreadRadius: -4,
-                                  offset: const Offset(0, 12),
-                                ),
-                              ],
-                              border: Border.all(
-                                color: Colors.white.withAlpha(
-                                  25,
-                                ), // 10% opacity subtle border glow
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withAlpha(
-                                      25,
-                                    ), // 10% opacity
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: Colors.white.withAlpha(
-                                        51,
-                                      ), // 20% opacity
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.account_balance_wallet_outlined,
-                                    color: Colors.white,
-                                    size: 26,
-                                  ),
-                                ),
-                                const SizedBox(width: 18),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     children: [
-                                      const Text(
-                                        'Total Outstanding',
-                                        style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.5,
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(14),
+                                        ),
+                                        child: const Icon(
+                                          Icons.account_balance_wallet_rounded,
+                                          color: Colors.white,
+                                          size: 24,
                                         ),
                                       ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        CurrencyFormatter.format(
-                                          _totalOutstanding,
-                                          currencySymbol: currencySymbol,
-                                        ),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 30,
+                                      const SizedBox(width: 14),
+                                      const Text(
+                                        'TOTAL OUTSTANDING',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 11,
                                           fontWeight: FontWeight.w800,
-                                          letterSpacing: -1.2,
+                                          letterSpacing: 1.0,
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          if (!billing.isPro) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.slate50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.cardBorder),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.receipt_long_outlined,
-                                    size: 20,
-                                    color: AppColors.slate600,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Free Plan Limit',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.slate800,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '$_monthlyInvoiceCount of 10 invoices created this month',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.slate600,
-                                          ),
-                                        ),
-                                      ],
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    CurrencyFormatter.format(
+                                      _totalOutstanding,
+                                      currencySymbol: currencySymbol,
                                     ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const PaywallScreen(),
-                                      ),
-                                    ),
-                                    style: TextButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 4,
-                                      ),
-                                      minimumSize: Size.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      backgroundColor: AppColors.proGoldLight,
-                                      foregroundColor: AppColors.proGold,
-                                    ),
-                                    child: const Text(
-                                      'Upgrade',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 34,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -1.0,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 12),
+                          ),
+                          const SizedBox(height: 14),
+
+                          if (!billing.isPro) ...[
+                            StaggeredEntrance(
+                              index: 1,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: AppColors.cardBorder),
+                                  boxShadow: AppColors.cardShadow,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryMuted,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(
+                                        Icons.receipt_long_rounded,
+                                        size: 20,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Free Plan Usage',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '$_monthlyInvoiceCount of 10 invoices created this month',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const PaywallScreen(),
+                                        ),
+                                      ),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 6,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        backgroundColor: AppColors.proGoldLight,
+                                        foregroundColor: AppColors.proGold,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'PRO',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
                           ],
 
-                          // Metrics row
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildMetricCard(
-                                  label: 'Paid This Month',
-                                  value: CurrencyFormatter.format(
-                                    _paidThisMonth,
-                                    currencySymbol: currencySymbol,
+                          // Metrics Row
+                          StaggeredEntrance(
+                            index: 2,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    label: 'Paid This Month',
+                                    value: CurrencyFormatter.format(
+                                      _paidThisMonth,
+                                      currencySymbol: currencySymbol,
+                                    ),
+                                    icon: Icons.check_circle_rounded,
+                                    iconColor: AppColors.statusPaid,
+                                    bgColor: AppColors.statusPaidBg,
                                   ),
-                                  icon: Icons.check_circle_outline,
-                                  iconColor: AppColors.statusPaid,
-                                  bgColor: AppColors.statusPaidBg,
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildMetricCard(
-                                  label: 'Overdue',
-                                  value: CurrencyFormatter.format(
-                                    _totalOverdue,
-                                    currencySymbol: currencySymbol,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    label: 'Overdue',
+                                    value: CurrencyFormatter.format(
+                                      _totalOverdue,
+                                      currencySymbol: currencySymbol,
+                                    ),
+                                    icon: Icons.warning_rounded,
+                                    iconColor: AppColors.statusOverdue,
+                                    bgColor: AppColors.statusOverdueBg,
                                   ),
-                                  icon: Icons.warning_amber_outlined,
-                                  iconColor: AppColors.statusOverdue,
-                                  bgColor: AppColors.statusOverdueBg,
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 24),
 
-                          // Recent Invoices header
+                          // Recent Invoices Header
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
                                 'Recent Invoices',
                                 style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.3,
                                 ),
                               ),
                               if (_recentInvoices.isNotEmpty)
@@ -477,22 +463,20 @@ class DashboardScreenState extends State<DashboardScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) =>
-                                            const InvoiceHistoryScreen(),
+                                        builder: (_) => const InvoiceHistoryScreen(),
                                       ),
                                     ).then((_) => _loadData());
                                   },
                                   style: TextButton.styleFrom(
                                     padding: EdgeInsets.zero,
                                     minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   ),
                                   child: const Text(
                                     'View All',
                                     style: TextStyle(
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w700,
                                       color: AppColors.primary,
                                     ),
                                   ),
@@ -502,24 +486,24 @@ class DashboardScreenState extends State<DashboardScreen> {
                           const SizedBox(height: 12),
 
                           if (_recentInvoices.isEmpty)
-                            EmptyStateView(
-                              icon: Icons.receipt_long_outlined,
+                            const EmptyStateView(
+                              icon: Icons.receipt_long_rounded,
                               title: 'No Invoices Yet',
-                              subtitle:
-                                  'Tap "+ New Invoice" to create your first invoice',
+                              subtitle: 'Tap "+ New Invoice" to create your first invoice',
                             )
                           else
-                            ..._recentInvoices.map(
-                              (invoice) => Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: _buildRecentInvoiceCard(
-                                  invoice,
-                                  currencySymbol,
+                            ..._recentInvoices.asMap().entries.map(
+                              (entry) => StaggeredEntrance(
+                                index: 3 + entry.key,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: _buildRecentInvoiceCard(
+                                    entry.value,
+                                    currencySymbol,
+                                  ),
                                 ),
                               ),
                             ),
-
-                          const SizedBox(height: 16),
                         ],
                       ),
                     ),
@@ -541,37 +525,53 @@ class DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.cardBorder),
+        boxShadow: AppColors.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 16, color: iconColor),
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 18, color: iconColor),
+              ),
+              const Spacer(),
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: iconColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 16,
+              fontSize: 17,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
+              letterSpacing: -0.5,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
               color: AppColors.textSecondary,
             ),
           ),
@@ -602,28 +602,34 @@ class DashboardScreenState extends State<DashboardScreen> {
         statusLabel = 'Unpaid';
     }
 
+    final initials = invoice.clientName
+        .split(' ')
+        .take(2)
+        .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
+        .join();
+
     return GestureDetector(
       onTap: () => _previewInvoice(invoice),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.cardBorder),
+          boxShadow: AppColors.cardShadow,
         ),
         child: Row(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.slate100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.receipt_outlined,
-                size: 20,
-                color: AppColors.slate500,
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: AppColors.primaryMuted,
+              child: Text(
+                initials.isEmpty ? 'IN' : initials,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -635,11 +641,12 @@ class DashboardScreenState extends State<DashboardScreen> {
                     invoice.clientName,
                     style: const TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     '${invoice.invoiceNumber} • ${dateFormat.format(invoice.invoiceDate)}',
                     style: const TextStyle(
@@ -660,24 +667,24 @@ class DashboardScreenState extends State<DashboardScreen> {
                   ),
                   style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
+                    horizontal: 8,
+                    vertical: 3,
                   ),
                   decoration: BoxDecoration(
                     color: statusBg,
-                    borderRadius: BorderRadius.circular(5),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     statusLabel,
                     style: TextStyle(
                       fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       color: statusText,
                     ),
                   ),
@@ -685,7 +692,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: AppColors.slate500),
+              icon: const Icon(Icons.more_vert_rounded, color: AppColors.slate400),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

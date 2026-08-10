@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_animations.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/empty_state_view.dart';
 import '../../../shared_widgets/primary_button.dart';
@@ -213,31 +214,31 @@ class _ClientListScreenState extends State<ClientListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final billing = context.watch<BillingService>();
     final filtered = _filteredClients;
-
-    final listItems = filtered.map((c) => _buildClientCard(c)).toList();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.selectionMode ? 'Select Client' : 'Clients'),
+        title: Text(
+          widget.selectionMode ? 'Select Client' : 'Clients',
+          style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
+        ),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: CustomTextField(
               hint: 'Search clients...',
-              prefixIcon: const Icon(Icons.search, color: AppColors.slate400),
+              prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
               onChanged: (v) => setState(() => _searchQuery = v),
             ),
           ),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                 : filtered.isEmpty
                 ? EmptyStateView(
-                    icon: Icons.people_outline,
+                    icon: Icons.people_outline_rounded,
                     title: _searchQuery.isEmpty
                         ? 'No Clients Yet'
                         : 'No Results',
@@ -250,20 +251,26 @@ class _ClientListScreenState extends State<ClientListScreen> {
                         : null,
                   )
                 : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                    itemCount: listItems.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (_, index) => listItems[index],
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (_, index) => StaggeredEntrance(
+                      index: index,
+                      child: _buildClientCard(filtered[index]),
+                    ),
                   ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddEditDialog(),
-        icon: const Icon(Icons.person_add_outlined),
-        label: const Text('Add Client'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 70),
+        child: FloatingActionButton.extended(
+          onPressed: () => _showAddEditDialog(),
+          icon: const Icon(Icons.person_add_rounded),
+          label: const Text('Add Client', style: TextStyle(fontWeight: FontWeight.w800)),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+        ),
       ),
     );
   }
@@ -280,53 +287,75 @@ class _ClientListScreenState extends State<ClientListScreen> {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.cardBorder),
+          boxShadow: AppColors.cardShadow,
         ),
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: 8,
+            vertical: 6,
           ),
           leading: CircleAvatar(
-            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+            radius: 22,
+            backgroundColor: AppColors.primaryMuted,
             child: Text(
-              initials,
+              initials.isEmpty ? 'CL' : initials,
               style: const TextStyle(
                 color: AppColors.primary,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
                 fontSize: 14,
               ),
             ),
           ),
           title: Text(
             client.name,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.textPrimary),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (client.email != null)
-                Text(
-                  client.email!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
+              if (client.email != null) ...[
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    const Icon(Icons.email_outlined, size: 13, color: AppColors.slate400),
+                    const SizedBox(width: 4),
+                    Text(
+                      client.email!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
-              if (client.phone != null)
-                Text(
-                  client.phone!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
+              ],
+              if (client.phone != null) ...[
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    const Icon(Icons.phone_outlined, size: 13, color: AppColors.slate400),
+                    const SizedBox(width: 4),
+                    Text(
+                      client.phone!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
+              ],
             ],
           ),
           trailing: widget.selectionMode
-              ? const Icon(Icons.chevron_right, color: AppColors.slate400)
+              ? const Icon(Icons.chevron_right_rounded, color: AppColors.primary)
               : PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded, color: AppColors.slate400),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   onSelected: (value) {
                     if (value == 'edit') {
                       _showAddEditDialog(client: client);
@@ -334,12 +363,27 @@ class _ClientListScreenState extends State<ClientListScreen> {
                     if (value == 'delete') _deleteClient(client);
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                    const PopupMenuItem(
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: const [
+                          Icon(Icons.edit_outlined, size: 18, color: AppColors.slate600),
+                          SizedBox(width: 10),
+                          Text('Edit'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
                       value: 'delete',
-                      child: Text(
-                        'Delete',
-                        style: TextStyle(color: AppColors.accentRed),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.accentRed),
+                          SizedBox(width: 10),
+                          Text(
+                            'Delete',
+                            style: TextStyle(color: AppColors.accentRed),
+                          ),
+                        ],
                       ),
                     ),
                   ],

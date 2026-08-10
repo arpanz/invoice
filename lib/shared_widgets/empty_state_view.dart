@@ -21,21 +21,28 @@ class EmptyStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 96,
-              height: 96,
+              width: 88,
+              height: 88,
               decoration: BoxDecoration(
-                color: AppColors.slate100,
+                color: AppColors.primaryMuted,
                 shape: BoxShape.circle,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromRGBO(37, 99, 235, 0.12),
+                    blurRadius: 24,
+                    spreadRadius: 4,
+                  ),
+                ],
               ),
               child: Icon(
                 icon,
-                size: 48,
-                color: AppColors.slate400,
+                size: 40,
+                color: AppColors.primary,
               ),
             ),
             const SizedBox(height: 24),
@@ -43,7 +50,8 @@ class EmptyStateView extends StatelessWidget {
               title,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
                   ),
               textAlign: TextAlign.center,
             ),
@@ -52,22 +60,28 @@ class EmptyStateView extends StatelessWidget {
               subtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.textSecondary,
+                    height: 1.4,
                   ),
               textAlign: TextAlign.center,
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
               ElevatedButton.icon(
                 onPressed: onAction,
                 icon: const Icon(Icons.add, size: 18),
-                label: Text(actionLabel!),
+                label: Text(
+                  actionLabel!,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
+                  elevation: 4,
+                  shadowColor: AppColors.primary.withValues(alpha: 0.3),
                 ),
               ),
             ],
