@@ -156,9 +156,7 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                 ],
               ),
             ),
-            Expanded(
-              child: _PdfRasterViewer(pdfBytes: pdfBytes),
-            ),
+            Expanded(child: _PdfRasterViewer(pdfBytes: pdfBytes)),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
               child: Row(
@@ -347,14 +345,14 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   title: 'No Invoices',
                   subtitle: _filterStatus == 'all'
                       ? 'Create your first invoice to get started'
-                      : 'No ${_filterStatus} invoices found',
+                      : 'No $_filterStatus invoices found',
                 )
               : RefreshIndicator(
                   onRefresh: _loadInvoices,
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                     itemCount: listItems.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (_, index) => listItems[index],
                   ),
                 ),
@@ -395,14 +393,14 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withOpacity(0.08),
-            AppColors.primary.withOpacity(0.03),
+            AppColors.primary.withValues(alpha: 0.08),
+            AppColors.primary.withValues(alpha: 0.03),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -412,7 +410,7 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.12),
+                color: AppColors.primary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -491,7 +489,8 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          if (invoice.status != InvoiceStatus.paid) await _markAs(invoice, InvoiceStatus.paid);
+          if (invoice.status != InvoiceStatus.paid)
+            await _markAs(invoice, InvoiceStatus.paid);
           return false;
         } else {
           await _deleteInvoice(invoice);
@@ -629,7 +628,11 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                             value: 'paid',
                             child: Row(
                               children: const [
-                                Icon(Icons.check_circle_outline, size: 20, color: AppColors.statusPaid),
+                                Icon(
+                                  Icons.check_circle_outline,
+                                  size: 20,
+                                  color: AppColors.statusPaid,
+                                ),
                                 SizedBox(width: 12),
                                 Text('Mark as Paid'),
                               ],
@@ -640,7 +643,11 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                             value: 'unpaid',
                             child: Row(
                               children: const [
-                                Icon(Icons.radio_button_unchecked, size: 20, color: AppColors.statusUnpaid),
+                                Icon(
+                                  Icons.radio_button_unchecked,
+                                  size: 20,
+                                  color: AppColors.statusUnpaid,
+                                ),
                                 SizedBox(width: 12),
                                 Text('Mark as Unpaid'),
                               ],
@@ -650,7 +657,11 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                           value: 'edit',
                           child: Row(
                             children: const [
-                              Icon(Icons.edit_outlined, size: 20, color: AppColors.slate600),
+                              Icon(
+                                Icons.edit_outlined,
+                                size: 20,
+                                color: AppColors.slate600,
+                              ),
                               SizedBox(width: 12),
                               Text('Edit'),
                             ],
@@ -660,7 +671,11 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                           value: 'save',
                           child: Row(
                             children: const [
-                              Icon(Icons.download_outlined, size: 20, color: AppColors.slate600),
+                              Icon(
+                                Icons.download_outlined,
+                                size: 20,
+                                color: AppColors.slate600,
+                              ),
                               SizedBox(width: 12),
                               Text('Save PDF'),
                             ],
@@ -670,7 +685,11 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                           value: 'print',
                           child: Row(
                             children: const [
-                              Icon(Icons.print_outlined, size: 20, color: AppColors.slate600),
+                              Icon(
+                                Icons.print_outlined,
+                                size: 20,
+                                color: AppColors.slate600,
+                              ),
                               SizedBox(width: 12),
                               Text('Print'),
                             ],
@@ -680,7 +699,11 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                           value: 'share',
                           child: Row(
                             children: const [
-                              Icon(Icons.share_outlined, size: 20, color: AppColors.slate600),
+                              Icon(
+                                Icons.share_outlined,
+                                size: 20,
+                                color: AppColors.slate600,
+                              ),
                               SizedBox(width: 12),
                               Text('Share'),
                             ],
@@ -691,9 +714,16 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                           value: 'delete',
                           child: Row(
                             children: const [
-                              Icon(Icons.delete_outline, size: 20, color: AppColors.accentRed),
+                              Icon(
+                                Icons.delete_outline,
+                                size: 20,
+                                color: AppColors.accentRed,
+                              ),
                               SizedBox(width: 12),
-                              Text('Delete', style: TextStyle(color: AppColors.accentRed)),
+                              Text(
+                                'Delete',
+                                style: TextStyle(color: AppColors.accentRed),
+                              ),
                             ],
                           ),
                         ),
@@ -834,10 +864,15 @@ class _PdfRasterViewerState extends State<_PdfRasterViewer> {
         ),
         if (_pages!.length > 1)
           Positioned(
-            bottom: 8, left: 0, right: 0,
+            bottom: 8,
+            left: 0,
+            right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(12),

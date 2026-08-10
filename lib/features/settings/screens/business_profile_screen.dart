@@ -1,13 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/billing/billing_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/primary_button.dart';
-import '../widgets/paywall_bottom_sheet.dart';
 
 class BusinessProfileScreen extends StatefulWidget {
   const BusinessProfileScreen({super.key});
@@ -90,7 +87,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
   Future<void> _pickLogo() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
     if (picked != null) {
       setState(() => _logoPath = picked.path);
     }
@@ -98,7 +98,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
   Future<void> _pickSignature() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
     if (picked != null) {
       setState(() => _signaturePath = picked.path);
     }
@@ -125,7 +128,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _saveProfile,
-            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text(
+              'Save',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -198,7 +204,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         style: BorderStyle.solid,
                       ),
                     ),
-                    child: _signaturePath != null && File(_signaturePath!).existsSync()
+                    child:
+                        _signaturePath != null &&
+                            File(_signaturePath!).existsSync()
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: Image.file(
@@ -239,7 +247,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   hint: 'Your Company Name',
                   controller: _nameCtrl,
                   textCapitalization: TextCapitalization.words,
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 12),
                 CustomTextField(
@@ -315,7 +324,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     );
   }
 
-  Widget _buildSectionCard({required String title, required List<Widget> children}) {
+  Widget _buildSectionCard({
+    required String title,
+    required List<Widget> children,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,

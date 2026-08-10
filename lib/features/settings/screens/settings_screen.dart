@@ -122,7 +122,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha: 0.15),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -160,7 +160,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     'Remove watermark. Unlimited invoices & clients.',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 12,
                     ),
                   ),
@@ -194,7 +194,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: AppColors.statusPaidBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.statusPaid.withOpacity(0.3)),
+        border: Border.all(color: AppColors.statusPaid.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -394,7 +394,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: _SettingsActionSheet(
           icon: Icons.percent_rounded,
           iconColor: AppColors.primary,
-          iconBackground: AppColors.primaryLight.withOpacity(0.12),
+          iconBackground: AppColors.primaryLight.withValues(alpha: 0.12),
           title: 'Edit ${currencyProvider.defaultTax.shortName} rate',
           subtitle: 'Set the default tax rate used when you create invoices.',
           content: Form(
@@ -565,7 +565,7 @@ class _SettingsActionSheet extends StatelessWidget {
             border: Border.all(color: AppColors.cardBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withValues(alpha: 0.08),
                 blurRadius: 28,
                 offset: const Offset(0, 12),
               ),
@@ -708,14 +708,14 @@ class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
             child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               itemCount: _filteredCurrencies.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final currency = _filteredCurrencies[index];
                 final isSelected = currency.code == selectedCurrency.code;
 
                 return Material(
                   color: isSelected
-                      ? AppColors.primaryLight.withOpacity(0.1)
+                      ? AppColors.primaryLight.withValues(alpha: 0.1)
                       : AppColors.slate50,
                   borderRadius: BorderRadius.circular(12),
                   child: InkWell(
@@ -783,8 +783,10 @@ class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: currency.defaultTax.rate > 0
-                                      ? AppColors.primaryLight.withOpacity(0.1)
-                                      : AppColors.accent.withOpacity(0.1),
+                                      ? AppColors.primaryLight.withValues(
+                                          alpha: 0.1,
+                                        )
+                                      : AppColors.accent.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(

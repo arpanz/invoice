@@ -302,7 +302,7 @@ class _InvoiceIllustration extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -318,7 +318,7 @@ class _InvoiceIllustration extends StatelessWidget {
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.2),
+                        color: AppColors.primary.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(6),
                       ),
                     ),
@@ -363,7 +363,7 @@ class _InvoiceIllustration extends StatelessWidget {
                       width: 30,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.5),
+                        color: Colors.white.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -415,12 +415,12 @@ class _ClientsIllustration extends StatelessWidget {
       height: 60,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(opacity),
+        color: Colors.white.withValues(alpha: opacity),
         borderRadius: BorderRadius.circular(12),
         border: hasBorder ? Border.all(color: AppColors.cardBorder) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04 * opacity),
+            color: Colors.black.withValues(alpha: 0.04 * opacity),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -432,7 +432,7 @@ class _ClientsIllustration extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: AppColors.accent.withOpacity(0.2),
+              color: AppColors.accent.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
           ),
@@ -488,7 +488,7 @@ class _ChartIllustration extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -502,7 +502,7 @@ class _ChartIllustration extends StatelessWidget {
               _buildBar(height: 50, color: AppColors.slate200),
               _buildBar(
                 height: 40,
-                color: AppColors.accentOrange.withOpacity(0.4),
+                color: AppColors.accentOrange.withValues(alpha: 0.4),
               ),
               _buildBar(height: 60, color: AppColors.accentOrange),
             ],
@@ -631,7 +631,7 @@ class _BusinessSetupPageState extends State<_BusinessSetupPage> {
                 border: Border.all(color: AppColors.cardBorder),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
+                    color: Colors.black.withValues(alpha: 0.02),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -668,7 +668,9 @@ class _BusinessSetupPageState extends State<_BusinessSetupPage> {
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.04),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.04,
+                                        ),
                                         blurRadius: 12,
                                         offset: const Offset(0, 4),
                                       ),
@@ -834,7 +836,7 @@ class _CurrencySelectionPageState extends State<CurrencySelectionPage> {
                 border: Border.all(color: AppColors.cardBorder),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -903,7 +905,7 @@ class _CurrencySelectionPageState extends State<CurrencySelectionPage> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _filteredCurrencies.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final currency = _filteredCurrencies[index];
                 return _CurrencyListTile(
@@ -952,7 +954,7 @@ class _CurrencySelectionPageState extends State<CurrencySelectionPage> {
                 border: Border.all(color: AppColors.cardBorder),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 28,
                     offset: const Offset(0, 12),
                   ),
@@ -1135,7 +1137,7 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
                 border: Border.all(color: AppColors.cardBorder),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
+                    color: Colors.black.withValues(alpha: 0.02),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -1305,7 +1307,7 @@ class _PaymentTermsPageState extends State<_PaymentTermsPage> {
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppColors.primary.withOpacity(0.05)
+                          ? AppColors.primary.withValues(alpha: 0.05)
                           : AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
@@ -1317,7 +1319,7 @@ class _PaymentTermsPageState extends State<_PaymentTermsPage> {
                       boxShadow: [
                         if (!isSelected)
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.02),
+                            color: Colors.black.withValues(alpha: 0.02),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -1507,8 +1509,8 @@ class _CurrencyListTile extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: currency.defaultTax.rate > 0
-                          ? AppColors.primaryLight.withOpacity(0.1)
-                          : AppColors.accent.withOpacity(0.1),
+                          ? AppColors.primaryLight.withValues(alpha: 0.1)
+                          : AppColors.accent.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(

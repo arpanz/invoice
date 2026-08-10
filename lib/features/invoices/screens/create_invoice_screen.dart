@@ -33,7 +33,10 @@ class CreateInvoiceScreen extends StatefulWidget {
     final count = await DbProvider.countInvoicesThisMonth();
     if (count >= 10) {
       if (context.mounted) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const PaywallScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PaywallScreen()),
+        );
       }
       return false;
     }
@@ -386,8 +389,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           onChanged: (_) => setModalState(() {}),
                           validator: (v) {
                             if (v == null || v.isEmpty) return 'Required';
-                            if ((double.tryParse(v) ?? 0) <= 0)
+                            if ((double.tryParse(v) ?? 0) <= 0) {
                               return 'Must be > 0';
+                            }
                             return null;
                           },
                         ),
@@ -641,9 +645,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 ],
               ),
             ),
-            Expanded(
-              child: _PdfRasterViewer(pdfBytes: pdfBytes),
-            ),
+            Expanded(child: _PdfRasterViewer(pdfBytes: pdfBytes)),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
               child: Row(
@@ -999,7 +1001,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         Switch(
                           value: _hasDiscount,
                           onChanged: (v) => setState(() => _hasDiscount = v),
-                          activeColor: AppColors.primary,
+                          activeThumbColor: AppColors.primary,
                         ),
                       ],
                     ),
@@ -1083,7 +1085,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         Switch(
                           value: _hasTax,
                           onChanged: (v) => setState(() => _hasTax = v),
-                          activeColor: AppColors.primary,
+                          activeThumbColor: AppColors.primary,
                         ),
                       ],
                     ),
@@ -1096,7 +1098,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           Switch(
                             value: _useIGST,
                             onChanged: (v) => setState(() => _useIGST = v),
-                            activeColor: AppColors.primary,
+                            activeThumbColor: AppColors.primary,
                           ),
                           const Text(
                             'SGST + CGST',
@@ -1204,7 +1206,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withValues(alpha: 0.08),
                       blurRadius: 16,
                       offset: const Offset(0, -4),
                     ),
@@ -1553,10 +1555,15 @@ class _PdfRasterViewerState extends State<_PdfRasterViewer> {
         ),
         if (_pages!.length > 1)
           Positioned(
-            bottom: 8, left: 0, right: 0,
+            bottom: 8,
+            left: 0,
+            right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(12),

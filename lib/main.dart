@@ -253,7 +253,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 if (!context.mounted) return;
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const CreateInvoiceScreen(),
+                  ),
                 );
               }
               return;
@@ -296,7 +298,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withOpacity(0.4),
+                      color: AppColors.primary.withValues(alpha: 0.4),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -352,7 +354,7 @@ class _StartupUpdateSheet extends StatelessWidget {
             border: Border.all(color: AppColors.cardBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withValues(alpha: 0.08),
                 blurRadius: 28,
                 offset: const Offset(0, 12),
               ),
