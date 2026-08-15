@@ -660,9 +660,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            _currentTheme.name,
-                            style: const TextStyle(
+                          const Text(
+                            'Style',
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textPrimary,

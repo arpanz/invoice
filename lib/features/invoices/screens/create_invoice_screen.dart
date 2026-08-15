@@ -1521,12 +1521,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                Text(
-                                  _selectedTheme.name,
+                                const Text(
+                                  'Choose style & paper design',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
-                                    color: _selectedTheme.previewPrimary,
+                                    color: AppColors.slate500,
                                   ),
                                 ),
                               ],

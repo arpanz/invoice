@@ -7,6 +7,7 @@ import 'package:invoice/features/invoices/models/line_item_model.dart';
 import 'package:invoice/features/invoices/models/pdf_theme.dart';
 import 'package:invoice/features/invoices/screens/create_invoice_screen.dart';
 import 'package:invoice/features/invoices/screens/invoice_preview_screen.dart';
+import 'package:invoice/features/invoices/services/dummy_invoice_data.dart';
 import 'package:invoice/features/invoices/services/pdf_generator_service.dart';
 import 'package:invoice/features/invoices/widgets/pdf_theme_picker_sheet.dart';
 import 'package:provider/provider.dart';
@@ -79,14 +80,19 @@ void main() {
   );
 
   group('PdfTheme Model & Lookups', () {
-    test('PdfTheme contains exactly 5 clean, professional themes', () {
-      expect(PdfTheme.all.length, 5);
+    test('PdfTheme contains exactly 10 clean, professional themes', () {
+      expect(PdfTheme.all.length, 10);
       expect(PdfTheme.all.map((t) => t.id).toList(), [
         PdfThemeId.classicBlue,
         PdfThemeId.modernMinimal,
         PdfThemeId.emeraldExecutive,
         PdfThemeId.slateElegance,
         PdfThemeId.warmCorporate,
+        PdfThemeId.nordicFrame,
+        PdfThemeId.leftRibbon,
+        PdfThemeId.geometricBlock,
+        PdfThemeId.securityGrid,
+        PdfThemeId.splitTwoTone,
       ]);
     });
 
@@ -96,14 +102,19 @@ void main() {
       expect(PdfTheme.fromId('emerald_executive').id, PdfThemeId.emeraldExecutive);
       expect(PdfTheme.fromId('slate_elegance').id, PdfThemeId.slateElegance);
       expect(PdfTheme.fromId('warm_corporate').id, PdfThemeId.warmCorporate);
+      expect(PdfTheme.fromId('nordic_frame').id, PdfThemeId.nordicFrame);
+      expect(PdfTheme.fromId('left_ribbon').id, PdfThemeId.leftRibbon);
+      expect(PdfTheme.fromId('geometric_block').id, PdfThemeId.geometricBlock);
+      expect(PdfTheme.fromId('security_grid').id, PdfThemeId.securityGrid);
+      expect(PdfTheme.fromId('split_two_tone').id, PdfThemeId.splitTwoTone);
       expect(PdfTheme.fromId('unknown_theme').id, PdfThemeId.classicBlue);
       expect(PdfTheme.fromId(null).id, PdfThemeId.classicBlue);
     });
   });
 
-  group('PdfGeneratorService Theme Rendering', () {
+  group('PdfGeneratorService 10 Themes & Paper Styles Rendering', () {
     for (final theme in PdfTheme.all) {
-      test('generates valid PDF bytes for ${theme.name}', () async {
+      test('generates valid PDF bytes for ${theme.name} (${theme.paperDesignName})', () async {
         final bytes = await PdfGeneratorService.generateInvoicePdf(
           invoice: testInvoice,
           businessProfile: testProfile,
@@ -115,6 +126,19 @@ void main() {
         expect(bytes.length, greaterThan(1000));
       });
     }
+
+    test('generates sample live preview with dummy logo and signature', () async {
+      final bytes = await PdfGeneratorService.generateInvoicePdf(
+        invoice: DummyInvoiceData.sampleInvoice,
+        businessProfile: DummyInvoiceData.sampleProfile,
+        isPro: true,
+        theme: PdfTheme.nordicFrame,
+        isSamplePreview: true,
+      );
+
+      expect(bytes, isNotEmpty);
+      expect(bytes.length, greaterThan(1000));
+    });
 
     test('generates dual tax PDF with free watermark', () async {
       final dualTaxInvoice = testInvoice.copyWith(
@@ -140,9 +164,13 @@ void main() {
   });
 
   group('PdfThemePickerSheet Widget Tests', () {
-    testWidgets('renders all 5 theme options and allows selection', (
+    testWidgets('renders 2-column live preview grid and allows selection', (
       WidgetTester tester,
     ) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
       PdfTheme? selectedResult;
       bool? defaultSaved;
 
@@ -159,26 +187,23 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.text('PDF Invoice Themes'), findsOneWidget);
-      expect(find.text('Classic Blue'), findsOneWidget);
-      expect(find.text('Modern Minimal'), findsOneWidget);
-      expect(find.text('Emerald Executive'), findsOneWidget);
+      expect(find.text('Choose Invoice Style'), findsOneWidget);
+      expect(find.byType(GridView), findsOneWidget);
 
-      await tester.scrollUntilVisible(find.text('Slate Elegance'), 100);
-      expect(find.text('Slate Elegance'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('Warm Corporate'), 100);
-      expect(find.text('Warm Corporate'), findsOneWidget);
+      // Tap on the 2nd template card in the 2-column grid (Modern Minimal)
+      final gridCards = find.descendant(
+        of: find.byType(GridView),
+        matching: find.byType(GestureDetector),
+      );
+      expect(gridCards, findsWidgets);
+      await tester.tap(gridCards.at(1));
+      await tester.pump(const Duration(milliseconds: 200));
 
-      // Tap on Modern Minimal (scroll back if needed)
-      await tester.scrollUntilVisible(find.text('Modern Minimal'), -100);
-      await tester.tap(find.text('Modern Minimal'));
-      await tester.pumpAndSettle();
-
-      // Tap Apply Theme
-      await tester.tap(find.text('Apply Theme'));
-      await tester.pumpAndSettle();
+      // Tap Apply Selected Style button
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pump(const Duration(milliseconds: 200));
 
       expect(selectedResult, isNotNull);
       expect(selectedResult!.id, PdfThemeId.modernMinimal);
@@ -187,29 +212,42 @@ void main() {
   });
 
   group('CreateInvoiceScreen & InvoicePreviewScreen Theme Integration', () {
-    testWidgets('CreateInvoiceScreen shows theme on Templates card', (
+    testWidgets('CreateInvoiceScreen shows Templates card and opens theme picker', (
       WidgetTester tester,
     ) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
       await tester.pumpWidget(wrapWithProviders(const CreateInvoiceScreen()));
       await tester.pumpAndSettle();
 
       expect(find.text('Templates'), findsOneWidget);
-      expect(find.text('Classic Blue'), findsOneWidget);
+      expect(find.text('Choose style & paper design'), findsOneWidget);
 
       // Tap Templates card to open theme picker sheet
       await tester.tap(find.text('Templates'));
       await tester.pumpAndSettle();
 
-      expect(find.text('PDF Invoice Themes'), findsOneWidget);
-      expect(find.text('Emerald Executive'), findsOneWidget);
+      expect(find.text('Choose Invoice Style'), findsOneWidget);
 
-      // Select Emerald Executive and apply
-      await tester.tap(find.text('Emerald Executive'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Apply Theme'));
+      // Select 2nd style and apply
+      final gridCards = find.descendant(
+        of: find.byType(GridView),
+        matching: find.byType(GestureDetector),
+      );
+      await tester.tap(gridCards.at(1));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(PdfThemePickerSheet),
+          matching: find.byType(ElevatedButton),
+        ),
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text('Emerald Executive'), findsOneWidget);
+      expect(find.text('Templates'), findsOneWidget);
+      expect(find.text('Choose style & paper design'), findsOneWidget);
     });
 
     testWidgets('InvoicePreviewScreen shows quick theme pill and actions', (
@@ -221,7 +259,7 @@ void main() {
       await tester.pump();
 
       expect(find.byIcon(Icons.palette_outlined), findsOneWidget);
-      expect(find.text('Classic Blue'), findsOneWidget);
+      expect(find.text('Style'), findsOneWidget);
     });
   });
 }

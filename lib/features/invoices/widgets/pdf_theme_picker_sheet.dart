@@ -1,7 +1,11 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/pdf_theme.dart';
+import '../services/dummy_invoice_data.dart';
+import '../services/pdf_generator_service.dart';
 
 class PdfThemePickerSheet extends StatefulWidget {
   final PdfTheme currentTheme;
@@ -48,18 +52,45 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
   late PdfTheme _selectedTheme;
   bool _setAsDefault = false;
 
+  // Cache of live rasterized thumbnails for all 10 themes
+  static final Map<PdfThemeId, Uint8List> _thumbnailCache = {};
+
   @override
   void initState() {
     super.initState();
     _selectedTheme = widget.currentTheme;
+    _warmUpThumbnails();
+  }
+
+  Future<void> _warmUpThumbnails() async {
+    for (final theme in PdfTheme.all) {
+      if (_thumbnailCache.containsKey(theme.id)) continue;
+      try {
+        final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
+          invoice: DummyInvoiceData.sampleInvoice,
+          businessProfile: DummyInvoiceData.sampleProfile,
+          isPro: true,
+          theme: theme,
+          isSamplePreview: true,
+        );
+
+        await for (final page in Printing.raster(pdfBytes, pages: [0], dpi: 90)) {
+          final png = await page.toPng();
+          if (mounted) {
+            setState(() {
+              _thumbnailCache[theme.id] = png;
+            });
+          }
+          break;
+        }
+      } catch (_) {}
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
+      height: MediaQuery.of(context).size.height * 0.88,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -67,7 +98,6 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
       child: SafeArea(
         top: false,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 12),
@@ -82,7 +112,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Header
             Padding(
@@ -90,27 +120,29 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'PDF Invoice Themes',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                          letterSpacing: -0.3,
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Choose Invoice Style',
+                          style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                            letterSpacing: -0.3,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        'Select a clean, professional PDF template',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.slate500,
+                        SizedBox(height: 2),
+                        Text(
+                          'Tap any template to select',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.slate500,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
@@ -119,30 +151,36 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+
+            const SizedBox(height: 10),
             const Divider(height: 1, color: AppColors.cardBorder),
 
-            // Theme options list
-            Flexible(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                shrinkWrap: true,
+            // 2-Column Live Preview Only Grid (No text labels)
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 itemCount: PdfTheme.all.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.707,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                ),
                 itemBuilder: (ctx, index) {
                   final theme = PdfTheme.all[index];
                   final isSelected = _selectedTheme.id == theme.id;
+                  final thumbnailBytes = _thumbnailCache[theme.id];
 
-                  return _buildThemeCard(theme, isSelected);
+                  return _buildLiveThemeCard(theme, isSelected, thumbnailBytes);
                 },
               ),
             ),
 
             const Divider(height: 1, color: AppColors.cardBorder),
 
-            // Footer actions
+            // Footer Actions
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -157,8 +195,8 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                       child: Row(
                         children: [
                           SizedBox(
-                            height: 24,
-                            width: 24,
+                            height: 22,
+                            width: 22,
                             child: Checkbox(
                               value: _setAsDefault,
                               onChanged: (val) {
@@ -174,7 +212,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                           ),
                           const SizedBox(width: 8),
                           const Text(
-                            'Set as default theme for future invoices',
+                            'Set as default style for future invoices',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -184,7 +222,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                   ],
                   SizedBox(
                     width: double.infinity,
@@ -202,7 +240,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                         ),
                       ),
                       child: const Text(
-                        'Apply Theme',
+                        'Apply Selected Style',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
@@ -219,7 +257,11 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
     );
   }
 
-  Widget _buildThemeCard(PdfTheme theme, bool isSelected) {
+  Widget _buildLiveThemeCard(
+    PdfTheme theme,
+    bool isSelected,
+    Uint8List? thumbnailBytes,
+  ) {
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -228,162 +270,126 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? theme.previewBg : Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? theme.previewPrimary : AppColors.cardBorder,
-            width: isSelected ? 1.8 : 1.0,
+            width: isSelected ? 2.5 : 1.0,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: theme.previewPrimary.withValues(alpha: 0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                    color: theme.previewPrimary.withValues(alpha: 0.25),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
                   ),
                 ]
               : [
                   const BoxShadow(
-                    color: Color.fromRGBO(0, 0, 0, 0.02),
-                    blurRadius: 4,
-                    offset: Offset(0, 1),
+                    color: Color.fromRGBO(0, 0, 0, 0.05),
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
                   ),
                 ],
         ),
-        child: Row(
-          children: [
-            // Miniature theme preview box
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: theme.previewBg,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: theme.previewPrimary.withValues(alpha: 0.25),
-                  width: 1,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Live Rendered Document Page Preview
+              Container(
+                color: const Color(0xFFF8FAFC),
+                child: Center(
+                  child: thumbnailBytes != null
+                      ? Image.memory(
+                          thumbnailBytes,
+                          fit: BoxFit.contain,
+                        )
+                      : _buildFallbackMiniMockup(theme),
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Mini top bar
-                  Container(
-                    width: 34,
-                    height: 7,
+
+              // Top Right Checkmark Badge when selected
+              if (isSelected)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: theme.previewPrimary,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  // Mini line 1
-                  Container(
-                    width: 26,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: theme.previewSecondary.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(1),
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  // Mini line 2
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 16,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: theme.previewSecondary.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(1),
-                        ),
-                      ),
-                      const SizedBox(width: 3),
-                      Container(
-                        width: 8,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: theme.previewAccent,
-                          borderRadius: BorderRadius.circular(1),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 14),
-
-            // Title & Description
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        theme.name,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: isSelected ? theme.previewPrimary : AppColors.textPrimary,
-                        ),
-                      ),
-                      if (isSelected) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: theme.previewPrimary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Active',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: theme.previewPrimary,
-                            ),
-                          ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
                         ),
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    theme.description,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.slate500,
-                      height: 1.3,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      size: 14,
+                      color: Colors.white,
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-            // Radio selection check
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected ? theme.previewPrimary : Colors.transparent,
-                border: Border.all(
-                  color: isSelected ? theme.previewPrimary : AppColors.slate300,
-                  width: 2,
+  Widget _buildFallbackMiniMockup(PdfTheme theme) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: theme.previewBg,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 28,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: theme.previewPrimary,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              child: isSelected
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
-                  : null,
+              Container(
+                width: 22,
+                height: 5,
+                color: theme.previewSecondary.withValues(alpha: 0.5),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 18,
+            decoration: BoxDecoration(
+              color: theme.previewPrimary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(4),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: theme.previewPrimary.withValues(alpha: 0.2),
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
