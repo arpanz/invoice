@@ -17,6 +17,8 @@ import '../../clients/screens/client_list_screen.dart';
 import '../../paywall/paywall_screen.dart';
 import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
+import '../models/pdf_theme.dart';
+import '../widgets/pdf_theme_picker_sheet.dart';
 import 'invoice_preview_screen.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
@@ -94,6 +96,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   final List<String> _attachments = [];
   InvoiceStatus _status = InvoiceStatus.unpaid;
   bool _showPaidStamp = true;
+  PdfTheme _selectedTheme = PdfTheme.defaultTheme;
 
   String? _activeInvoiceId;
   bool _isSaving = false;
@@ -139,6 +142,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
     final savedDismissed = prefs.getStringList('dismissed_invoice_tips') ?? [];
     _dismissedTips.addAll(savedDismissed);
+
+    final savedThemeId = widget.existingInvoice != null
+        ? (prefs.getString('invoice_theme_${widget.existingInvoice!.id}') ??
+            prefs.getString('default_pdf_theme'))
+        : prefs.getString('default_pdf_theme');
+    if (savedThemeId != null) {
+      _selectedTheme = PdfTheme.fromId(savedThemeId);
+    }
 
     if (widget.existingInvoice != null) {
       final inv = widget.existingInvoice!;
@@ -317,6 +328,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         await DbProvider.insert(DbProvider.tableLineItems, item.toMap());
       }
 
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('invoice_theme_${invoice.id}', _selectedTheme.id.value);
+
       setState(() => _isSaving = false);
       return invoice;
     } catch (e) {
@@ -332,6 +346,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
   Future<void> _handlePreview() async {
     final invoice = _buildInvoiceModel();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('invoice_theme_${invoice.id}', _selectedTheme.id.value);
+    if (!mounted) return;
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -1459,48 +1476,105 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
                   // Card 2: Templates
                   _buildCard(
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.slate100,
-                            borderRadius: BorderRadius.circular(10),
+                    child: InkWell(
+                      onTap: () async {
+                        final selected = await PdfThemePickerSheet.show(
+                          context,
+                          currentTheme: _selectedTheme,
+                          showSetAsDefault: true,
+                        );
+                        if (selected != null && mounted) {
+                          setState(() {
+                            _selectedTheme = selected;
+                          });
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: _selectedTheme.previewBg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _selectedTheme.previewPrimary.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.view_quilt_outlined,
+                              color: _selectedTheme.previewPrimary,
+                              size: 20,
+                            ),
                           ),
-                          child: const Icon(Icons.view_quilt_outlined, color: AppColors.slate700, size: 20),
-                        ),
-                        const SizedBox(width: 14),
-                        const Expanded(
-                          child: Text(
-                            'Templates',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Templates',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _selectedTheme.name,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: _selectedTheme.previewPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Container(
-                          width: 32,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AppColors.cardBorder),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4),
-                            ],
+                          Container(
+                            width: 32,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: _selectedTheme.previewBg,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: _selectedTheme.previewPrimary.withValues(alpha: 0.3),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 18,
+                                  height: 3,
+                                  color: _selectedTheme.previewPrimary,
+                                ),
+                                const SizedBox(height: 3),
+                                Container(
+                                  width: 22,
+                                  height: 2,
+                                  color: _selectedTheme.previewSecondary.withValues(alpha: 0.5),
+                                ),
+                                const SizedBox(height: 2),
+                                Container(
+                                  width: 22,
+                                  height: 2,
+                                  color: _selectedTheme.previewAccent,
+                                ),
+                              ],
+                            ),
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(width: 18, height: 3, color: AppColors.primary),
-                              const SizedBox(height: 3),
-                              Container(width: 22, height: 2, color: AppColors.slate300),
-                              const SizedBox(height: 2),
-                              Container(width: 22, height: 2, color: AppColors.slate300),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
-                      ],
+                          const SizedBox(width: 8),
+                          const Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),

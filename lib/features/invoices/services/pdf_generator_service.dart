@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../models/invoice_model.dart';
+import '../models/pdf_theme.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/pdf_helper.dart';
@@ -50,19 +51,13 @@ class PdfGeneratorService {
 
   static Future<_PdfFonts>? _fontsFuture;
 
-  static final PdfColor _primaryColor = PdfColor.fromHex('#2563EB');
-  static final PdfColor _darkColor = PdfColor.fromHex('#0F172A');
-  static final PdfColor _slateColor = PdfColor.fromHex('#64748B');
-  static final PdfColor _lightGray = PdfColor.fromHex('#F1F5F9');
-  static final PdfColor _borderColor = PdfColor.fromHex('#E2E8F0');
-  static final PdfColor _tableHeaderBg = PdfColor.fromHex('#1E293B');
-  static final PdfColor _accentGreen = PdfColor.fromHex('#10B981');
-
   static Future<Uint8List> generateInvoicePdf({
     required InvoiceModel invoice,
     required BusinessProfile businessProfile,
     required bool isPro,
+    PdfTheme? theme,
   }) async {
+    final activeTheme = theme ?? PdfTheme.defaultTheme;
     final fonts = await _loadFonts();
     final pdf = pw.Document(
       title: 'Invoice ${invoice.invoiceNumber}',
@@ -100,7 +95,7 @@ class PdfGeneratorService {
       pw.MultiPage(
         pageTheme: pw.PageTheme(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(40),
+          margin: const pw.EdgeInsets.all(36),
           theme: pw.ThemeData.withFont(
             base: fonts.base,
             bold: fonts.bold,
@@ -108,19 +103,21 @@ class PdfGeneratorService {
           ),
         ),
         build: (context) => [
-          _buildHeader(invoice, businessProfile, logoImage, dateFormat),
-          pw.SizedBox(height: 32),
-          _buildAddressSection(invoice, businessProfile),
-          pw.SizedBox(height: 32),
-          _buildLineItemsTable(invoice, businessProfile, currencySymbol),
+          if (activeTheme.id == PdfThemeId.emeraldExecutive)
+            _buildTopAccentBar(activeTheme),
+          _buildHeader(invoice, businessProfile, logoImage, dateFormat, activeTheme),
           pw.SizedBox(height: 24),
-          _buildTotalsSection(invoice, businessProfile, currencySymbol),
-          if (invoice.notes != null && invoice.notes!.isNotEmpty) ...[
-            pw.SizedBox(height: 24),
-            _buildNotesSection(invoice.notes!),
+          _buildAddressSection(invoice, businessProfile, activeTheme),
+          pw.SizedBox(height: 24),
+          _buildLineItemsTable(invoice, businessProfile, currencySymbol, activeTheme),
+          pw.SizedBox(height: 20),
+          _buildTotalsSection(invoice, businessProfile, currencySymbol, activeTheme),
+          if (invoice.notes != null && invoice.notes!.trim().isNotEmpty) ...[
+            pw.SizedBox(height: 20),
+            _buildNotesSection(invoice.notes!, activeTheme),
           ],
-          pw.SizedBox(height: 32),
-          _buildFooter(businessProfile, isPro, signatureImage),
+          pw.SizedBox(height: 24),
+          _buildFooter(businessProfile, isPro, signatureImage, activeTheme),
         ],
       ),
     );
@@ -128,128 +125,251 @@ class PdfGeneratorService {
     return pdf.save();
   }
 
+  static pw.Widget _buildTopAccentBar(PdfTheme theme) {
+    return pw.Container(
+      height: 4,
+      margin: const pw.EdgeInsets.only(bottom: 20),
+      decoration: pw.BoxDecoration(
+        color: theme.primaryColor,
+        borderRadius: pw.BorderRadius.circular(2),
+      ),
+    );
+  }
+
   static pw.Widget _buildHeader(
     InvoiceModel invoice,
     BusinessProfile profile,
     pw.MemoryImage? logo,
     DateFormat dateFormat,
+    PdfTheme theme,
   ) {
+    if (theme.id == PdfThemeId.modernMinimal) {
+      return _buildModernMinimalHeader(invoice, profile, logo, dateFormat, theme);
+    }
+
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         // Left: Logo + Business Name
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            if (logo != null)
-              pw.Container(
-                height: 60,
-                width: 120,
-                child: pw.Image(logo, fit: pw.BoxFit.contain),
-              )
-            else
-              pw.Container(
-                padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: pw.BoxDecoration(
-                  color: _primaryColor,
-                  borderRadius: pw.BorderRadius.circular(8),
-                ),
-                child: pw.Text(
-                  profile.businessName
-                      .substring(
-                        0,
-                        profile.businessName.length > 2
-                            ? 2
-                            : profile.businessName.length,
-                      )
-                      .toUpperCase(),
-                  style: pw.TextStyle(
-                    color: PdfColors.white,
-                    fontSize: 20,
-                    fontWeight: pw.FontWeight.bold,
+        pw.Expanded(
+          flex: 6,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              if (logo != null)
+                pw.Container(
+                  height: 55,
+                  width: 130,
+                  alignment: pw.Alignment.centerLeft,
+                  child: pw.Image(logo, fit: pw.BoxFit.contain),
+                )
+              else
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: pw.BoxDecoration(
+                    color: theme.primaryColor,
+                    borderRadius: pw.BorderRadius.circular(6),
+                  ),
+                  child: pw.Text(
+                    profile.businessName.substring(
+                      0,
+                      profile.businessName.length > 2 ? 2 : profile.businessName.length,
+                    ).toUpperCase(),
+                    style: pw.TextStyle(
+                      color: PdfColors.white,
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                 ),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                profile.businessName,
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                  color: theme.darkColor,
+                ),
               ),
-            pw.SizedBox(height: 8),
-            pw.Text(
-              profile.businessName,
-              style: pw.TextStyle(
-                fontSize: 16,
-                fontWeight: pw.FontWeight.bold,
-                color: _darkColor,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
         // Right: INVOICE label + details
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.end,
-          children: [
-            pw.Text(
-              profile.invoiceTitle,
-              style: pw.TextStyle(
-                fontSize: 30,
-                fontWeight: pw.FontWeight.bold,
-                color: _primaryColor,
-                letterSpacing: 2,
+        pw.Expanded(
+          flex: 5,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              pw.Text(
+                profile.invoiceTitle,
+                style: pw.TextStyle(
+                  fontSize: 26,
+                  fontWeight: pw.FontWeight.bold,
+                  color: theme.primaryColor,
+                  letterSpacing: 2,
+                ),
               ),
-            ),
-            pw.SizedBox(height: 8),
-            pw.Container(
-              padding: const pw.EdgeInsets.all(12),
-              decoration: pw.BoxDecoration(
-                color: _lightGray,
-                borderRadius: pw.BorderRadius.circular(8),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
-                children: [
-                  _buildInfoRow('Invoice #', invoice.invoiceNumber),
-                  pw.SizedBox(height: 4),
-                  _buildInfoRow('Date', dateFormat.format(invoice.invoiceDate)),
-                  if (invoice.dueDate != null) ...[
+              pw.SizedBox(height: 8),
+              pw.Container(
+                padding: const pw.EdgeInsets.all(10),
+                decoration: pw.BoxDecoration(
+                  color: theme.lightGray,
+                  borderRadius: pw.BorderRadius.circular(6),
+                  border: theme.id == PdfThemeId.warmCorporate
+                      ? pw.Border.all(color: theme.borderColor, width: 0.8)
+                      : null,
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    _buildInfoRow('Invoice #', invoice.invoiceNumber, theme),
+                    pw.SizedBox(height: 3),
+                    _buildInfoRow('Date', dateFormat.format(invoice.invoiceDate), theme),
+                    if (invoice.dueDate != null) ...[
+                      pw.SizedBox(height: 3),
+                      _buildInfoRow(
+                        'Due Date',
+                        dateFormat.format(invoice.dueDate!),
+                        theme,
+                      ),
+                    ],
                     pw.SizedBox(height: 4),
-                    _buildInfoRow(
-                      'Due Date',
-                      dateFormat.format(invoice.dueDate!),
-                    ),
+                    _buildStatusBadge(invoice.status, theme),
                   ],
-                  pw.SizedBox(height: 4),
-                  _buildStatusBadge(invoice.status),
-                ],
+                ),
               ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  static pw.Widget _buildInfoRow(String label, String value) {
-    return pw.Row(
-      mainAxisSize: pw.MainAxisSize.min,
-      children: [
-        pw.Text(
-          '$label ',
-          style: pw.TextStyle(fontSize: 10, color: _slateColor),
-        ),
-        pw.Text(
-          value,
-          style: pw.TextStyle(
-            fontSize: 10,
-            fontWeight: pw.FontWeight.bold,
-            color: _darkColor,
+            ],
           ),
         ),
       ],
     );
   }
 
-  static pw.Widget _buildStatusBadge(InvoiceStatus status) {
+  static pw.Widget _buildModernMinimalHeader(
+    InvoiceModel invoice,
+    BusinessProfile profile,
+    pw.MemoryImage? logo,
+    DateFormat dateFormat,
+    PdfTheme theme,
+  ) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                if (logo != null)
+                  pw.Container(
+                    height: 50,
+                    width: 120,
+                    margin: const pw.EdgeInsets.only(bottom: 6),
+                    alignment: pw.Alignment.centerLeft,
+                    child: pw.Image(logo, fit: pw.BoxFit.contain),
+                  ),
+                pw.Text(
+                  profile.businessName,
+                  style: pw.TextStyle(
+                    fontSize: 20,
+                    fontWeight: pw.FontWeight.bold,
+                    color: theme.darkColor,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
+            ),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: [
+                pw.Text(
+                  profile.invoiceTitle,
+                  style: pw.TextStyle(
+                    fontSize: 22,
+                    fontWeight: pw.FontWeight.bold,
+                    color: theme.darkColor,
+                    letterSpacing: 3,
+                  ),
+                ),
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  '#${invoice.invoiceNumber}',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                    color: theme.slateColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 12),
+        pw.Container(
+          height: 1,
+          color: theme.borderColor,
+        ),
+        pw.SizedBox(height: 10),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Row(
+              children: [
+                pw.Text(
+                  'Date: ',
+                  style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
+                ),
+                pw.Text(
+                  dateFormat.format(invoice.invoiceDate),
+                  style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: theme.darkColor),
+                ),
+                if (invoice.dueDate != null) ...[
+                  pw.SizedBox(width: 16),
+                  pw.Text(
+                    'Due Date: ',
+                    style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
+                  ),
+                  pw.Text(
+                    dateFormat.format(invoice.dueDate!),
+                    style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: theme.darkColor),
+                  ),
+                ],
+              ],
+            ),
+            _buildStatusBadge(invoice.status, theme),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _buildInfoRow(String label, String value, PdfTheme theme) {
+    return pw.Row(
+      mainAxisSize: pw.MainAxisSize.min,
+      children: [
+        pw.Text(
+          '$label ',
+          style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
+        ),
+        pw.Text(
+          value,
+          style: pw.TextStyle(
+            fontSize: 9,
+            fontWeight: pw.FontWeight.bold,
+            color: theme.darkColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _buildStatusBadge(InvoiceStatus status, PdfTheme theme) {
     PdfColor bgColor;
     PdfColor textColor;
     String label;
@@ -266,21 +386,23 @@ class PdfGeneratorService {
         label = 'OVERDUE';
         break;
       default:
-        bgColor = PdfColor.fromHex('#FEF3C7');
+        bgColor = theme.id == PdfThemeId.warmCorporate
+            ? PdfColor.fromHex('#FEF3C7')
+            : PdfColor.fromHex('#FEF3C7');
         textColor = PdfColor.fromHex('#92400E');
         label = 'UNPAID';
     }
 
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
       decoration: pw.BoxDecoration(
         color: bgColor,
-        borderRadius: pw.BorderRadius.circular(4),
+        borderRadius: pw.BorderRadius.circular(3),
       ),
       child: pw.Text(
         label,
         style: pw.TextStyle(
-          fontSize: 9,
+          fontSize: 8,
           fontWeight: pw.FontWeight.bold,
           color: textColor,
         ),
@@ -291,17 +413,23 @@ class PdfGeneratorService {
   static pw.Widget _buildAddressSection(
     InvoiceModel invoice,
     BusinessProfile profile,
+    PdfTheme theme,
   ) {
+    final isMinimal = theme.id == PdfThemeId.modernMinimal;
+
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         // From
         pw.Expanded(
           child: pw.Container(
-            padding: const pw.EdgeInsets.all(16),
+            padding: const pw.EdgeInsets.all(12),
             decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: _borderColor),
-              borderRadius: pw.BorderRadius.circular(8),
+              color: isMinimal ? null : PdfColors.white,
+              border: isMinimal
+                  ? null
+                  : pw.Border.all(color: theme.borderColor, width: 0.8),
+              borderRadius: isMinimal ? null : pw.BorderRadius.circular(6),
             ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -309,61 +437,66 @@ class PdfGeneratorService {
                 pw.Text(
                   'FROM',
                   style: pw.TextStyle(
-                    fontSize: 9,
+                    fontSize: 8,
                     fontWeight: pw.FontWeight.bold,
-                    color: _slateColor,
+                    color: isMinimal ? theme.primaryColor : theme.slateColor,
                     letterSpacing: 1,
                   ),
                 ),
-                pw.SizedBox(height: 8),
+                pw.SizedBox(height: 6),
                 pw.Text(
                   profile.businessName,
                   style: pw.TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: pw.FontWeight.bold,
-                    color: _darkColor,
+                    color: theme.darkColor,
                   ),
                 ),
-                if (profile.address != null) ...[
-                  pw.SizedBox(height: 4),
+                if (profile.address != null && profile.address!.trim().isNotEmpty) ...[
+                  pw.SizedBox(height: 3),
                   pw.Text(
                     profile.address!,
-                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                    style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
                   ),
                 ],
-                if (profile.phone != null) ...[
+                if (profile.phone != null && profile.phone!.trim().isNotEmpty) ...[
                   pw.SizedBox(height: 2),
                   pw.Text(
                     profile.phone!,
-                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                    style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
                   ),
                 ],
-                if (profile.email != null) ...[
+                if (profile.email != null && profile.email!.trim().isNotEmpty) ...[
                   pw.SizedBox(height: 2),
                   pw.Text(
                     profile.email!,
-                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                    style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
                   ),
                 ],
-                if (profile.gstin != null && profile.gstin!.isNotEmpty) ...[
-                  pw.SizedBox(height: 4),
+                if (profile.gstin != null && profile.gstin!.trim().isNotEmpty) ...[
+                  pw.SizedBox(height: 3),
                   pw.Text(
                     '${profile.taxIdLabel}: ${profile.gstin}',
-                    style: pw.TextStyle(fontSize: 9, color: _slateColor),
+                    style: pw.TextStyle(fontSize: 8.5, color: theme.slateColor),
                   ),
                 ],
               ],
             ),
           ),
         ),
-        pw.SizedBox(width: 16),
+        pw.SizedBox(width: 14),
         // Bill To
         pw.Expanded(
           child: pw.Container(
-            padding: const pw.EdgeInsets.all(16),
+            padding: const pw.EdgeInsets.all(12),
             decoration: pw.BoxDecoration(
-              color: _lightGray,
-              borderRadius: pw.BorderRadius.circular(8),
+              color: isMinimal ? null : theme.lightGray,
+              border: isMinimal
+                  ? null
+                  : (theme.id == PdfThemeId.warmCorporate || theme.id == PdfThemeId.emeraldExecutive)
+                      ? pw.Border.all(color: theme.borderColor, width: 0.8)
+                      : null,
+              borderRadius: isMinimal ? null : pw.BorderRadius.circular(6),
             ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -371,47 +504,47 @@ class PdfGeneratorService {
                 pw.Text(
                   'BILL TO',
                   style: pw.TextStyle(
-                    fontSize: 9,
+                    fontSize: 8,
                     fontWeight: pw.FontWeight.bold,
-                    color: _slateColor,
+                    color: isMinimal ? theme.primaryColor : theme.slateColor,
                     letterSpacing: 1,
                   ),
                 ),
-                pw.SizedBox(height: 8),
+                pw.SizedBox(height: 6),
                 pw.Text(
                   invoice.clientName,
                   style: pw.TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: pw.FontWeight.bold,
-                    color: _darkColor,
+                    color: theme.darkColor,
                   ),
                 ),
-                if (invoice.clientAddress != null) ...[
-                  pw.SizedBox(height: 4),
+                if (invoice.clientAddress != null && invoice.clientAddress!.trim().isNotEmpty) ...[
+                  pw.SizedBox(height: 3),
                   pw.Text(
                     invoice.clientAddress!,
-                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                    style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
                   ),
                 ],
-                if (invoice.clientPhone != null) ...[
+                if (invoice.clientPhone != null && invoice.clientPhone!.trim().isNotEmpty) ...[
                   pw.SizedBox(height: 2),
                   pw.Text(
                     invoice.clientPhone!,
-                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                    style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
                   ),
                 ],
-                if (invoice.clientEmail != null) ...[
+                if (invoice.clientEmail != null && invoice.clientEmail!.trim().isNotEmpty) ...[
                   pw.SizedBox(height: 2),
                   pw.Text(
                     invoice.clientEmail!,
-                    style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                    style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
                   ),
                 ],
-                if (invoice.clientGstin != null && invoice.clientGstin!.isNotEmpty) ...[
-                  pw.SizedBox(height: 4),
+                if (invoice.clientGstin != null && invoice.clientGstin!.trim().isNotEmpty) ...[
+                  pw.SizedBox(height: 3),
                   pw.Text(
                     '${profile.taxIdLabel}: ${invoice.clientGstin}',
-                    style: pw.TextStyle(fontSize: 9, color: _slateColor),
+                    style: pw.TextStyle(fontSize: 8.5, color: theme.slateColor),
                   ),
                 ],
               ],
@@ -426,43 +559,53 @@ class PdfGeneratorService {
     InvoiceModel invoice,
     BusinessProfile profile,
     String currencySymbol,
+    PdfTheme theme,
   ) {
     final decimals = profile.decimalPlaces;
-    final headerBold = pw.TextStyle(
-      color: PdfColors.white,
-      fontSize: 10,
+    final isMinimal = theme.id == PdfThemeId.modernMinimal;
+
+    final headerTextStyle = pw.TextStyle(
+      color: theme.tableHeaderTextColor,
+      fontSize: 9,
       fontWeight: pw.FontWeight.bold,
+      letterSpacing: isMinimal ? 0.5 : 0,
     );
 
     return pw.Table(
-      border: pw.TableBorder.all(color: _borderColor, width: 0.5),
+      border: isMinimal
+          ? pw.TableBorder(
+              top: pw.BorderSide(color: theme.primaryColor, width: 1.2),
+              bottom: pw.BorderSide(color: theme.borderColor, width: 1),
+              horizontalInside: pw.BorderSide(color: theme.borderColor, width: 0.5),
+            )
+          : pw.TableBorder.all(color: theme.borderColor, width: 0.5),
       columnWidths: {
-        0: const pw.FlexColumnWidth(4),
-        1: const pw.FlexColumnWidth(1.5),
-        2: const pw.FlexColumnWidth(2),
-        3: const pw.FlexColumnWidth(2),
+        0: const pw.FlexColumnWidth(4.5),
+        1: const pw.FlexColumnWidth(1.4),
+        2: const pw.FlexColumnWidth(2.0),
+        3: const pw.FlexColumnWidth(2.1),
       },
       children: [
         // Header row
         pw.TableRow(
-          decoration: pw.BoxDecoration(color: _tableHeaderBg),
+          decoration: pw.BoxDecoration(color: theme.tableHeaderBg),
           children: [
-            _tableCell('DESCRIPTION', style: headerBold, isHeader: true),
+            _tableCell('DESCRIPTION', style: headerTextStyle, isHeader: true),
             _tableCell(
               'QTY',
-              style: headerBold,
+              style: headerTextStyle,
               isHeader: true,
               align: pw.Alignment.centerRight,
             ),
             _tableCell(
               'UNIT PRICE',
-              style: headerBold,
+              style: headerTextStyle,
               isHeader: true,
               align: pw.Alignment.centerRight,
             ),
             _tableCell(
               'TOTAL',
-              style: headerBold,
+              style: headerTextStyle,
               isHeader: true,
               align: pw.Alignment.centerRight,
             ),
@@ -473,11 +616,13 @@ class PdfGeneratorService {
           final index = entry.key;
           final item = entry.value;
           final isAlt = index % 2 == 1;
-          final rowBg = isAlt ? _lightGray : PdfColors.white;
-          final rowStyle = pw.TextStyle(fontSize: 10, color: _darkColor);
+          final rowBg = isMinimal
+              ? (isAlt ? theme.lightGray : PdfColors.white)
+              : (isAlt ? theme.lightGray : PdfColors.white);
+          final rowStyle = pw.TextStyle(fontSize: 9.5, color: theme.darkColor);
           final rowStyleSecondary = pw.TextStyle(
-            fontSize: 10,
-            color: _slateColor,
+            fontSize: 9.5,
+            color: theme.slateColor,
           );
 
           return pw.TableRow(
@@ -515,7 +660,10 @@ class PdfGeneratorService {
     pw.Alignment align = pw.Alignment.centerLeft,
   }) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: pw.EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: isHeader ? 8 : 7,
+      ),
       alignment: align,
       child: pw.Text(text, style: style),
     );
@@ -525,6 +673,7 @@ class PdfGeneratorService {
     InvoiceModel invoice,
     BusinessProfile profile,
     String currencySymbol,
+    PdfTheme theme,
   ) {
     final decimals = profile.decimalPlaces;
     final isDual = profile.isDualTax;
@@ -534,53 +683,62 @@ class PdfGeneratorService {
       mainAxisAlignment: pw.MainAxisAlignment.end,
       children: [
         pw.Container(
-          width: 260,
+          width: 250,
           decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: _borderColor),
-            borderRadius: pw.BorderRadius.circular(8),
+            border: pw.Border.all(color: theme.borderColor, width: 0.8),
+            borderRadius: pw.BorderRadius.circular(6),
           ),
           child: pw.Column(
             children: [
               _buildTotalRow(
                 'Subtotal',
                 '$currencySymbol${invoice.subtotal.toStringAsFixed(decimals)}',
+                theme,
               ),
               if (invoice.discountType != DiscountType.none &&
                   invoice.discountAmount > 0) ...[
-                pw.Divider(color: _borderColor, height: 1),
+                pw.Divider(color: theme.borderColor, height: 1, thickness: 0.5),
                 _buildTotalRow(
                   invoice.discountType == DiscountType.percentage
                       ? 'Discount (${invoice.discountValue.toStringAsFixed(0)}%)'
                       : 'Discount',
                   '-$currencySymbol${invoice.discountAmount.toStringAsFixed(decimals)}',
-                  valueColor: _accentGreen,
+                  theme,
+                  valueColor: theme.id == PdfThemeId.modernMinimal
+                      ? theme.darkColor
+                      : theme.accentColor,
                 ),
               ],
               if (isDual) ...[
                 if (invoice.sgstRate > 0) ...[
-                  pw.Divider(color: _borderColor, height: 1),
+                  pw.Divider(color: theme.borderColor, height: 1, thickness: 0.5),
                   _buildTotalRow(
                     'SGST (${invoice.sgstRate.toStringAsFixed(invoice.sgstRate % 1 == 0 ? 0 : 1)}%)',
                     '$currencySymbol${(invoice.subtotal * invoice.sgstRate / 100).toStringAsFixed(decimals)}',
+                    theme,
                   ),
                 ],
                 if (invoice.cgstRate > 0) ...[
-                  pw.Divider(color: _borderColor, height: 1),
+                  pw.Divider(color: theme.borderColor, height: 1, thickness: 0.5),
                   _buildTotalRow(
                     'CGST (${invoice.cgstRate.toStringAsFixed(invoice.cgstRate % 1 == 0 ? 0 : 1)}%)',
                     '$currencySymbol${(invoice.subtotal * invoice.cgstRate / 100).toStringAsFixed(decimals)}',
+                    theme,
                   ),
                 ],
                 if (invoice.igstRate > 0) ...[
-                  pw.Divider(color: _borderColor, height: 1),
+                  pw.Divider(color: theme.borderColor, height: 1, thickness: 0.5),
                   _buildTotalRow(
                     'IGST (${invoice.igstRate.toStringAsFixed(invoice.igstRate % 1 == 0 ? 0 : 1)}%)',
                     '$currencySymbol${(invoice.subtotal * invoice.igstRate / 100).toStringAsFixed(decimals)}',
+                    theme,
                   ),
                 ],
               ] else ...[
-                if (invoice.taxAmount > 0 || invoice.igstRate > 0 || (invoice.sgstRate + invoice.cgstRate) > 0) ...[
-                  pw.Divider(color: _borderColor, height: 1),
+                if (invoice.taxAmount > 0 ||
+                    invoice.igstRate > 0 ||
+                    (invoice.sgstRate + invoice.cgstRate) > 0) ...[
+                  pw.Divider(color: theme.borderColor, height: 1, thickness: 0.5),
                   _buildTotalRow(
                     () {
                       final rate = invoice.igstRate > 0
@@ -591,20 +749,21 @@ class PdfGeneratorService {
                           : taxShortName;
                     }(),
                     '$currencySymbol${invoice.taxAmount.toStringAsFixed(decimals)}',
+                    theme,
                   ),
                 ],
               ],
               pw.Container(
                 decoration: pw.BoxDecoration(
-                  color: _primaryColor,
+                  color: theme.primaryColor,
                   borderRadius: const pw.BorderRadius.only(
-                    bottomLeft: pw.Radius.circular(7),
-                    bottomRight: pw.Radius.circular(7),
+                    bottomLeft: pw.Radius.circular(5),
+                    bottomRight: pw.Radius.circular(5),
                   ),
                 ),
                 padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                  horizontal: 14,
+                  vertical: 10,
                 ),
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -612,7 +771,7 @@ class PdfGeneratorService {
                     pw.Text(
                       'GRAND TOTAL',
                       style: pw.TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: pw.FontWeight.bold,
                         color: PdfColors.white,
                         letterSpacing: 0.5,
@@ -621,7 +780,7 @@ class PdfGeneratorService {
                     pw.Text(
                       '$currencySymbol${invoice.grandTotal.toStringAsFixed(decimals)}',
                       style: pw.TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: pw.FontWeight.bold,
                         color: PdfColors.white,
                       ),
@@ -638,21 +797,22 @@ class PdfGeneratorService {
 
   static pw.Widget _buildTotalRow(
     String label,
-    String value, {
+    String value,
+    PdfTheme theme, {
     PdfColor? valueColor,
   }) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text(label, style: pw.TextStyle(fontSize: 10, color: _slateColor)),
+          pw.Text(label, style: pw.TextStyle(fontSize: 9, color: theme.slateColor)),
           pw.Text(
             value,
             style: pw.TextStyle(
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: pw.FontWeight.bold,
-              color: valueColor ?? _darkColor,
+              color: valueColor ?? theme.darkColor,
             ),
           ),
         ],
@@ -660,12 +820,16 @@ class PdfGeneratorService {
     );
   }
 
-  static pw.Widget _buildNotesSection(String notes) {
+  static pw.Widget _buildNotesSection(String notes, PdfTheme theme) {
+    final isMinimal = theme.id == PdfThemeId.modernMinimal;
+
     return pw.Container(
-      padding: const pw.EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const pw.EdgeInsets.all(12),
       decoration: pw.BoxDecoration(
-        color: _lightGray,
-        borderRadius: pw.BorderRadius.circular(8),
+        color: isMinimal ? null : theme.lightGray,
+        border: isMinimal ? pw.Border.all(color: theme.borderColor, width: 0.8) : null,
+        borderRadius: pw.BorderRadius.circular(6),
       ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -673,25 +837,30 @@ class PdfGeneratorService {
           pw.Text(
             'NOTES',
             style: pw.TextStyle(
-              fontSize: 9,
+              fontSize: 8,
               fontWeight: pw.FontWeight.bold,
-              color: _slateColor,
+              color: theme.slateColor,
               letterSpacing: 1,
             ),
           ),
-          pw.SizedBox(height: 6),
-          pw.Text(notes, style: pw.TextStyle(fontSize: 10, color: _slateColor)),
+          pw.SizedBox(height: 4),
+          pw.Text(notes, style: pw.TextStyle(fontSize: 9, color: theme.slateColor)),
         ],
       ),
     );
   }
 
-  static pw.Widget _buildFooter(BusinessProfile profile, bool isPro, pw.MemoryImage? signatureImage) {
+  static pw.Widget _buildFooter(
+    BusinessProfile profile,
+    bool isPro,
+    pw.MemoryImage? signatureImage,
+    PdfTheme theme,
+  ) {
     return pw.Column(
       children: [
         if (profile.bankName != null || profile.accountNumber != null) ...[
-          pw.Divider(color: _borderColor),
-          pw.SizedBox(height: 8),
+          pw.Divider(color: theme.borderColor, thickness: 0.8),
+          pw.SizedBox(height: 6),
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -702,27 +871,27 @@ class PdfGeneratorService {
                     pw.Text(
                       'PAYMENT DETAILS',
                       style: pw.TextStyle(
-                        fontSize: 9,
+                        fontSize: 8,
                         fontWeight: pw.FontWeight.bold,
-                        color: _slateColor,
+                        color: theme.slateColor,
                         letterSpacing: 1,
                       ),
                     ),
-                    pw.SizedBox(height: 6),
-                    if (profile.bankName != null && profile.bankName!.isNotEmpty)
+                    pw.SizedBox(height: 5),
+                    if (profile.bankName != null && profile.bankName!.trim().isNotEmpty)
                       pw.Text(
                         'Bank: ${profile.bankName}',
-                        style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                        style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
                       ),
-                    if (profile.accountNumber != null && profile.accountNumber!.isNotEmpty)
+                    if (profile.accountNumber != null && profile.accountNumber!.trim().isNotEmpty)
                       pw.Text(
                         '${profile.bankAccountLabel}: ${profile.accountNumber}',
-                        style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                        style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
                       ),
-                    if (profile.ifscCode != null && profile.ifscCode!.isNotEmpty)
+                    if (profile.ifscCode != null && profile.ifscCode!.trim().isNotEmpty)
                       pw.Text(
                         '${profile.bankRoutingLabel}: ${profile.ifscCode}',
-                        style: pw.TextStyle(fontSize: 10, color: _slateColor),
+                        style: pw.TextStyle(fontSize: 9, color: theme.slateColor),
                       ),
                   ],
                 ),
@@ -733,27 +902,28 @@ class PdfGeneratorService {
                   children: [
                     if (signatureImage != null) ...[
                       pw.Container(
-                        height: 50,
-                        width: 100,
+                        height: 45,
+                        width: 90,
+                        alignment: pw.Alignment.centerRight,
                         child: pw.Image(signatureImage, fit: pw.BoxFit.contain),
                       ),
-                      pw.SizedBox(height: 4),
+                      pw.SizedBox(height: 3),
                       pw.Text(
                         'Authorized Signatory',
                         style: pw.TextStyle(
-                          fontSize: 9,
+                          fontSize: 8,
                           fontWeight: pw.FontWeight.bold,
-                          color: _slateColor,
+                          color: theme.slateColor,
                         ),
                       ),
-                      pw.SizedBox(height: 12),
+                      pw.SizedBox(height: 8),
                     ],
                     pw.Text(
                       'Thank you for your business!',
                       style: pw.TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: pw.FontWeight.bold,
-                        color: _primaryColor,
+                        color: theme.primaryColor,
                       ),
                     ),
                   ],
@@ -762,8 +932,8 @@ class PdfGeneratorService {
             ],
           ),
         ] else ...[
-          pw.Divider(color: _borderColor),
-          pw.SizedBox(height: 8),
+          pw.Divider(color: theme.borderColor, thickness: 0.8),
+          pw.SizedBox(height: 6),
           if (signatureImage != null) ...[
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.end,
@@ -772,38 +942,38 @@ class PdfGeneratorService {
                   crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
                     pw.Container(
-                      height: 50,
-                      width: 100,
+                      height: 45,
+                      width: 90,
                       child: pw.Image(signatureImage, fit: pw.BoxFit.contain),
                     ),
-                    pw.SizedBox(height: 4),
+                    pw.SizedBox(height: 3),
                     pw.Text(
                       'Authorized Signatory',
                       style: pw.TextStyle(
-                        fontSize: 9,
+                        fontSize: 8,
                         fontWeight: pw.FontWeight.bold,
-                        color: _slateColor,
+                        color: theme.slateColor,
                       ),
                     ),
                   ],
                 ),
               ],
             ),
-            pw.SizedBox(height: 12),
+            pw.SizedBox(height: 8),
           ],
           pw.Center(
             child: pw.Text(
               'Thank you for your business!',
               style: pw.TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: pw.FontWeight.bold,
-                color: _primaryColor,
+                color: theme.primaryColor,
               ),
             ),
           ),
         ],
         if (!isPro) ...[
-          pw.SizedBox(height: 12),
+          pw.SizedBox(height: 10),
           pw.Center(
             child: pw.Text(
               'Generated by Invoice Maker Pro',

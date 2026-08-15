@@ -14,7 +14,9 @@ import '../../../core/utils/pdf_helper.dart';
 import '../../paywall/paywall_screen.dart';
 import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
+import '../models/pdf_theme.dart';
 import '../services/pdf_generator_service.dart';
+import '../widgets/pdf_theme_picker_sheet.dart';
 import 'create_invoice_screen.dart';
 
 class InvoicePreviewScreen extends StatefulWidget {
@@ -34,13 +36,14 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   bool _isSent = false;
   final TransformationController _zoomController = TransformationController();
   bool _isZoomed = false;
+  PdfTheme _currentTheme = PdfTheme.defaultTheme;
 
   @override
   void initState() {
     super.initState();
     _invoice = widget.invoice;
     _checkSentStatus();
-    _generateAndRasterizePdf();
+    _loadThemeAndRender();
   }
 
   @override
@@ -82,6 +85,32 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     );
   }
 
+  Future<void> _loadThemeAndRender() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedThemeId = prefs.getString('invoice_theme_${_invoice.id}') ??
+        prefs.getString('default_pdf_theme');
+    if (savedThemeId != null) {
+      _currentTheme = PdfTheme.fromId(savedThemeId);
+    }
+    await _generateAndRasterizePdf();
+  }
+
+  Future<void> _openThemePicker() async {
+    final selected = await PdfThemePickerSheet.show(
+      context,
+      currentTheme: _currentTheme,
+      showSetAsDefault: true,
+    );
+    if (selected != null && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('invoice_theme_${_invoice.id}', selected.id.value);
+      setState(() {
+        _currentTheme = selected;
+      });
+      await _generateAndRasterizePdf();
+    }
+  }
+
   Future<void> _generateAndRasterizePdf() async {
     setState(() => _isLoading = true);
     try {
@@ -91,6 +120,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         invoice: _invoice,
         businessProfile: profile,
         isPro: isPro,
+        theme: _currentTheme,
       );
 
       final images = <MemoryImage>[];
@@ -346,6 +376,30 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               ),
               const SizedBox(height: 16),
               ListTile(
+                leading: const Icon(Icons.palette_outlined, color: AppColors.slate700),
+                title: const Text('Change PDF Theme'),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _currentTheme.previewBg,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: _currentTheme.previewPrimary.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    _currentTheme.name,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: _currentTheme.previewPrimary,
+                    ),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openThemePicker();
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.copy_rounded, color: AppColors.slate700),
                 title: const Text('Duplicate Invoice'),
                 onTap: () async {
@@ -505,6 +559,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         ),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.palette_outlined, color: AppColors.textPrimary),
+            tooltip: 'PDF Theme',
+            onPressed: _openThemePicker,
+          ),
           if (!isPro)
             IconButton(
               icon: const Icon(Icons.workspace_premium_rounded, color: AppColors.proGold),
@@ -569,6 +628,52 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                 ),
                               ),
                             ),
+                ),
+                // Quick Theme selector pill overlay in top left
+                Positioned(
+                  top: 12,
+                  left: 16,
+                  child: GestureDetector(
+                    onTap: _openThemePicker,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: _currentTheme.previewPrimary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _currentTheme.name,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: AppColors.slate500),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
                 // Zoom Action Button overlay in top right
                 Positioned(

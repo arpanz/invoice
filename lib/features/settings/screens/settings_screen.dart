@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/app/app_review_service.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../invoices/models/pdf_theme.dart';
+import '../../invoices/widgets/pdf_theme_picker_sheet.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../paywall/paywall_screen.dart';
 import 'business_profile_screen.dart';
@@ -18,6 +21,24 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  PdfTheme _defaultTheme = PdfTheme.defaultTheme;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDefaultTheme();
+  }
+
+  Future<void> _loadDefaultTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedThemeId = prefs.getString('default_pdf_theme');
+    if (savedThemeId != null && mounted) {
+      setState(() {
+        _defaultTheme = PdfTheme.fromId(savedThemeId);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final billing = context.watch<BillingService>();
@@ -74,6 +95,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildCurrencyTile(currencyProvider.selectedCurrency),
             const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
             _buildTaxRateTile(currencyProvider),
+            const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+            _buildPdfThemeTile(),
           ]),
           const SizedBox(height: 20),
 
@@ -377,6 +400,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: AppColors.slate400,
         ),
         onTap: () => _showCurrencyPicker(context),
+      ),
+    );
+  }
+
+  Widget _buildPdfThemeTile() {
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: _defaultTheme.previewBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _defaultTheme.previewPrimary.withValues(alpha: 0.3)),
+          ),
+          child: Icon(
+            Icons.palette_outlined,
+            size: 20,
+            color: _defaultTheme.previewPrimary,
+          ),
+        ),
+        title: const Text(
+          'Default PDF Theme',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+            letterSpacing: -0.2,
+          ),
+        ),
+        subtitle: Text(
+          '${_defaultTheme.name} • ${_defaultTheme.description}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _defaultTheme.previewBg,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: _defaultTheme.previewPrimary.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _defaultTheme.name,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: _defaultTheme.previewPrimary,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 16,
+                color: AppColors.slate400,
+              ),
+            ],
+          ),
+        ),
+        onTap: () async {
+          final selected = await PdfThemePickerSheet.show(
+            context,
+            currentTheme: _defaultTheme,
+            showSetAsDefault: false,
+          );
+          if (selected != null) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('default_pdf_theme', selected.id.value);
+            if (mounted) {
+              setState(() {
+                _defaultTheme = selected;
+              });
+            }
+          }
+        },
       ),
     );
   }

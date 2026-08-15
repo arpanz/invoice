@@ -18,6 +18,7 @@ import '../../../core/utils/pdf_helper.dart';
 import '../../../shared_widgets/empty_state_view.dart';
 import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
+import '../models/pdf_theme.dart';
 import '../services/pdf_generator_service.dart';
 import 'create_invoice_screen.dart';
 import 'invoice_preview_screen.dart';
@@ -119,10 +120,15 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   Future<Uint8List> _buildInvoicePdf(InvoiceModel invoice) async {
     final isPro = context.read<BillingService>().isPro;
     final profile = await _getBusinessProfile();
+    final prefs = await SharedPreferences.getInstance();
+    final savedThemeId = prefs.getString('invoice_theme_${invoice.id}') ??
+        prefs.getString('default_pdf_theme');
+    final theme = PdfTheme.fromId(savedThemeId);
     return PdfGeneratorService.generateInvoicePdf(
       invoice: invoice,
       businessProfile: profile,
       isPro: isPro,
+      theme: theme,
     );
   }
 

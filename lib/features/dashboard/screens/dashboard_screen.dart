@@ -13,6 +13,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/pdf_helper.dart';
 import '../../invoices/models/invoice_model.dart';
 import '../../invoices/models/line_item_model.dart';
+import '../../invoices/models/pdf_theme.dart';
 import '../../invoices/screens/create_invoice_screen.dart';
 import '../../invoices/screens/invoice_preview_screen.dart';
 import '../../invoices/services/pdf_generator_service.dart';
@@ -241,10 +242,15 @@ class DashboardScreenState extends State<DashboardScreen> {
         currency: invoice.currency,
       );
 
+      final savedThemeId = prefs.getString('invoice_theme_${invoice.id}') ??
+          prefs.getString('default_pdf_theme');
+      final theme = PdfTheme.fromId(savedThemeId);
+
       final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
         invoice: invoice,
         businessProfile: profile,
         isPro: isPro,
+        theme: theme,
       );
 
       final path = await PdfGeneratorService.saveAndGetPath(
