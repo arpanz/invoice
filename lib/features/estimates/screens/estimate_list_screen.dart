@@ -595,7 +595,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -612,18 +612,20 @@ class EstimateListScreenState extends State<EstimateListScreen> {
           ],
         ),
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 70),
-        child: FloatingActionButton.extended(
-          onPressed: _createNewEstimate,
-          icon: const Icon(Icons.add_rounded, color: Colors.white),
-          label: const Text(
-            'New Estimate',
-            style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
-          ),
-          backgroundColor: AppColors.primary,
-        ),
-      ),
+      floatingActionButton: filtered.isEmpty
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 86),
+              child: FloatingActionButton.extended(
+                onPressed: _createNewEstimate,
+                icon: const Icon(Icons.add_rounded, color: Colors.white),
+                label: const Text(
+                  'New Estimate',
+                  style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+                ),
+                backgroundColor: AppColors.primary,
+              ),
+            ),
     );
   }
 

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:invoice/core/billing/billing_service.dart';
-import 'package:invoice/core/database/db_provider.dart';
 import 'package:invoice/core/providers/currency_provider.dart';
 import 'package:invoice/features/estimates/models/estimate_model.dart';
 import 'package:invoice/features/estimates/screens/create_estimate_screen.dart';
@@ -179,7 +178,6 @@ void main() {
       expect(find.text('All'), findsOneWidget);
       expect(find.text('Converted'), findsOneWidget);
       expect(find.text('Declined'), findsOneWidget);
-      expect(find.text('New Estimate'), findsOneWidget);
     });
 
     testWidgets('CreateEstimateScreen renders form fields and quick validity pills', (

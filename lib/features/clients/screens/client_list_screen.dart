@@ -285,7 +285,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                         isDarkBackground: false,
                       )
                     : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
                         itemCount: filtered.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (_, index) => StaggeredEntrance(
@@ -296,18 +296,20 @@ class _ClientListScreenState extends State<ClientListScreen> {
           ),
         ],
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 70),
-        child: FloatingActionButton.extended(
-          onPressed: () => _showAddEditDialog(),
-          icon: const Icon(Icons.person_add_rounded, color: Colors.white),
-          label: const Text(
-            'Add Client',
-            style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
-          ),
-          backgroundColor: AppColors.primary,
-        ),
-      ),
+      floatingActionButton: filtered.isEmpty
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 86),
+              child: FloatingActionButton.extended(
+                onPressed: () => _showAddEditDialog(),
+                icon: const Icon(Icons.person_add_rounded, color: Colors.white),
+                label: const Text(
+                  'Add Client',
+                  style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+                ),
+                backgroundColor: AppColors.primary,
+              ),
+            ),
     );
   }
 
