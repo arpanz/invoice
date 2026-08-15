@@ -1,6 +1,6 @@
 import 'line_item_model.dart';
 
-enum InvoiceStatus { unpaid, paid, overdue }
+enum InvoiceStatus { unpaid, partiallyPaid, paid, overdue }
 
 enum DiscountType { none, percentage, flat }
 
@@ -9,6 +9,8 @@ extension InvoiceStatusExtension on InvoiceStatus {
     switch (this) {
       case InvoiceStatus.unpaid:
         return 'Unpaid';
+      case InvoiceStatus.partiallyPaid:
+        return 'Partially Paid';
       case InvoiceStatus.paid:
         return 'Paid';
       case InvoiceStatus.overdue:
@@ -20,6 +22,8 @@ extension InvoiceStatusExtension on InvoiceStatus {
     switch (this) {
       case InvoiceStatus.unpaid:
         return 'unpaid';
+      case InvoiceStatus.partiallyPaid:
+        return 'partially_paid';
       case InvoiceStatus.paid:
         return 'paid';
       case InvoiceStatus.overdue:
@@ -28,9 +32,13 @@ extension InvoiceStatusExtension on InvoiceStatus {
   }
 
   static InvoiceStatus fromString(String value) {
-    switch (value) {
+    switch (value.toLowerCase()) {
       case 'paid':
         return InvoiceStatus.paid;
+      case 'partially_paid':
+      case 'partiallypaid':
+      case 'partial':
+        return InvoiceStatus.partiallyPaid;
       case 'overdue':
         return InvoiceStatus.overdue;
       default:
@@ -59,6 +67,7 @@ class InvoiceModel {
   final double igstRate;
   final double taxAmount;
   final double grandTotal;
+  final double paidAmount;
   final InvoiceStatus status;
   final String? notes;
   final String currency;
@@ -66,11 +75,14 @@ class InvoiceModel {
   final DateTime updatedAt;
   final List<LineItemModel> lineItems;
 
-  /// True when the invoice is unpaid and the due date has passed.
+  /// True when the invoice is unpaid or partially paid and the due date has passed.
   bool get isOverdue =>
-      status == InvoiceStatus.unpaid &&
+      (status == InvoiceStatus.unpaid || status == InvoiceStatus.partiallyPaid) &&
       dueDate != null &&
       dueDate!.isBefore(DateTime.now());
+
+  /// Remaining balance to be paid.
+  double get balanceDue => (grandTotal - paidAmount).clamp(0, double.infinity);
 
   const InvoiceModel({
     required this.id,
@@ -92,6 +104,7 @@ class InvoiceModel {
     this.igstRate = 0,
     this.taxAmount = 0,
     required this.grandTotal,
+    this.paidAmount = 0,
     this.status = InvoiceStatus.unpaid,
     this.notes,
     this.currency = 'INR',
@@ -104,6 +117,15 @@ class InvoiceModel {
     Map<String, dynamic> map, {
     List<LineItemModel>? items,
   }) {
+    final status = InvoiceStatusExtension.fromString(
+      map['status'] as String? ?? 'unpaid',
+    );
+    final grandTotal = (map['grand_total'] as num).toDouble();
+    final rawPaidAmount = map['paid_amount'] as num?;
+    final paidAmount = rawPaidAmount != null
+        ? rawPaidAmount.toDouble()
+        : (status == InvoiceStatus.paid ? grandTotal : 0.0);
+
     return InvoiceModel(
       id: map['id'] as String,
       invoiceNumber: map['invoice_number'] as String,
@@ -129,10 +151,9 @@ class InvoiceModel {
       cgstRate: (map['cgst_rate'] as num? ?? 0).toDouble(),
       igstRate: (map['igst_rate'] as num? ?? 0).toDouble(),
       taxAmount: (map['tax_amount'] as num? ?? 0).toDouble(),
-      grandTotal: (map['grand_total'] as num).toDouble(),
-      status: InvoiceStatusExtension.fromString(
-        map['status'] as String? ?? 'unpaid',
-      ),
+      grandTotal: grandTotal,
+      paidAmount: paidAmount,
+      status: status,
       notes: map['notes'] as String?,
       currency: map['currency'] as String? ?? 'INR',
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
@@ -162,6 +183,7 @@ class InvoiceModel {
       'igst_rate': igstRate,
       'tax_amount': taxAmount,
       'grand_total': grandTotal,
+      'paid_amount': paidAmount,
       'status': status.value,
       'notes': notes,
       'currency': currency,
@@ -212,6 +234,7 @@ class InvoiceModel {
     double? igstRate,
     double? taxAmount,
     double? grandTotal,
+    double? paidAmount,
     InvoiceStatus? status,
     String? notes,
     String? currency,
@@ -239,6 +262,7 @@ class InvoiceModel {
       igstRate: igstRate ?? this.igstRate,
       taxAmount: taxAmount ?? this.taxAmount,
       grandTotal: grandTotal ?? this.grandTotal,
+      paidAmount: paidAmount ?? this.paidAmount,
       status: status ?? this.status,
       notes: notes ?? this.notes,
       currency: currency ?? this.currency,
@@ -250,5 +274,5 @@ class InvoiceModel {
 
   @override
   String toString() =>
-      'InvoiceModel(invoiceNumber: $invoiceNumber, total: $grandTotal, status: ${status.value})';
+      'InvoiceModel(invoiceNumber: $invoiceNumber, total: $grandTotal, paid: $paidAmount, status: ${status.value})';
 }

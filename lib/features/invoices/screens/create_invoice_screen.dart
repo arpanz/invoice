@@ -164,6 +164,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       _currency = inv.currency;
       _notesCtrl.text = inv.notes ?? 'Thanks for your business.';
       _status = inv.status;
+      _paidAmount = inv.paidAmount;
 
       _items.addAll(inv.lineItems);
 
@@ -290,6 +291,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       igstRate: (_hasTax && _useIGST) ? (double.tryParse(_igstCtrl.text) ?? 0) : 0,
       taxAmount: _taxAmount,
       grandTotal: _grandTotal,
+      paidAmount: _paidAmount,
       status: _status,
       notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       currency: _currency,
@@ -1321,6 +1323,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     _paidAmount = p;
                     if (_paidAmount >= _grandTotal && _grandTotal > 0) {
                       _status = InvoiceStatus.paid;
+                    } else if (_paidAmount > 0) {
+                      _status = InvoiceStatus.partiallyPaid;
+                    } else {
+                      _status = InvoiceStatus.unpaid;
                     }
                   });
                   Navigator.pop(ctx);
@@ -1467,14 +1473,24 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               const SizedBox(height: 16),
               const Text('Mark Invoice As', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-              ...[InvoiceStatus.unpaid, InvoiceStatus.paid, InvoiceStatus.overdue].map((s) {
+              ...[InvoiceStatus.unpaid, InvoiceStatus.partiallyPaid, InvoiceStatus.paid, InvoiceStatus.overdue].map((s) {
                 final isSel = _status == s;
                 return ListTile(
                   title: Text(s.label, style: TextStyle(fontWeight: isSel ? FontWeight.w700 : FontWeight.w500)),
                   trailing: isSel ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
                   onTap: () {
-                    setState(() => _status = s);
+                    setState(() {
+                      _status = s;
+                      if (s == InvoiceStatus.paid && _paidAmount < _grandTotal) {
+                        _paidAmount = _grandTotal;
+                      } else if (s == InvoiceStatus.unpaid) {
+                        _paidAmount = 0;
+                      }
+                    });
                     Navigator.pop(ctx);
+                    if (s == InvoiceStatus.partiallyPaid && (_paidAmount <= 0 || _paidAmount >= _grandTotal)) {
+                      _showPaymentsSheet();
+                    }
                   },
                 );
               }),

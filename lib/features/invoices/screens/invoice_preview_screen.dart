@@ -166,22 +166,121 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     }
   }
 
-  Future<void> _updateStatus(InvoiceStatus newStatus) async {
+  Future<void> _updateStatus(
+    InvoiceStatus newStatus, {
+    double? paidAmount,
+  }) async {
+    final updateData = <String, dynamic>{
+      'status': newStatus.value,
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    };
+    double finalPaidAmount = _invoice.paidAmount;
+    if (paidAmount != null) {
+      finalPaidAmount = paidAmount;
+      updateData['paid_amount'] = paidAmount;
+    } else if (newStatus == InvoiceStatus.paid) {
+      finalPaidAmount = _invoice.grandTotal;
+      updateData['paid_amount'] = _invoice.grandTotal;
+    } else if (newStatus == InvoiceStatus.unpaid) {
+      finalPaidAmount = 0.0;
+      updateData['paid_amount'] = 0.0;
+    }
+
     await DbProvider.update(
       DbProvider.tableInvoices,
-      {
-        'status': newStatus.value,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
+      updateData,
       'id = ?',
       [_invoice.id],
     );
     _invoice = _invoice.copyWith(
       status: newStatus,
+      paidAmount: finalPaidAmount,
       updatedAt: DateTime.now(),
     );
     setState(() {});
     await _generateAndRasterizePdf();
+  }
+
+  void _promptPartialPayment() {
+    final defaultAmount = _invoice.paidAmount > 0
+        ? _invoice.paidAmount
+        : (_invoice.grandTotal * 0.5);
+    final ctrl = TextEditingController(
+      text: defaultAmount > 0
+          ? defaultAmount.toStringAsFixed(2).replaceAll('.00', '')
+          : '',
+    );
+    final currencySymbol = CurrencyFormatter.getCurrencySymbol(_invoice.currency);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Record Partial Payment',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Enter amount paid for ${_invoice.invoiceNumber} (Total: $currencySymbol${_invoice.grandTotal.toStringAsFixed(2)}):',
+              style: const TextStyle(fontSize: 13, color: AppColors.slate600),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                prefixText: '$currencySymbol ',
+                labelText: 'Amount Paid',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final amount = double.tryParse(ctrl.text.trim()) ?? 0.0;
+              Navigator.pop(ctx);
+              if (amount >= _invoice.grandTotal && _invoice.grandTotal > 0) {
+                _updateStatus(
+                  InvoiceStatus.paid,
+                  paidAmount: _invoice.grandTotal,
+                );
+              } else if (amount <= 0) {
+                _updateStatus(
+                  InvoiceStatus.unpaid,
+                  paidAmount: 0.0,
+                );
+              } else {
+                _updateStatus(
+                  InvoiceStatus.partiallyPaid,
+                  paidAmount: amount,
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showStatusPicker() {
@@ -222,6 +321,12 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 AppColors.statusUnpaidBg,
               ),
               _buildStatusOption(
+                InvoiceStatus.partiallyPaid,
+                'Partially Paid',
+                AppColors.statusPartiallyPaid,
+                AppColors.statusPartiallyPaidBg,
+              ),
+              _buildStatusOption(
                 InvoiceStatus.paid,
                 'Paid',
                 AppColors.statusPaid,
@@ -257,9 +362,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         child: Icon(
           status == InvoiceStatus.paid
               ? Icons.check_circle_rounded
-              : status == InvoiceStatus.overdue
-                  ? Icons.error_rounded
-                  : Icons.pending_rounded,
+              : status == InvoiceStatus.partiallyPaid
+                  ? Icons.pie_chart_outline_rounded
+                  : status == InvoiceStatus.overdue
+                      ? Icons.error_rounded
+                      : Icons.pending_rounded,
           color: color,
           size: 20,
         ),
@@ -276,7 +383,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
           : null,
       onTap: () {
         Navigator.pop(context);
-        _updateStatus(status);
+        if (status == InvoiceStatus.partiallyPaid) {
+          _promptPartialPayment();
+        } else {
+          _updateStatus(status);
+        }
       },
     );
   }
@@ -745,16 +856,20 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                           decoration: BoxDecoration(
                             color: _invoice.status == InvoiceStatus.paid
                                 ? AppColors.statusPaidBg
-                                : _invoice.status == InvoiceStatus.overdue
-                                    ? AppColors.statusOverdueBg
-                                    : AppColors.primaryMuted,
+                                : _invoice.status == InvoiceStatus.partiallyPaid
+                                    ? AppColors.statusPartiallyPaidBg
+                                    : _invoice.status == InvoiceStatus.overdue
+                                        ? AppColors.statusOverdueBg
+                                        : AppColors.primaryMuted,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: _invoice.status == InvoiceStatus.paid
                                   ? AppColors.statusPaid.withValues(alpha: 0.2)
-                                  : _invoice.status == InvoiceStatus.overdue
-                                      ? AppColors.statusOverdue.withValues(alpha: 0.2)
-                                      : AppColors.primary.withValues(alpha: 0.2),
+                                  : _invoice.status == InvoiceStatus.partiallyPaid
+                                      ? AppColors.statusPartiallyPaid.withValues(alpha: 0.2)
+                                      : _invoice.status == InvoiceStatus.overdue
+                                          ? AppColors.statusOverdue.withValues(alpha: 0.2)
+                                          : AppColors.primary.withValues(alpha: 0.2),
                               width: 1,
                             ),
                           ),
@@ -768,9 +883,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                   fontWeight: FontWeight.w700,
                                   color: _invoice.status == InvoiceStatus.paid
                                       ? AppColors.statusPaid
-                                      : _invoice.status == InvoiceStatus.overdue
-                                          ? AppColors.statusOverdue
-                                          : AppColors.primary,
+                                      : _invoice.status == InvoiceStatus.partiallyPaid
+                                          ? AppColors.statusPartiallyPaid
+                                          : _invoice.status == InvoiceStatus.overdue
+                                              ? AppColors.statusOverdue
+                                              : AppColors.primary,
                                 ),
                               ),
                               const SizedBox(width: 4),
@@ -779,9 +896,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                 size: 16,
                                 color: _invoice.status == InvoiceStatus.paid
                                     ? AppColors.statusPaid
-                                    : _invoice.status == InvoiceStatus.overdue
-                                        ? AppColors.statusOverdue
-                                        : AppColors.primary,
+                                    : _invoice.status == InvoiceStatus.partiallyPaid
+                                        ? AppColors.statusPartiallyPaid
+                                        : _invoice.status == InvoiceStatus.overdue
+                                            ? AppColors.statusOverdue
+                                            : AppColors.primary,
                               ),
                             ],
                           ),
@@ -822,6 +941,31 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                       ),
                     ],
                   ),
+
+                  if (_invoice.status == InvoiceStatus.partiallyPaid || _invoice.paidAmount > 0) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          'Paid: $currencySymbol${_invoice.paidAmount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.statusPaid,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Balance Due: $currencySymbol${_invoice.balanceDue.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.statusPartiallyPaid,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
 
                   // Row 3: Client Name
                   Text(

@@ -721,6 +721,11 @@ class PdfGeneratorService {
         textColor = PdfColor.fromHex('#065F46');
         label = 'PAID';
         break;
+      case InvoiceStatus.partiallyPaid:
+        bgColor = PdfColor.fromHex('#FEF3C7');
+        textColor = PdfColor.fromHex('#92400E');
+        label = 'PARTIALLY PAID';
+        break;
       case InvoiceStatus.overdue:
         bgColor = PdfColor.fromHex('#FEE2E2');
         textColor = PdfColor.fromHex('#991B1B');
@@ -1089,6 +1094,22 @@ class PdfGeneratorService {
                     theme,
                   ),
                 ],
+              ],
+              if (invoice.status == InvoiceStatus.partiallyPaid || invoice.paidAmount > 0) ...[
+                pw.Divider(color: theme.borderColor, height: 1, thickness: 0.5),
+                _buildTotalRow(
+                  'Amount Paid',
+                  '$currencySymbol${invoice.paidAmount.toStringAsFixed(decimals)}',
+                  theme,
+                  valueColor: PdfColor.fromHex('#059669'),
+                ),
+                pw.Divider(color: theme.borderColor, height: 1, thickness: 0.5),
+                _buildTotalRow(
+                  'Balance Due',
+                  '$currencySymbol${invoice.balanceDue.toStringAsFixed(decimals)}',
+                  theme,
+                  valueColor: PdfColor.fromHex('#D97706'),
+                ),
               ],
               pw.Container(
                 decoration: pw.BoxDecoration(

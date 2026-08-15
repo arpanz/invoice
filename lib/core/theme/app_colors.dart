@@ -55,6 +55,8 @@ class AppColors {
   static const Color statusPaidBg = Color(0xFFECFDF5);
   static const Color statusUnpaid = Color(0xFF2563EB);
   static const Color statusUnpaidBg = Color(0xFFEFF6FF);
+  static const Color statusPartiallyPaid = Color(0xFFD97706);
+  static const Color statusPartiallyPaidBg = Color(0xFFFEF3C7);
   static const Color statusOverdue = Color(0xFFEF4444);
   static const Color statusOverdueBg = Color(0xFFFEF2F2);
   static const Color statusPending = Color(0xFFF59E0B);

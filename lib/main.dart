@@ -183,7 +183,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     DashboardScreen(key: _dashboardKey),
     EstimateListScreen(key: _estimatesKey),
     const ClientListScreen(),
-    _HistoryScreen(historyKey: _historyKey),
+    InvoiceHistoryScreen(key: _historyKey),
   ];
 
   @override
@@ -679,34 +679,6 @@ class _StartupUpdateSheet extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _HistoryScreen extends StatelessWidget {
-  final GlobalKey<InvoiceHistoryScreenState>? historyKey;
-  const _HistoryScreen({this.historyKey});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: const Text(
-          'History',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
-            letterSpacing: -0.4,
-            color: Colors.white,
-          ),
-        ),
-      ),
-      body: InvoiceHistoryScreen(key: historyKey),
     );
   }
 }

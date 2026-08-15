@@ -82,6 +82,9 @@ class DashboardScreenState extends State<DashboardScreen> {
 
       if (inv.status == InvoiceStatus.paid) {
         paidSum += inv.grandTotal;
+      } else if (inv.status == InvoiceStatus.partiallyPaid) {
+        paidSum += inv.paidAmount;
+        unpaidSum += inv.balanceDue;
       } else {
         unpaidSum += inv.grandTotal;
       }
@@ -110,11 +113,9 @@ class DashboardScreenState extends State<DashboardScreen> {
       // Status chip filter
       if (_selectedFilter == 'all') return true;
       if (_selectedFilter == 'unpaid') return inv.status == InvoiceStatus.unpaid;
+      if (_selectedFilter == 'partially_paid') return inv.status == InvoiceStatus.partiallyPaid;
       if (_selectedFilter == 'overdue') return inv.status == InvoiceStatus.overdue;
       if (_selectedFilter == 'paid') return inv.status == InvoiceStatus.paid;
-      if (_selectedFilter == 'partially_paid') {
-        return false;
-      }
       return true;
     }).toList();
   }
@@ -141,17 +142,115 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _quickUpdateStatus(InvoiceModel invoice, InvoiceStatus status) async {
+  Future<void> _quickUpdateStatus(
+    InvoiceModel invoice,
+    InvoiceStatus status, {
+    double? paidAmount,
+  }) async {
+    final updateData = <String, dynamic>{
+      'status': status.value,
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    };
+    if (paidAmount != null) {
+      updateData['paid_amount'] = paidAmount;
+    } else if (status == InvoiceStatus.paid) {
+      updateData['paid_amount'] = invoice.grandTotal;
+    } else if (status == InvoiceStatus.unpaid) {
+      updateData['paid_amount'] = 0.0;
+    }
+
     await DbProvider.update(
       DbProvider.tableInvoices,
-      {
-        'status': status.value,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
+      updateData,
       'id = ?',
       [invoice.id],
     );
     await _loadData();
+  }
+
+  void _promptPartialPayment(InvoiceModel invoice) {
+    final defaultAmount = invoice.paidAmount > 0
+        ? invoice.paidAmount
+        : (invoice.grandTotal * 0.5);
+    final ctrl = TextEditingController(
+      text: defaultAmount > 0
+          ? defaultAmount.toStringAsFixed(2).replaceAll('.00', '')
+          : '',
+    );
+    final currencySymbol = CurrencyFormatter.getCurrencySymbol(_currency);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Record Partial Payment',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Enter amount paid for ${invoice.invoiceNumber} (Total: $currencySymbol${invoice.grandTotal.toStringAsFixed(2)}):',
+              style: const TextStyle(fontSize: 13, color: AppColors.slate600),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                prefixText: '$currencySymbol ',
+                labelText: 'Amount Paid',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final amount = double.tryParse(ctrl.text.trim()) ?? 0.0;
+              Navigator.pop(ctx);
+              if (amount >= invoice.grandTotal && invoice.grandTotal > 0) {
+                _quickUpdateStatus(
+                  invoice,
+                  InvoiceStatus.paid,
+                  paidAmount: invoice.grandTotal,
+                );
+              } else if (amount <= 0) {
+                _quickUpdateStatus(
+                  invoice,
+                  InvoiceStatus.unpaid,
+                  paidAmount: 0.0,
+                );
+              } else {
+                _quickUpdateStatus(
+                  invoice,
+                  InvoiceStatus.partiallyPaid,
+                  paidAmount: amount,
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showQuickStatusPicker(InvoiceModel invoice) {
@@ -186,8 +285,14 @@ class DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 12),
               ListTile(
-                leading: const Icon(Icons.pending_rounded, color: AppColors.statusUnpaid),
-                title: const Text('Unpaid', style: TextStyle(fontWeight: FontWeight.w600)),
+                leading: const Icon(
+                  Icons.pending_rounded,
+                  color: AppColors.statusUnpaid,
+                ),
+                title: const Text(
+                  'Unpaid',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
                 trailing: invoice.status == InvoiceStatus.unpaid
                     ? const Icon(Icons.check_rounded, color: AppColors.primary)
                     : null,
@@ -197,8 +302,31 @@ class DashboardScreenState extends State<DashboardScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.check_circle_rounded, color: AppColors.statusPaid),
-                title: const Text('Paid', style: TextStyle(fontWeight: FontWeight.w600)),
+                leading: const Icon(
+                  Icons.pie_chart_outline_rounded,
+                  color: AppColors.statusPartiallyPaid,
+                ),
+                title: const Text(
+                  'Partially Paid',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                trailing: invoice.status == InvoiceStatus.partiallyPaid
+                    ? const Icon(Icons.check_rounded, color: AppColors.primary)
+                    : null,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _promptPartialPayment(invoice);
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.statusPaid,
+                ),
+                title: const Text(
+                  'Paid',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
                 trailing: invoice.status == InvoiceStatus.paid
                     ? const Icon(Icons.check_rounded, color: AppColors.primary)
                     : null,
@@ -208,8 +336,14 @@ class DashboardScreenState extends State<DashboardScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.error_rounded, color: AppColors.statusOverdue),
-                title: const Text('Overdue', style: TextStyle(fontWeight: FontWeight.w600)),
+                leading: const Icon(
+                  Icons.error_rounded,
+                  color: AppColors.statusOverdue,
+                ),
+                title: const Text(
+                  'Overdue',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
                 trailing: invoice.status == InvoiceStatus.overdue
                     ? const Icon(Icons.check_rounded, color: AppColors.primary)
                     : null,
@@ -767,6 +901,11 @@ class DashboardScreenState extends State<DashboardScreen> {
         badgeColor = AppColors.statusPaid;
         badgeBg = AppColors.statusPaidBg;
         badgeText = 'Paid';
+        break;
+      case InvoiceStatus.partiallyPaid:
+        badgeColor = AppColors.statusPartiallyPaid;
+        badgeBg = AppColors.statusPartiallyPaidBg;
+        badgeText = 'Partially Paid';
         break;
       case InvoiceStatus.overdue:
         badgeColor = AppColors.statusOverdue;

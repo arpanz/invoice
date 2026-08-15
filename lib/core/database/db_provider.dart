@@ -7,7 +7,7 @@ class DbProvider {
   static Database? _database;
 
   static const String _dbName = 'invoice_maker_pro.db';
-  static const int _dbVersion = 2;
+  static const int _dbVersion = 3;
 
   // Table names
   static const String tableClients = 'clients';
@@ -67,6 +67,7 @@ class DbProvider {
         igst_rate REAL DEFAULT 0,
         tax_amount REAL DEFAULT 0,
         grand_total REAL NOT NULL DEFAULT 0,
+        paid_amount REAL DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'unpaid',
         notes TEXT,
         currency TEXT DEFAULT 'INR',
@@ -191,6 +192,12 @@ class DbProvider {
       await db.execute('CREATE INDEX IF NOT EXISTS idx_estimates_client ON $tableEstimates(client_id)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_estimates_status ON $tableEstimates(status)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_estimate_line_items_estimate ON $tableEstimateLineItems(estimate_id)');
+    }
+
+    if (oldVersion < 3) {
+      try {
+        await db.execute('ALTER TABLE $tableInvoices ADD COLUMN paid_amount REAL DEFAULT 0');
+      } catch (_) {}
     }
   }
 
