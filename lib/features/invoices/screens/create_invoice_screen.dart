@@ -54,7 +54,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   final _invoiceNumberCtrl = TextEditingController();
   DateTime _invoiceDate = DateTime.now();
   DateTime? _dueDate;
-  String _dueDatePreset = 'Net 7';
 
   // Business (Bill From)
   String _bizName = 'My Business';
@@ -385,156 +384,295 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          final dueFormatted = tempDueDate != null
-              ? DateFormat('dd/MM/yyyy').format(tempDueDate!)
-              : 'None';
+          final isNoDueDate = tempDueDate == null;
 
           return Padding(
             padding: EdgeInsets.only(
               left: 20,
               right: 20,
-              top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 28,
+              top: 16,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.slate300,
-                      borderRadius: BorderRadius.circular(2),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.slate300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Invoice Info & Dates',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  label: 'Invoice Number',
-                  hint: 'e.g. INV00001',
-                  controller: numCtrl,
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: ctx,
-                            initialDate: tempDate,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2035),
-                          );
-                          if (picked != null) {
-                            setSheetState(() => tempDate = picked);
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppColors.cardBorder),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Invoice Date', style: TextStyle(fontSize: 11, color: AppColors.slate500)),
-                              const SizedBox(height: 4),
-                              Text(DateFormat('dd/MM/yyyy').format(tempDate), style: const TextStyle(fontWeight: FontWeight.w600)),
-                            ],
-                          ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Invoice Details & Dates',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: ctx,
-                            initialDate: tempDueDate ?? tempDate.add(const Duration(days: 7)),
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2035),
-                          );
-                          if (picked != null) {
-                            setSheetState(() => tempDueDate = picked);
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppColors.cardBorder),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Due Date', style: TextStyle(fontSize: 11, color: AppColors.slate500)),
-                              const SizedBox(height: 4),
-                              Text(dueFormatted, style: const TextStyle(fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                        onPressed: () => Navigator.pop(ctx),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 1. Invoice Number Input
+                  CustomTextField(
+                    label: 'Invoice Number',
+                    hint: 'e.g. INV00001',
+                    controller: numCtrl,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 2. Invoice Issue Date
+                  const Text(
+                    'Invoice Issue Date',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.slate700,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 8,
-                  children: ['Net 7', 'Net 15', 'Net 30', 'Due on Receipt'].map((preset) {
-                    final isSel = _dueDatePreset == preset;
-                    return ChoiceChip(
-                      label: Text(preset),
-                      selected: isSel,
-                      onSelected: (sel) {
-                        if (sel) {
-                          setSheetState(() {
-                            _dueDatePreset = preset;
-                            if (preset == 'Net 7') tempDueDate = tempDate.add(const Duration(days: 7));
-                            if (preset == 'Net 15') tempDueDate = tempDate.add(const Duration(days: 15));
-                            if (preset == 'Net 30') tempDueDate = tempDate.add(const Duration(days: 30));
-                            if (preset == 'Due on Receipt') tempDueDate = tempDate;
-                          });
-                        }
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _invoiceNumberCtrl.text = numCtrl.text.trim();
-                        _invoiceDate = tempDate;
-                        _dueDate = tempDueDate;
-                      });
-                      Navigator.pop(ctx);
+                  ),
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        initialDate: tempDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2035),
+                      );
+                      if (picked != null) {
+                        setSheetState(() {
+                          final diff = tempDueDate?.difference(tempDate);
+                          tempDate = picked;
+                          if (diff != null) {
+                            tempDueDate = tempDate.add(diff);
+                          }
+                        });
+                      }
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.slate100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.cardBorder),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primary),
+                              const SizedBox(width: 10),
+                              Text(
+                                DateFormat('dd MMMM yyyy').format(tempDate),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Icon(Icons.edit_calendar_outlined, size: 18, color: AppColors.slate400),
+                        ],
+                      ),
                     ),
-                    child: const Text('Apply Changes', style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 18),
+
+                  // 3. Payment Terms / Due Date (Optional)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Payment Terms & Due Date',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.slate700,
+                            ),
+                          ),
+                          Text(
+                            'Optional credit period for payment',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.slate500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (!isNoDueDate)
+                        Text(
+                          DateFormat('dd MMM yyyy').format(tempDueDate!),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFD97706),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Quick Due Date Presets
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildDueDatePresetChip(
+                        label: 'No Due Date',
+                        isSelected: isNoDueDate,
+                        onTap: () {
+                          setSheetState(() {
+                            tempDueDate = null;
+                          });
+                        },
+                      ),
+                      _buildDueDatePresetChip(
+                        label: 'Due on Receipt',
+                        isSelected: tempDueDate != null &&
+                            tempDueDate!.year == tempDate.year &&
+                            tempDueDate!.month == tempDate.month &&
+                            tempDueDate!.day == tempDate.day,
+                        onTap: () {
+                          setSheetState(() {
+                            tempDueDate = tempDate;
+                          });
+                        },
+                      ),
+                      _buildDueDatePresetChip(
+                        label: '+7 Days',
+                        isSelected: tempDueDate != null &&
+                            tempDueDate!.difference(tempDate).inDays == 7,
+                        onTap: () {
+                          setSheetState(() {
+                            tempDueDate = tempDate.add(const Duration(days: 7));
+                          });
+                        },
+                      ),
+                      _buildDueDatePresetChip(
+                        label: '+15 Days',
+                        isSelected: tempDueDate != null &&
+                            tempDueDate!.difference(tempDate).inDays == 15,
+                        onTap: () {
+                          setSheetState(() {
+                            tempDueDate = tempDate.add(const Duration(days: 15));
+                          });
+                        },
+                      ),
+                      _buildDueDatePresetChip(
+                        label: '+30 Days',
+                        isSelected: tempDueDate != null &&
+                            tempDueDate!.difference(tempDate).inDays == 30,
+                        onTap: () {
+                          setSheetState(() {
+                            tempDueDate = tempDate.add(const Duration(days: 30));
+                          });
+                        },
+                      ),
+                      _buildDueDatePresetChip(
+                        label: 'Custom Date...',
+                        isSelected: tempDueDate != null &&
+                            ![0, 7, 15, 30].contains(
+                              tempDueDate!.difference(tempDate).inDays,
+                            ),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: tempDueDate ??
+                                tempDate.add(const Duration(days: 14)),
+                            firstDate: tempDate,
+                            lastDate: DateTime(2035),
+                          );
+                          if (picked != null) {
+                            setSheetState(() {
+                              tempDueDate = picked;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+
+                  // Apply Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _invoiceNumberCtrl.text = numCtrl.text.trim().isNotEmpty
+                              ? numCtrl.text.trim()
+                              : 'INV00001';
+                          _invoiceDate = tempDate;
+                          _dueDate = tempDueDate;
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Apply Changes',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
       ),
+    );
+  }
+
+  Widget _buildDueDatePresetChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: AppColors.primary,
+      backgroundColor: AppColors.slate100,
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+        color: isSelected ? Colors.white : AppColors.textPrimary,
+      ),
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      onSelected: (_) => onTap(),
     );
   }
 
@@ -1378,9 +1516,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final isDual = currencyProvider.isDualTax;
     final taxShortName = currencyProvider.defaultTax.shortName;
     final currencySymbol = _currencySymbol;
-    final dueDateFormatted = _dueDate != null
-        ? DateFormat('dd/MM/yyyy').format(_dueDate!)
-        : DateFormat('dd/MM/yyyy').format(_invoiceDate);
 
     // Sequential coachmarks state evaluation
     final bool hasClient = _clientNameCtrl.text.trim().isNotEmpty && _clientNameCtrl.text.trim() != 'Add Clients';
@@ -1454,21 +1589,116 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   // Card 1: Invoice Number & Due Date
                   _buildCard(
                     onTap: _showInvoiceHeaderSheet,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              _invoiceNumberCtrl.text.isNotEmpty ? _invoiceNumberCtrl.text : 'INV00001',
-                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'INVOICE',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.primary,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _invoiceNumberCtrl.text.isNotEmpty
+                                      ? _invoiceNumberCtrl.text
+                                      : 'INV00001',
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 3),
-                            Text('Due on $dueDateFormatted', style: const TextStyle(fontSize: 13, color: AppColors.slate500)),
+                            const Icon(Icons.edit_outlined, size: 18, color: AppColors.slate400),
                           ],
                         ),
-                        const Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            // Invoice Date Pill
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.slate100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.slate500),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        DateFormat('dd MMM yyyy').format(_invoiceDate),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Due Date Pill
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _dueDate != null
+                                      ? const Color(0xFFFEF3C7)
+                                      : AppColors.slate100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.hourglass_bottom_rounded,
+                                      size: 13,
+                                      color: _dueDate != null
+                                          ? const Color(0xFFD97706)
+                                          : AppColors.slate400,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _dueDate != null
+                                            ? 'Due ${DateFormat('dd MMM').format(_dueDate!)}'
+                                            : 'No Due Date',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: _dueDate != null
+                                              ? const Color(0xFF92400E)
+                                              : AppColors.slate500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
