@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../models/invoice_model.dart';
+import '../../../core/models/currency_model.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/pdf_helper.dart';
 
@@ -33,6 +34,15 @@ class BusinessProfile {
     this.signaturePath,
     this.currency = 'INR',
   });
+
+  Currency? get currencyConfig => SupportedCurrencies.getByCode(currency);
+  String get taxIdLabel => currencyConfig?.defaultTax.taxIdLabel ?? 'Tax ID';
+  String get bankRoutingLabel => currencyConfig?.defaultTax.bankRoutingLabel ?? 'Routing / IFSC';
+  String get bankAccountLabel => currencyConfig?.defaultTax.bankAccountLabel ?? 'Account Number';
+  String get invoiceTitle => currencyConfig?.defaultTax.invoiceTitle ?? 'INVOICE';
+  bool get isDualTax => currencyConfig?.defaultTax.isDualTax ?? false;
+  String get taxShortName => currencyConfig?.defaultTax.shortName ?? 'Tax';
+  int get decimalPlaces => currencyConfig?.decimalPlaces ?? 2;
 }
 
 class PdfGeneratorService {
@@ -102,9 +112,9 @@ class PdfGeneratorService {
           pw.SizedBox(height: 32),
           _buildAddressSection(invoice, businessProfile),
           pw.SizedBox(height: 32),
-          _buildLineItemsTable(invoice, currencySymbol),
+          _buildLineItemsTable(invoice, businessProfile, currencySymbol),
           pw.SizedBox(height: 24),
-          _buildTotalsSection(invoice, currencySymbol),
+          _buildTotalsSection(invoice, businessProfile, currencySymbol),
           if (invoice.notes != null && invoice.notes!.isNotEmpty) ...[
             pw.SizedBox(height: 24),
             _buildNotesSection(invoice.notes!),
@@ -180,9 +190,9 @@ class PdfGeneratorService {
           crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: [
             pw.Text(
-              'INVOICE',
+              profile.invoiceTitle,
               style: pw.TextStyle(
-                fontSize: 32,
+                fontSize: 30,
                 fontWeight: pw.FontWeight.bold,
                 color: _primaryColor,
                 letterSpacing: 2,
@@ -335,10 +345,10 @@ class PdfGeneratorService {
                     style: pw.TextStyle(fontSize: 10, color: _slateColor),
                   ),
                 ],
-                if (profile.gstin != null) ...[
+                if (profile.gstin != null && profile.gstin!.isNotEmpty) ...[
                   pw.SizedBox(height: 4),
                   pw.Text(
-                    'GSTIN: ${profile.gstin}',
+                    '${profile.taxIdLabel}: ${profile.gstin}',
                     style: pw.TextStyle(fontSize: 9, color: _slateColor),
                   ),
                 ],
@@ -397,10 +407,10 @@ class PdfGeneratorService {
                     style: pw.TextStyle(fontSize: 10, color: _slateColor),
                   ),
                 ],
-                if (invoice.clientGstin != null) ...[
+                if (invoice.clientGstin != null && invoice.clientGstin!.isNotEmpty) ...[
                   pw.SizedBox(height: 4),
                   pw.Text(
-                    'GSTIN: ${invoice.clientGstin}',
+                    '${profile.taxIdLabel}: ${invoice.clientGstin}',
                     style: pw.TextStyle(fontSize: 9, color: _slateColor),
                   ),
                 ],
@@ -414,8 +424,10 @@ class PdfGeneratorService {
 
   static pw.Widget _buildLineItemsTable(
     InvoiceModel invoice,
+    BusinessProfile profile,
     String currencySymbol,
   ) {
+    final decimals = profile.decimalPlaces;
     final headerBold = pw.TextStyle(
       color: PdfColors.white,
       fontSize: 10,
@@ -480,12 +492,12 @@ class PdfGeneratorService {
                 align: pw.Alignment.centerRight,
               ),
               _tableCell(
-                '$currencySymbol${item.unitPrice.toStringAsFixed(2)}',
+                '$currencySymbol${item.unitPrice.toStringAsFixed(decimals)}',
                 style: rowStyleSecondary,
                 align: pw.Alignment.centerRight,
               ),
               _tableCell(
-                '$currencySymbol${item.total.toStringAsFixed(2)}',
+                '$currencySymbol${item.total.toStringAsFixed(decimals)}',
                 style: rowStyle,
                 align: pw.Alignment.centerRight,
               ),
@@ -511,8 +523,13 @@ class PdfGeneratorService {
 
   static pw.Widget _buildTotalsSection(
     InvoiceModel invoice,
+    BusinessProfile profile,
     String currencySymbol,
   ) {
+    final decimals = profile.decimalPlaces;
+    final isDual = profile.isDualTax;
+    final taxShortName = profile.taxShortName;
+
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.end,
       children: [
@@ -526,7 +543,7 @@ class PdfGeneratorService {
             children: [
               _buildTotalRow(
                 'Subtotal',
-                '$currencySymbol${invoice.subtotal.toStringAsFixed(2)}',
+                '$currencySymbol${invoice.subtotal.toStringAsFixed(decimals)}',
               ),
               if (invoice.discountType != DiscountType.none &&
                   invoice.discountAmount > 0) ...[
@@ -535,30 +552,47 @@ class PdfGeneratorService {
                   invoice.discountType == DiscountType.percentage
                       ? 'Discount (${invoice.discountValue.toStringAsFixed(0)}%)'
                       : 'Discount',
-                  '-$currencySymbol${invoice.discountAmount.toStringAsFixed(2)}',
+                  '-$currencySymbol${invoice.discountAmount.toStringAsFixed(decimals)}',
                   valueColor: _accentGreen,
                 ),
               ],
-              if (invoice.sgstRate > 0) ...[
-                pw.Divider(color: _borderColor, height: 1),
-                _buildTotalRow(
-                  'SGST (${invoice.sgstRate.toStringAsFixed(0)}%)',
-                  '$currencySymbol${(invoice.subtotal * invoice.sgstRate / 100).toStringAsFixed(2)}',
-                ),
-              ],
-              if (invoice.cgstRate > 0) ...[
-                pw.Divider(color: _borderColor, height: 1),
-                _buildTotalRow(
-                  'CGST (${invoice.cgstRate.toStringAsFixed(0)}%)',
-                  '$currencySymbol${(invoice.subtotal * invoice.cgstRate / 100).toStringAsFixed(2)}',
-                ),
-              ],
-              if (invoice.igstRate > 0) ...[
-                pw.Divider(color: _borderColor, height: 1),
-                _buildTotalRow(
-                  'IGST (${invoice.igstRate.toStringAsFixed(0)}%)',
-                  '$currencySymbol${(invoice.subtotal * invoice.igstRate / 100).toStringAsFixed(2)}',
-                ),
+              if (isDual) ...[
+                if (invoice.sgstRate > 0) ...[
+                  pw.Divider(color: _borderColor, height: 1),
+                  _buildTotalRow(
+                    'SGST (${invoice.sgstRate.toStringAsFixed(invoice.sgstRate % 1 == 0 ? 0 : 1)}%)',
+                    '$currencySymbol${(invoice.subtotal * invoice.sgstRate / 100).toStringAsFixed(decimals)}',
+                  ),
+                ],
+                if (invoice.cgstRate > 0) ...[
+                  pw.Divider(color: _borderColor, height: 1),
+                  _buildTotalRow(
+                    'CGST (${invoice.cgstRate.toStringAsFixed(invoice.cgstRate % 1 == 0 ? 0 : 1)}%)',
+                    '$currencySymbol${(invoice.subtotal * invoice.cgstRate / 100).toStringAsFixed(decimals)}',
+                  ),
+                ],
+                if (invoice.igstRate > 0) ...[
+                  pw.Divider(color: _borderColor, height: 1),
+                  _buildTotalRow(
+                    'IGST (${invoice.igstRate.toStringAsFixed(invoice.igstRate % 1 == 0 ? 0 : 1)}%)',
+                    '$currencySymbol${(invoice.subtotal * invoice.igstRate / 100).toStringAsFixed(decimals)}',
+                  ),
+                ],
+              ] else ...[
+                if (invoice.taxAmount > 0 || invoice.igstRate > 0 || (invoice.sgstRate + invoice.cgstRate) > 0) ...[
+                  pw.Divider(color: _borderColor, height: 1),
+                  _buildTotalRow(
+                    () {
+                      final rate = invoice.igstRate > 0
+                          ? invoice.igstRate
+                          : (invoice.sgstRate + invoice.cgstRate);
+                      return rate > 0
+                          ? '$taxShortName (${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1)}%)'
+                          : taxShortName;
+                    }(),
+                    '$currencySymbol${invoice.taxAmount.toStringAsFixed(decimals)}',
+                  ),
+                ],
               ],
               pw.Container(
                 decoration: pw.BoxDecoration(
@@ -585,7 +619,7 @@ class PdfGeneratorService {
                       ),
                     ),
                     pw.Text(
-                      '$currencySymbol${invoice.grandTotal.toStringAsFixed(2)}',
+                      '$currencySymbol${invoice.grandTotal.toStringAsFixed(decimals)}',
                       style: pw.TextStyle(
                         fontSize: 14,
                         fontWeight: pw.FontWeight.bold,
@@ -675,19 +709,19 @@ class PdfGeneratorService {
                       ),
                     ),
                     pw.SizedBox(height: 6),
-                    if (profile.bankName != null)
+                    if (profile.bankName != null && profile.bankName!.isNotEmpty)
                       pw.Text(
                         'Bank: ${profile.bankName}',
                         style: pw.TextStyle(fontSize: 10, color: _slateColor),
                       ),
-                    if (profile.accountNumber != null)
+                    if (profile.accountNumber != null && profile.accountNumber!.isNotEmpty)
                       pw.Text(
-                        'Account: ${profile.accountNumber}',
+                        '${profile.bankAccountLabel}: ${profile.accountNumber}',
                         style: pw.TextStyle(fontSize: 10, color: _slateColor),
                       ),
-                    if (profile.ifscCode != null)
+                    if (profile.ifscCode != null && profile.ifscCode!.isNotEmpty)
                       pw.Text(
-                        'IFSC: ${profile.ifscCode}',
+                        '${profile.bankRoutingLabel}: ${profile.ifscCode}',
                         style: pw.TextStyle(fontSize: 10, color: _slateColor),
                       ),
                   ],

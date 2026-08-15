@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
+import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_animations.dart';
 import '../../../shared_widgets/custom_text_field.dart';
@@ -75,6 +76,10 @@ class _ClientListScreenState extends State<ClientListScreen> {
     final gstinCtrl = TextEditingController(text: client?.gstin ?? '');
     final formKey = GlobalKey<FormState>();
 
+    final currencyProvider = context.read<CurrencyProvider>();
+    final taxIdLabel = currencyProvider.taxIdLabel;
+    final taxIdHint = currencyProvider.taxIdHint;
+
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -133,7 +138,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
               const SizedBox(height: 12),
               CustomTextField(
                 label: 'Phone',
-                hint: '+91 98765 43210',
+                hint: '+1 (555) 012-3456',
                 controller: phoneCtrl,
                 keyboardType: TextInputType.phone,
               ),
@@ -147,8 +152,8 @@ class _ClientListScreenState extends State<ClientListScreen> {
               ),
               const SizedBox(height: 12),
               CustomTextField(
-                label: 'GSTIN',
-                hint: '22AAAAA0000A1Z5',
+                label: taxIdLabel,
+                hint: taxIdHint,
                 controller: gstinCtrl,
                 textCapitalization: TextCapitalization.characters,
               ),

@@ -181,7 +181,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
       if (defaultTax > 0) {
         _hasTax = true;
-        if (_currency == 'INR') {
+        if (currencyProvider.isDualTax) {
           final half = defaultTax / 2;
           _sgstCtrl.text = half.toStringAsFixed(1).replaceAll('.0', '');
           _cgstCtrl.text = half.toStringAsFixed(1).replaceAll('.0', '');
@@ -528,6 +528,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final emailCtrl = TextEditingController(text: _bizEmail ?? '');
     final gstinCtrl = TextEditingController(text: _bizGstin ?? '');
 
+    final currencyProvider = context.read<CurrencyProvider>();
+    final taxIdLabel = currencyProvider.taxIdLabel;
+    final taxIdHint = currencyProvider.taxIdHint;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -575,7 +579,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              CustomTextField(label: 'GSTIN / Tax ID', controller: gstinCtrl),
+              CustomTextField(label: taxIdLabel, hint: taxIdHint, controller: gstinCtrl),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -857,100 +861,221 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   void _showTaxSheet() {
+    final currencyProvider = context.read<CurrencyProvider>();
+    final isDual = currencyProvider.isDualTax;
+    final defaultTax = currencyProvider.defaultTax;
+    final taxName = defaultTax.shortName;
+
     final igstCtrl = TextEditingController(text: _igstCtrl.text);
     final sgstCtrl = TextEditingController(text: _sgstCtrl.text);
     final cgstCtrl = TextEditingController(text: _cgstCtrl.text);
-    bool useIGST = _useIGST;
+    bool useIGST = isDual ? _useIGST : true;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 28),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 28,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
-                child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.slate300, borderRadius: BorderRadius.circular(2))),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.slate300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
               const SizedBox(height: 18),
-              const Text('Tax / GST Configuration', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: ChoiceChip(
-                      label: const Center(child: Text('CGST + SGST')),
-                      selected: !useIGST,
-                      onSelected: (_) => setSheetState(() => useIGST = false),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ChoiceChip(
-                      label: const Center(child: Text('IGST (Single)')),
-                      selected: useIGST,
-                      onSelected: (_) => setSheetState(() => useIGST = true),
-                    ),
-                  ),
-                ],
+              Text(
+                '$taxName Configuration',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                isDual
+                    ? 'Choose CGST + SGST (intra-state) or IGST (inter-state)'
+                    : 'Set $taxName percentage to apply to this invoice.',
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 14),
-              if (useIGST)
-                CustomTextField(
-                  label: 'IGST Rate (%)',
-                  controller: igstCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                )
-              else
+
+              // Quick preset chips for this country
+              if (defaultTax.presetRates.isNotEmpty) ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: defaultTax.presetRates.map((rate) {
+                    final isPresetSelected = isDual
+                        ? (useIGST
+                            ? (double.tryParse(igstCtrl.text) ?? -1) == rate
+                            : ((double.tryParse(sgstCtrl.text) ?? -1) + (double.tryParse(cgstCtrl.text) ?? -1)) == rate)
+                        : (double.tryParse(igstCtrl.text) ?? -1) == rate;
+
+                    return ActionChip(
+                      label: Text(
+                        rate == 0
+                            ? 'No Tax (0%)'
+                            : '$taxName ${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1)}%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: isPresetSelected ? Colors.white : AppColors.textPrimary,
+                        ),
+                      ),
+                      backgroundColor: isPresetSelected ? AppColors.primary : AppColors.slate100,
+                      side: BorderSide.none,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      onPressed: () {
+                        setSheetState(() {
+                          if (isDual && !useIGST) {
+                            final half = rate / 2;
+                            sgstCtrl.text = half.toStringAsFixed(half % 1 == 0 ? 0 : 1);
+                            cgstCtrl.text = half.toStringAsFixed(half % 1 == 0 ? 0 : 1);
+                          } else {
+                            igstCtrl.text = rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              if (isDual) ...[
                 Row(
                   children: [
                     Expanded(
-                      child: CustomTextField(
-                        label: 'CGST (%)',
-                        controller: cgstCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      child: ChoiceChip(
+                        label: const Center(child: Text('CGST + SGST')),
+                        selected: !useIGST,
+                        onSelected: (_) {
+                          setSheetState(() {
+                            useIGST = false;
+                            final current = double.tryParse(igstCtrl.text) ?? defaultTax.rate;
+                            final half = current / 2;
+                            sgstCtrl.text = half.toStringAsFixed(half % 1 == 0 ? 0 : 1);
+                            cgstCtrl.text = half.toStringAsFixed(half % 1 == 0 ? 0 : 1);
+                          });
+                        },
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: CustomTextField(
-                        label: 'SGST (%)',
-                        controller: sgstCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      child: ChoiceChip(
+                        label: const Center(child: Text('IGST (Single)')),
+                        selected: useIGST,
+                        onSelected: (_) {
+                          setSheetState(() {
+                            useIGST = true;
+                            final total = (double.tryParse(sgstCtrl.text) ?? 0) + (double.tryParse(cgstCtrl.text) ?? 0);
+                            igstCtrl.text = (total > 0 ? total : defaultTax.rate).toStringAsFixed(1).replaceAll('.0', '');
+                          });
+                        },
                       ),
                     ),
                   ],
                 ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _useIGST = useIGST;
-                      _igstCtrl.text = igstCtrl.text;
-                      _sgstCtrl.text = sgstCtrl.text;
-                      _cgstCtrl.text = cgstCtrl.text;
-                      final totalTax = useIGST
-                          ? (double.tryParse(igstCtrl.text) ?? 0)
-                          : (double.tryParse(sgstCtrl.text) ?? 0) + (double.tryParse(cgstCtrl.text) ?? 0);
-                      _hasTax = totalTax > 0;
-                    });
-                    Navigator.pop(ctx);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                const SizedBox(height: 14),
+                if (useIGST)
+                  CustomTextField(
+                    label: 'IGST Rate (%)',
+                    controller: igstCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'CGST (%)',
+                          controller: cgstCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'SGST (%)',
+                          controller: sgstCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Text('Apply Tax', style: TextStyle(fontWeight: FontWeight.w700)),
+              ] else ...[
+                // Clean Single Tax Field
+                CustomTextField(
+                  label: '$taxName Rate (%)',
+                  hint: 'e.g. ${defaultTax.rate}',
+                  controller: igstCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
+              ],
+
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _hasTax = false;
+                          _igstCtrl.text = '0';
+                          _sgstCtrl.text = '0';
+                          _cgstCtrl.text = '0';
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.slate600,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Remove Tax'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _useIGST = isDual ? useIGST : true;
+                          _igstCtrl.text = igstCtrl.text.trim();
+                          _sgstCtrl.text = sgstCtrl.text.trim();
+                          _cgstCtrl.text = cgstCtrl.text.trim();
+                          final totalTax = (isDual && !useIGST)
+                              ? (double.tryParse(sgstCtrl.text) ?? 0) + (double.tryParse(cgstCtrl.text) ?? 0)
+                              : (double.tryParse(igstCtrl.text) ?? 0);
+                          _hasTax = totalTax > 0;
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Apply Tax', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1232,6 +1357,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   @override
   Widget build(BuildContext context) {
     final isPro = context.watch<BillingService>().isPro;
+    final currencyProvider = context.watch<CurrencyProvider>();
+    final isDual = currencyProvider.isDualTax;
+    final taxShortName = currencyProvider.defaultTax.shortName;
     final currencySymbol = _currencySymbol;
     final dueDateFormatted = _dueDate != null
         ? DateFormat('dd/MM/yyyy').format(_dueDate!)
@@ -1591,8 +1719,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         const Divider(height: 16),
                         _buildRowTile(
                           icon: Icons.account_balance_outlined,
-                          title: 'Tax',
-                          subtitle: _hasTax ? '(${_useIGST ? _igstCtrl.text : (double.tryParse(_sgstCtrl.text) ?? 0) + (double.tryParse(_cgstCtrl.text) ?? 0)}%)' : '(0%)',
+                          title: taxShortName,
+                          subtitle: _hasTax
+                              ? (isDual && !_useIGST
+                                  ? '(CGST ${_cgstCtrl.text}% + SGST ${_sgstCtrl.text}%)'
+                                  : '(${_useIGST ? _igstCtrl.text : ((double.tryParse(_sgstCtrl.text) ?? 0) + (double.tryParse(_cgstCtrl.text) ?? 0)).toStringAsFixed(1).replaceAll('.0', '')}%)')
+                              : '(0%)',
                           value: '$currencySymbol${_taxAmount.toStringAsFixed(2)}',
                           onTap: _showTaxSheet,
                         ),
@@ -1629,7 +1761,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           _buildCoachmarkBalloon(
                             stepLabel: 'Step 3 of 4',
                             title: 'Configure discount, tax or shipping',
-                            subtitle: 'Apply GST/tax rates, discounts or shipping charges',
+                            subtitle: 'Apply $taxShortName rates, discounts or shipping charges',
                             onTap: _showTaxSheet,
                             onDismiss: () => _dismissTip('financials'),
                           ),

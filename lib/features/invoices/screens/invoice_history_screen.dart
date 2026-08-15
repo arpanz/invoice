@@ -213,8 +213,8 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   }
 
   Future<BusinessProfile> _getBusinessProfile() async {
-    final prefs = await SharedPreferences.getInstance();
     final currencyProvider = context.read<CurrencyProvider>();
+    final prefs = await SharedPreferences.getInstance();
     return BusinessProfile(
       businessName: prefs.getString('biz_name') ?? 'My Business',
       address: prefs.getString('biz_address'),

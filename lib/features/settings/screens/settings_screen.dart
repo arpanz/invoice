@@ -465,26 +465,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
           iconBackground: AppColors.primaryLight.withValues(alpha: 0.12),
           title: 'Edit ${currencyProvider.defaultTax.shortName} rate',
           subtitle: 'Set the default tax rate used when you create invoices.',
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
+          content: StatefulBuilder(
+            builder: (ctx, setSheetState) => Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (currencyProvider.presetTaxRates.isNotEmpty) ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: currencyProvider.presetTaxRates.map((rate) {
+                        final isSel = (double.tryParse(controller.text) ?? -1) == rate;
+                        return ActionChip(
+                          label: Text(
+                            rate == 0
+                                ? '0%'
+                                : '${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1)}%',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isSel ? Colors.white : AppColors.textPrimary,
+                            ),
+                          ),
+                          backgroundColor: isSel ? AppColors.primary : AppColors.slate100,
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          onPressed: () {
+                            setSheetState(() {
+                              controller.text = rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1);
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  TextFormField(
+                    controller: controller,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: '${currencyProvider.defaultTax.shortName} Rate (%)',
+                      hintText: 'e.g. ${currencyProvider.defaultTax.rate}',
+                    ),
+                    validator: (value) {
+                      final parsed = double.tryParse((value ?? '').trim());
+                      if (parsed == null) return 'Enter a valid number';
+                      if (parsed < 0 || parsed > 100) {
+                        return 'Use a value between 0 and 100';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
               ),
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Tax Rate (%)',
-                hintText: 'e.g. 8.875',
-              ),
-              validator: (value) {
-                final parsed = double.tryParse((value ?? '').trim());
-                if (parsed == null) return 'Enter a valid number';
-                if (parsed < 0 || parsed > 100) {
-                  return 'Use a value between 0 and 100';
-                }
-                return null;
-              },
             ),
           ),
           footer: Row(
@@ -832,7 +869,7 @@ class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
                                   ],
                                 ),
                                 Text(
-                                  currency.name,
+                                  '${currency.countryName} - ${currency.name}',
                                   style: const TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 12,

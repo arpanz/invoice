@@ -4,31 +4,74 @@ import '../models/currency_model.dart';
 class CurrencyFormatter {
   CurrencyFormatter._();
 
-  /// Formats [amount] with the given [currencySymbol].
-  /// Uses Indian number grouping (e.g. ₹1,00,000) for INR and
-  /// standard grouping (e.g. $1,000,000) for all other currencies.
-  static String format(double amount, {String currencySymbol = '₹'}) {
-    final locale = currencySymbol == '₹' ? 'en_IN' : 'en_US';
+  /// Formats [amount] with the given [currencyCode] or [currencySymbol].
+  /// Accurately applies decimal digits (e.g. 0 for JPY, 3 for KWD, 2 for others)
+  /// and localized number patterns.
+  static String format(
+    double amount, {
+    String? currencyCode,
+    String? currencySymbol,
+    int? decimalDigits,
+  }) {
+    final currency = currencyCode != null
+        ? SupportedCurrencies.getByCode(currencyCode)
+        : null;
+
+    final symbol = currencySymbol ?? currency?.symbol ?? '₹';
+    final decimals = decimalDigits ?? currency?.decimalPlaces ?? 2;
+    final isINR = (currencyCode?.toUpperCase() == 'INR') || (symbol == '₹');
+    final locale = isINR ? 'en_IN' : 'en_US';
+
     final formatter = NumberFormat.decimalPatternDigits(
       locale: locale,
-      decimalDigits: 2,
+      decimalDigits: decimals,
     );
-    return '$currencySymbol${formatter.format(amount)}';
+
+    if (amount < 0) {
+      return '-$symbol${formatter.format(amount.abs())}';
+    }
+    return '$symbol${formatter.format(amount)}';
   }
 
-  static String formatCompact(double amount, {String currencySymbol = '₹'}) {
-    if (amount >= 10000000) {
-      return '$currencySymbol${(amount / 10000000).toStringAsFixed(2)}Cr';
-    } else if (amount >= 100000) {
-      return '$currencySymbol${(amount / 100000).toStringAsFixed(2)}L';
-    } else if (amount >= 1000) {
-      return '$currencySymbol${(amount / 1000).toStringAsFixed(1)}K';
+  /// Formats [amount] compactly:
+  /// Uses Lakhs (L) and Crores (Cr) for Indian Rupee (INR).
+  /// Uses Thousands (K), Millions (M), Billions (B) for all international currencies.
+  static String formatCompact(
+    double amount, {
+    String? currencyCode,
+    String? currencySymbol,
+  }) {
+    final currency = currencyCode != null
+        ? SupportedCurrencies.getByCode(currencyCode)
+        : null;
+    final symbol = currencySymbol ?? currency?.symbol ?? '₹';
+    final isINR = (currencyCode?.toUpperCase() == 'INR') || (symbol == '₹');
+    final isNegative = amount < 0;
+    final absAmount = amount.abs();
+    final prefix = isNegative ? '-$symbol' : symbol;
+
+    if (isINR) {
+      if (absAmount >= 10000000) {
+        return '$prefix${(absAmount / 10000000).toStringAsFixed(2)}Cr';
+      } else if (absAmount >= 100000) {
+        return '$prefix${(absAmount / 100000).toStringAsFixed(2)}L';
+      } else if (absAmount >= 1000) {
+        return '$prefix${(absAmount / 1000).toStringAsFixed(1)}K';
+      }
+    } else {
+      if (absAmount >= 1000000000) {
+        return '$prefix${(absAmount / 1000000000).toStringAsFixed(2)}B';
+      } else if (absAmount >= 1000000) {
+        return '$prefix${(absAmount / 1000000).toStringAsFixed(2)}M';
+      } else if (absAmount >= 1000) {
+        return '$prefix${(absAmount / 1000).toStringAsFixed(1)}K';
+      }
     }
-    return format(amount, currencySymbol: currencySymbol);
+    return format(amount, currencyCode: currencyCode, currencySymbol: symbol);
   }
 
   /// Returns the currency symbol for a given ISO currency [code].
-  /// Uses [SupportedCurrencies] as the source of truth so all 30+
+  /// Uses [SupportedCurrencies] as the source of truth so all 35+
   /// currencies are covered. Falls back to the code itself if unknown.
   static String getCurrencySymbol(String code) {
     final currency = SupportedCurrencies.getByCode(code);

@@ -54,7 +54,7 @@ void main() {
     expect(find.text('Bill To'), findsOneWidget);
     expect(find.text('Items'), findsOneWidget);
     expect(find.text('Discount'), findsOneWidget);
-    expect(find.text('Tax'), findsOneWidget);
+    expect(find.byIcon(Icons.account_balance_outlined), findsOneWidget);
     expect(find.text('Shipping'), findsOneWidget);
     expect(find.text('Total'), findsOneWidget);
     expect(find.text('Balance Due'), findsOneWidget);

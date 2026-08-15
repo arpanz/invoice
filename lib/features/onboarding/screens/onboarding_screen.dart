@@ -48,8 +48,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   String? _logoPath;
 
   Currency _selectedCurrency = SupportedCurrencies.popular.first;
-  double _taxRate = 0.0;
-  String _taxName = 'Tax';
+  double _taxRate = 8.875;
+  String _taxName = 'Sales Tax';
   String _selectedTerms = 'Due on Receipt';
 
   // Animation controller for Step 1 building invoice
@@ -59,6 +59,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   void initState() {
     super.initState();
+    _selectedCurrency = SupportedCurrencies.popular.first;
+    _taxRate = _selectedCurrency.defaultTax.rate;
+    _taxName = _selectedCurrency.defaultTax.shortName;
+
     _animCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2400),
@@ -449,18 +453,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
-                                  children: const [
+                                  children: [
                                     Text(
-                                      'GST Tax (18%)',
-                                      style: TextStyle(
+                                      '$_taxName (${_taxRate.toStringAsFixed(_taxRate % 1 == 0 ? 0 : 1)}%)',
+                                      style: const TextStyle(
                                         fontSize: 11,
                                         color: AppColors.textSecondary,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                     Text(
-                                      '\$650.00',
-                                      style: TextStyle(
+                                      '${_selectedCurrency.symbol}${(1800.0 * _taxRate / 100).toStringAsFixed(2)}',
+                                      style: const TextStyle(
                                         fontSize: 11,
                                         color: AppColors.textSecondary,
                                         fontWeight: FontWeight.w700,
@@ -1146,6 +1150,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // ---------------------------------------------------------------------------
   Widget _buildCurrencyPage() {
     final popularList = SupportedCurrencies.popular;
+    final defaultTax = _selectedCurrency.defaultTax;
+    final presetRates = defaultTax.presetRates;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1163,9 +1169,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Your invoices will pre-fill with this currency symbol.',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          Text(
+            'Invoices and taxes will adapt automatically to your country.',
+            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 20),
 
@@ -1187,7 +1193,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               return GestureDetector(
                 onTap: () {
                   HapticFeedback.lightImpact();
-                  setState(() => _selectedCurrency = currency);
+                  setState(() {
+                    _selectedCurrency = currency;
+                    _taxRate = currency.defaultTax.rate;
+                    _taxName = currency.defaultTax.shortName;
+                  });
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
@@ -1234,12 +1244,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                               ),
                             ),
                             Text(
-                              currency.symbol,
+                              '${currency.symbol} • ${currency.countryName.isNotEmpty ? currency.countryName : currency.name}',
                               style: const TextStyle(
-                                fontSize: 12,
+                                fontSize: 11,
                                 color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w600,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -1256,27 +1268,53 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               );
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
 
-          // Inline Tax Selector Section
-          const Text(
-            'Do you usually add tax?',
-            style: TextStyle(
-              fontSize: 18,
+          // Button to pick any of the 35+ countries
+          Center(
+            child: TextButton.icon(
+              onPressed: _showAllCurrenciesPicker,
+              icon: const Icon(Icons.public, size: 18, color: AppColors.primary),
+              label: const Text(
+                'More Countries & Currencies (35+)',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Dynamic Tax Selector Section
+          Text(
+            defaultTax.rate == 0
+                ? 'Tax Rate (${_selectedCurrency.countryName})'
+                : 'Default ${defaultTax.shortName} for ${_selectedCurrency.countryName}',
+            style: const TextStyle(
+              fontSize: 17,
               fontWeight: FontWeight.w900,
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
+          Text(
+            defaultTax.description ?? 'Standard rate for ${_selectedCurrency.name}',
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 12),
 
-          Row(
-            children: [
-              _buildTaxChip('No Tax', 0.0, 'No Tax'),
-              const SizedBox(width: 8),
-              _buildTaxChip('GST 18%', 18.0, 'GST'),
-              const SizedBox(width: 8),
-              _buildTaxChip('VAT 20%', 20.0, 'VAT'),
-            ],
+          // Dynamic preset chips
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: presetRates.map((rate) {
+              final label = rate == 0.0
+                  ? 'No Tax (0%)'
+                  : '${defaultTax.shortName} ${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1)}%';
+              return _buildTaxChip(label, rate, defaultTax.shortName);
+            }).toList(),
           ),
           const SizedBox(height: 28),
 
@@ -1293,37 +1331,146 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
+  void _showAllCurrenciesPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        String searchQuery = '';
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final filtered = SupportedCurrencies.search(searchQuery);
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(ctx).size.height * 0.7,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.slate300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Select Country / Currency',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      autofocus: false,
+                      decoration: InputDecoration(
+                        hintText: 'Search by country, code or name...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        filled: true,
+                        fillColor: AppColors.slate50,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.slate200),
+                        ),
+                      ),
+                      onChanged: (val) => setModalState(() => searchQuery = val),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: filtered.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1),
+                        itemBuilder: (ctx, idx) {
+                          final c = filtered[idx];
+                          final isSelected = c.code == _selectedCurrency.code;
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            leading: Text(c.flag, style: const TextStyle(fontSize: 24)),
+                            title: Text(
+                              '${c.countryName.isNotEmpty ? c.countryName : c.name} (${c.code})',
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${c.symbol} • ${c.defaultTax.shortName} (${c.defaultTax.rate}%)',
+                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            ),
+                            trailing: isSelected
+                                ? const Icon(Icons.check_circle, color: AppColors.primary)
+                                : null,
+                            onTap: () {
+                              setState(() {
+                                _selectedCurrency = c;
+                                _taxRate = c.defaultTax.rate;
+                                _taxName = c.defaultTax.shortName;
+                              });
+                              Navigator.pop(ctx);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildTaxChip(String label, double rate, String taxName) {
     final isSelected = _taxRate == rate;
 
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          setState(() {
-            _taxRate = rate;
-            _taxName = taxName;
-          });
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary : Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isSelected ? AppColors.primary : AppColors.cardBorder,
-            ),
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setState(() {
+          _taxRate = rate;
+          _taxName = taxName;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.cardBorder,
+            width: isSelected ? 2 : 1,
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: isSelected ? Colors.white : AppColors.textPrimary,
-              ),
-            ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.18),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : AppColors.cardShadow,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: isSelected ? Colors.white : AppColors.textPrimary,
           ),
         ),
       ),

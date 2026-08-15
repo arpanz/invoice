@@ -11,7 +11,7 @@ class CurrencyPreferences {
   static const String _customTaxRateKey = 'custom_default_tax_rate';
 }
 
-/// Provider to manage currency state throughout the app
+/// Provider to manage currency, country, tax, and regional state throughout the app
 class CurrencyProvider extends ChangeNotifier {
   Currency _selectedCurrency = SupportedCurrencies.all.first;
   bool _isLoading = true;
@@ -23,6 +23,20 @@ class CurrencyProvider extends ChangeNotifier {
   bool get onboardingComplete => _onboardingComplete;
   double? get customTaxRate => _customTaxRate;
   bool get hasCustomTaxRate => _customTaxRate != null;
+
+  // Convenient country & tax getters
+  String get currencySymbol => _selectedCurrency.symbol;
+  String get currencyCode => _selectedCurrency.code;
+  String get countryName => _selectedCurrency.countryName;
+  String get flag => _selectedCurrency.flag;
+  int get decimalPlaces => _selectedCurrency.decimalPlaces;
+  bool get isDualTax => _selectedCurrency.defaultTax.isDualTax;
+  String get taxIdLabel => _selectedCurrency.defaultTax.taxIdLabel;
+  String get taxIdHint => _selectedCurrency.defaultTax.taxIdHint;
+  String get invoiceTitle => _selectedCurrency.defaultTax.invoiceTitle;
+  String get bankRoutingLabel => _selectedCurrency.defaultTax.bankRoutingLabel;
+  String get bankAccountLabel => _selectedCurrency.defaultTax.bankAccountLabel;
+  List<double> get presetTaxRates => _selectedCurrency.defaultTax.presetRates;
 
   CurrencyProvider() {
     _loadPreferences();
@@ -38,11 +52,15 @@ class CurrencyProvider extends ChangeNotifier {
       if (currencyJson != null) {
         try {
           final currencyData = jsonDecode(currencyJson) as Map<String, dynamic>;
-          _selectedCurrency = Currency.fromJson(currencyData);
+          final parsed = Currency.fromJson(currencyData);
+          // Look up latest country metadata definition for the currency code if available
+          final full = SupportedCurrencies.getByCode(parsed.code);
+          _selectedCurrency = full ?? parsed;
         } catch (_) {
-          // Use default if parsing fails
           _selectedCurrency = SupportedCurrencies.all.first;
         }
+      } else {
+        _selectedCurrency = SupportedCurrencies.all.first;
       }
 
       // Load onboarding status
@@ -61,14 +79,16 @@ class CurrencyProvider extends ChangeNotifier {
 
   /// Set the selected currency
   Future<void> setCurrency(Currency currency) async {
-    _selectedCurrency = currency;
+    // Ensure we have the full static definition with rich tax properties
+    final full = SupportedCurrencies.getByCode(currency.code) ?? currency;
+    _selectedCurrency = full;
     notifyListeners();
 
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
         CurrencyPreferences._currencyKey,
-        jsonEncode(currency.toJson()),
+        jsonEncode(full.toJson()),
       );
     } catch (e) {
       debugPrint('Error saving currency: $e');
@@ -101,20 +121,11 @@ class CurrencyProvider extends ChangeNotifier {
     }
   }
 
-  /// Get currency symbol for display
-  String get currencySymbol => _selectedCurrency.symbol;
-
-  /// Get currency code for display
-  String get currencyCode => _selectedCurrency.code;
-
-  /// Get default tax info
+  /// Get default tax info with custom override if present
   TaxInfo get defaultTax {
     final base = _selectedCurrency.defaultTax;
-    return TaxInfo(
-      name: base.name,
-      shortName: base.shortName,
+    return base.copyWith(
       rate: _customTaxRate ?? base.rate,
-      description: base.description,
     );
   }
 
@@ -151,14 +162,27 @@ class CurrencyProvider extends ChangeNotifier {
     return '${_selectedCurrency.symbol}$formatted';
   }
 
-  /// Format amount with compact notation
+  /// Format amount with compact notation (L/Cr for INR, K/M/B for international)
   String formatAmountCompact(double amount) {
-    if (amount >= 10000000) {
-      return '${_selectedCurrency.symbol}${(amount / 10000000).toStringAsFixed(2)}Cr';
-    } else if (amount >= 100000) {
-      return '${_selectedCurrency.symbol}${(amount / 100000).toStringAsFixed(2)}L';
-    } else if (amount >= 1000) {
-      return '${_selectedCurrency.symbol}${(amount / 1000).toStringAsFixed(1)}K';
+    final isINR = _selectedCurrency.code == 'INR';
+    final symbol = _selectedCurrency.symbol;
+
+    if (isINR) {
+      if (amount >= 10000000) {
+        return '$symbol${(amount / 10000000).toStringAsFixed(2)}Cr';
+      } else if (amount >= 100000) {
+        return '$symbol${(amount / 100000).toStringAsFixed(2)}L';
+      } else if (amount >= 1000) {
+        return '$symbol${(amount / 1000).toStringAsFixed(1)}K';
+      }
+    } else {
+      if (amount >= 1000000000) {
+        return '$symbol${(amount / 1000000000).toStringAsFixed(2)}B';
+      } else if (amount >= 1000000) {
+        return '$symbol${(amount / 1000000).toStringAsFixed(2)}M';
+      } else if (amount >= 1000) {
+        return '$symbol${(amount / 1000).toStringAsFixed(1)}K';
+      }
     }
     return formatAmount(amount);
   }
@@ -182,18 +206,47 @@ class CurrencyProvider extends ChangeNotifier {
       case 'AUD':
       case 'SGD':
       case 'HKD':
+      case 'NZD':
+      case 'PHP':
+      case 'MYR':
+      case 'ZAR':
+      case 'NGN':
+      case 'KES':
         return 'en_US';
       case 'EUR':
         return 'de_DE';
       case 'JPY':
-      case 'CNY':
         return 'ja_JP';
+      case 'CNY':
+        return 'zh_CN';
       case 'KRW':
         return 'ko_KR';
       case 'BRL':
         return 'pt_BR';
-      case 'RUB':
-        return 'ru_RU';
+      case 'MXN':
+        return 'es_MX';
+      case 'THB':
+        return 'th_TH';
+      case 'IDR':
+        return 'id_ID';
+      case 'VND':
+        return 'vi_VN';
+      case 'PLN':
+        return 'pl_PL';
+      case 'SEK':
+        return 'sv_SE';
+      case 'NOK':
+        return 'nb_NO';
+      case 'DKK':
+        return 'da_DK';
+      case 'CHF':
+        return 'de_CH';
+      case 'AED':
+      case 'SAR':
+      case 'QAR':
+      case 'KWD':
+      case 'BHD':
+        return 'en_US';
       default:
         return 'en_US';
     }

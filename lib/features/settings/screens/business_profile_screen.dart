@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/primary_button.dart';
@@ -122,6 +124,12 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currencyProvider = context.watch<CurrencyProvider>();
+    final taxIdLabel = currencyProvider.taxIdLabel;
+    final taxIdHint = currencyProvider.taxIdHint;
+    final bankRoutingLabel = currencyProvider.bankRoutingLabel;
+    final bankAccountLabel = currencyProvider.bankAccountLabel;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Business Profile'),
@@ -253,7 +261,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 const SizedBox(height: 12),
                 CustomTextField(
                   label: 'Address',
-                  hint: '123 Main St, City, State - 400001',
+                  hint: '123 Main St, City, State',
                   controller: _addressCtrl,
                   maxLines: 3,
                   textCapitalization: TextCapitalization.sentences,
@@ -261,7 +269,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 const SizedBox(height: 12),
                 CustomTextField(
                   label: 'Phone',
-                  hint: '+91 98765 43210',
+                  hint: '+1 (555) 012-3456',
                   controller: _phoneCtrl,
                   keyboardType: TextInputType.phone,
                 ),
@@ -274,8 +282,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 CustomTextField(
-                  label: 'GSTIN',
-                  hint: '22AAAAA0000A1Z5',
+                  label: taxIdLabel,
+                  hint: taxIdHint,
                   controller: _gstinCtrl,
                   textCapitalization: TextCapitalization.characters,
                 ),
@@ -289,21 +297,21 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               children: [
                 CustomTextField(
                   label: 'Bank Name',
-                  hint: 'State Bank of India',
+                  hint: 'e.g. Chase / Barclays / HDFC',
                   controller: _bankNameCtrl,
                   textCapitalization: TextCapitalization.words,
                 ),
                 const SizedBox(height: 12),
                 CustomTextField(
-                  label: 'Account Number',
-                  hint: '1234567890',
+                  label: bankAccountLabel,
+                  hint: 'e.g. 1234567890',
                   controller: _accountCtrl,
-                  keyboardType: TextInputType.number,
+                  keyboardType: TextInputType.text,
                 ),
                 const SizedBox(height: 12),
                 CustomTextField(
-                  label: 'IFSC Code',
-                  hint: 'SBIN0001234',
+                  label: bankRoutingLabel,
+                  hint: 'e.g. 021000021 / SBIN0001234',
                   controller: _ifscCtrl,
                   textCapitalization: TextCapitalization.characters,
                 ),
