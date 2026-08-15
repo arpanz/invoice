@@ -9,6 +9,7 @@ import 'dummy_invoice_data.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/pdf_helper.dart';
+import '../../estimates/models/estimate_model.dart';
 
 class BusinessProfile {
   final String businessName;
@@ -22,6 +23,7 @@ class BusinessProfile {
   final String? logoPath;
   final String? signaturePath;
   final String currency;
+  final String? invoiceTitleOverride;
 
   const BusinessProfile({
     required this.businessName,
@@ -35,13 +37,14 @@ class BusinessProfile {
     this.logoPath,
     this.signaturePath,
     this.currency = 'INR',
+    this.invoiceTitleOverride,
   });
 
   Currency? get currencyConfig => SupportedCurrencies.getByCode(currency);
   String get taxIdLabel => currencyConfig?.defaultTax.taxIdLabel ?? 'Tax ID';
   String get bankRoutingLabel => currencyConfig?.defaultTax.bankRoutingLabel ?? 'Routing / IFSC';
   String get bankAccountLabel => currencyConfig?.defaultTax.bankAccountLabel ?? 'Account Number';
-  String get invoiceTitle => currencyConfig?.defaultTax.invoiceTitle ?? 'INVOICE';
+  String get invoiceTitle => invoiceTitleOverride ?? currencyConfig?.defaultTax.invoiceTitle ?? 'INVOICE';
   bool get isDualTax => currencyConfig?.defaultTax.isDualTax ?? false;
   String get taxShortName => currencyConfig?.defaultTax.shortName ?? 'Tax';
   int get decimalPlaces => currencyConfig?.decimalPlaces ?? 2;
@@ -51,6 +54,65 @@ class PdfGeneratorService {
   PdfGeneratorService._();
 
   static Future<_PdfFonts>? _fontsFuture;
+
+  static Future<Uint8List> generateEstimatePdf({
+    required EstimateModel estimate,
+    required BusinessProfile businessProfile,
+    required bool isPro,
+    PdfTheme? theme,
+    bool isSamplePreview = false,
+  }) async {
+    final estimateProfile = BusinessProfile(
+      businessName: businessProfile.businessName,
+      address: businessProfile.address,
+      phone: businessProfile.phone,
+      email: businessProfile.email,
+      gstin: businessProfile.gstin,
+      bankName: businessProfile.bankName,
+      accountNumber: businessProfile.accountNumber,
+      ifscCode: businessProfile.ifscCode,
+      logoPath: businessProfile.logoPath,
+      signaturePath: businessProfile.signaturePath,
+      currency: estimate.currency,
+      invoiceTitleOverride: 'ESTIMATE',
+    );
+
+    final inv = InvoiceModel(
+      id: estimate.id,
+      invoiceNumber: estimate.estimateNumber,
+      clientId: estimate.clientId,
+      clientName: estimate.clientName,
+      clientEmail: estimate.clientEmail,
+      clientPhone: estimate.clientPhone,
+      clientAddress: estimate.clientAddress,
+      clientGstin: estimate.clientGstin,
+      invoiceDate: estimate.estimateDate,
+      dueDate: estimate.expiryDate,
+      subtotal: estimate.subtotal,
+      discountType: estimate.discountType,
+      discountValue: estimate.discountValue,
+      discountAmount: estimate.discountAmount,
+      sgstRate: estimate.sgstRate,
+      cgstRate: estimate.cgstRate,
+      igstRate: estimate.igstRate,
+      taxAmount: estimate.taxAmount,
+      grandTotal: estimate.grandTotal,
+      status: InvoiceStatus.unpaid,
+      notes: estimate.notes,
+      currency: estimate.currency,
+      createdAt: estimate.createdAt,
+      updatedAt: estimate.updatedAt,
+      lineItems: estimate.lineItems,
+    );
+
+    return generateInvoicePdf(
+      invoice: inv,
+      businessProfile: estimateProfile,
+      isPro: isPro,
+      theme: theme,
+      isSamplePreview: isSamplePreview,
+    );
+  }
 
   static Future<Uint8List> generateInvoicePdf({
     required InvoiceModel invoice,

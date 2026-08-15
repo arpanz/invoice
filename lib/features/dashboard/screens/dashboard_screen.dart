@@ -18,6 +18,7 @@ import '../../invoices/screens/create_invoice_screen.dart';
 import '../../invoices/screens/invoice_preview_screen.dart';
 import '../../invoices/services/pdf_generator_service.dart';
 import '../../paywall/paywall_screen.dart';
+import '../../settings/screens/settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -335,13 +336,15 @@ class DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Navigate through bottom navigation bar tabs below'),
-                  duration: Duration(seconds: 2),
-                ),
+            onPressed: () async {
+              HapticFeedback.lightImpact();
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
               );
+              if (mounted) {
+                _loadData();
+              }
             },
           ),
         ),

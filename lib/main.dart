@@ -13,10 +13,11 @@ import 'core/theme/app_colors.dart';
 import 'core/theme/app_typography.dart';
 import 'features/clients/screens/client_list_screen.dart';
 import 'features/dashboard/screens/dashboard_screen.dart';
+import 'features/estimates/screens/create_estimate_screen.dart';
+import 'features/estimates/screens/estimate_list_screen.dart';
 import 'features/invoices/screens/create_invoice_screen.dart';
 import 'features/invoices/screens/invoice_history_screen.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
-import 'features/settings/screens/settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -175,14 +176,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   int _currentIndex = 0;
 
   final _dashboardKey = GlobalKey<DashboardScreenState>();
+  final _estimatesKey = GlobalKey<EstimateListScreenState>();
   final _historyKey = GlobalKey<InvoiceHistoryScreenState>();
 
   List<Widget> get _screens => [
     DashboardScreen(key: _dashboardKey),
+    EstimateListScreen(key: _estimatesKey),
     const ClientListScreen(),
-    const CreateInvoiceScreen(),
     _HistoryScreen(historyKey: _historyKey),
-    const SettingsScreen(),
   ];
 
   @override
@@ -242,7 +243,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Container(
             height: 66,
             decoration: BoxDecoration(
@@ -263,28 +264,28 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               children: [
                 _buildNavItem(
                   index: 0,
-                  icon: Icons.dashboard_outlined,
-                  activeIcon: Icons.dashboard_rounded,
-                  label: 'Overview',
+                  icon: Icons.receipt_long_outlined,
+                  activeIcon: Icons.receipt_long_rounded,
+                  label: 'Invoices',
                 ),
                 _buildNavItem(
                   index: 1,
+                  icon: Icons.request_quote_outlined,
+                  activeIcon: Icons.request_quote_rounded,
+                  label: 'Estimates',
+                ),
+                _buildCenterActionButton(),
+                _buildNavItem(
+                  index: 2,
                   icon: Icons.people_outline_rounded,
                   activeIcon: Icons.people_rounded,
                   label: 'Clients',
                 ),
-                _buildCenterActionButton(),
                 _buildNavItem(
                   index: 3,
                   icon: Icons.folder_outlined,
                   activeIcon: Icons.folder_rounded,
                   label: 'History',
-                ),
-                _buildNavItem(
-                  index: 4,
-                  icon: Icons.settings_outlined,
-                  activeIcon: Icons.settings_rounded,
-                  label: 'Settings',
                 ),
               ],
             ),
@@ -306,12 +307,13 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         HapticFeedback.lightImpact();
         setState(() => _currentIndex = index);
         if (index == 0) _dashboardKey.currentState?.reload();
+        if (index == 1) _estimatesKey.currentState?.reload();
         if (index == 3) _historyKey.currentState?.reload();
       },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primaryMuted : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
@@ -341,19 +343,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   Widget _buildCenterActionButton() {
     return GestureDetector(
-      onTap: () async {
+      onTap: () {
         HapticFeedback.mediumImpact();
-        if (await CreateInvoiceScreen.canCreateNewInvoice(context)) {
-          if (!mounted) return;
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
-          );
-          if (mounted) {
-            _dashboardKey.currentState?.reload();
-            _historyKey.currentState?.reload();
-          }
-        }
+        _showCreateChoiceSheet();
       },
       child: Container(
         width: 48,
@@ -370,6 +362,193 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           ],
         ),
         child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+      ),
+    );
+  }
+
+  void _showCreateChoiceSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.slate300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Create New Document',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 18),
+              // Option 1: New Invoice
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  if (await CreateInvoiceScreen.canCreateNewInvoice(context)) {
+                    if (!mounted) return;
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CreateInvoiceScreen(),
+                      ),
+                    );
+                    if (mounted) {
+                      _dashboardKey.currentState?.reload();
+                      _historyKey.currentState?.reload();
+                    }
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3B82F6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.receipt_long_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'New Invoice',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Bill a client for completed services or items',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.slate500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Color(0xFF3B82F6),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Option 2: New Estimate
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  if (await CreateEstimateScreen.canCreateNewEstimate(
+                    context,
+                  )) {
+                    if (!mounted) return;
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CreateEstimateScreen(),
+                      ),
+                    );
+                    if (mounted) {
+                      _estimatesKey.currentState?.reload();
+                    }
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.request_quote_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'New Estimate / Quote',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Send a pricing quote or proposal before billing',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.slate500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Color(0xFF10B981),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
