@@ -236,73 +236,57 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF0F172A),
-            Color(0xFF1E40AF),
-            Color(0xFF2563EB),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        extendBody: true,
-        body: IndexedStack(index: _currentIndex, children: _screens),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Container(
-              height: 68,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: AppColors.cardBorder.withValues(alpha: 0.8),
-                  width: 1,
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      extendBody: true,
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          child: Container(
+            height: 66,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(36),
+              border: Border.all(color: AppColors.cardBorder, width: 1),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color.fromRGBO(0, 77, 64, 0.08),
+                  blurRadius: 24,
+                  offset: Offset(0, 8),
+                  spreadRadius: 0,
                 ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color.fromRGBO(15, 23, 42, 0.08),
-                    blurRadius: 24,
-                    offset: Offset(0, 8),
-                    spreadRadius: 0,
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavItem(
-                    index: 0,
-                    icon: Icons.dashboard_outlined,
-                    activeIcon: Icons.dashboard_rounded,
-                    label: 'Overview',
-                  ),
-                  _buildNavItem(
-                    index: 1,
-                    icon: Icons.people_outline_rounded,
-                    activeIcon: Icons.people_rounded,
-                    label: 'Clients',
-                  ),
-                  _buildCenterActionButton(),
-                  _buildNavItem(
-                    index: 3,
-                    icon: Icons.folder_outlined,
-                    activeIcon: Icons.folder_rounded,
-                    label: 'History',
-                  ),
-                  _buildNavItem(
-                    index: 4,
-                    icon: Icons.settings_outlined,
-                    activeIcon: Icons.settings_rounded,
-                    label: 'Settings',
-                  ),
-                ],
-              ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  index: 0,
+                  icon: Icons.dashboard_outlined,
+                  activeIcon: Icons.dashboard_rounded,
+                  label: 'Overview',
+                ),
+                _buildNavItem(
+                  index: 1,
+                  icon: Icons.people_outline_rounded,
+                  activeIcon: Icons.people_rounded,
+                  label: 'Clients',
+                ),
+                _buildCenterActionButton(),
+                _buildNavItem(
+                  index: 3,
+                  icon: Icons.folder_outlined,
+                  activeIcon: Icons.folder_rounded,
+                  label: 'History',
+                ),
+                _buildNavItem(
+                  index: 4,
+                  icon: Icons.settings_outlined,
+                  activeIcon: Icons.settings_rounded,
+                  label: 'Settings',
+                ),
+              ],
             ),
           ),
         ),
@@ -327,10 +311,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primaryMuted : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -340,7 +324,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               color: isSelected ? AppColors.primary : AppColors.slate400,
               size: 22,
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
@@ -360,24 +344,28 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       onTap: () async {
         HapticFeedback.mediumImpact();
         if (await CreateInvoiceScreen.canCreateNewInvoice(context)) {
-          if (!context.mounted) return;
-          Navigator.push(
+          if (!mounted) return;
+          await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
           );
+          if (mounted) {
+            _dashboardKey.currentState?.reload();
+            _historyKey.currentState?.reload();
+          }
         }
       },
       child: Container(
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(16),
+          color: AppColors.primary,
+          shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
               color: AppColors.primary.withValues(alpha: 0.35),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -419,7 +407,7 @@ class _StartupUpdateSheet extends StatelessWidget {
             children: [
               Center(
                 child: Container(
-                  width: 44,
+                  width: 36,
                   height: 4,
                   decoration: BoxDecoration(
                     color: AppColors.slate300,
@@ -523,9 +511,9 @@ class _HistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.primary,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -533,7 +521,8 @@ class _HistoryScreen extends StatelessWidget {
           'History',
           style: TextStyle(
             fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
+            fontSize: 20,
+            letterSpacing: -0.4,
             color: Colors.white,
           ),
         ),

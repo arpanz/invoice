@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../../core/ads/ad_manager.dart';
+import '../../core/theme/app_colors.dart';
 
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
@@ -24,7 +24,6 @@ class _PaywallScreenState extends State<PaywallScreen>
   bool _purchaseHandled = false;
 
   late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
 
   @override
@@ -37,11 +36,7 @@ class _PaywallScreenState extends State<PaywallScreen>
   void _initAnimations() {
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _scaleAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
+      duration: const Duration(milliseconds: 600),
     );
     _fadeAnimation = Tween<double>(
       begin: 0.15,
@@ -240,428 +235,290 @@ class _PaywallScreenState extends State<PaywallScreen>
 
   @override
   Widget build(BuildContext context) {
-    const accentColor = Color(0xFFFFD700);
-
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1120),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF151829), Color(0xFF0D0F1A)],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: const Icon(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Close Button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.slate100,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
                       Icons.close_rounded,
-                      color: Colors.white54,
-                      size: 26,
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32),
-                          child: RichText(
-                            textAlign: TextAlign.center,
-                            text: const TextSpan(
-                              style: TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                letterSpacing: -0.8,
-                                height: 1.15,
-                              ),
-                              children: [
-                                TextSpan(text: 'Unlock\nInvoice Maker '),
-                                TextSpan(
-                                  text: 'Pro',
-                                  style: TextStyle(color: Color(0xFFFFD700)),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 40),
-                          child: Text(
-                            'Create unlimited invoices, save more clients, access full history, and remove PDF watermarks.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              color: Colors.white54,
-                              height: 1.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Column(
-                            children: [
-                              _buildFeatureRow(
-                                Icons.all_inclusive_rounded,
-                                'Unlimited Invoices',
-                                'Create and send more than 10 invoices per calendar month.',
-                                Colors.blueAccent,
-                              ),
-                              _buildFeatureRow(
-                                Icons.people_outline_rounded,
-                                'Unlimited Clients',
-                                'Save and manage more than 5 clients in your workspace.',
-                                const Color(0xFF10B981),
-                              ),
-                              _buildFeatureRow(
-                                Icons.history_rounded,
-                                'Full Invoice History',
-                                'Access all your past invoices (free is limited to the last 5).',
-                                Colors.orangeAccent,
-                              ),
-                              _buildFeatureRow(
-                                Icons.star_rounded,
-                                'Remove PDF Watermark',
-                                'Export clean PDF invoices with no app branding.',
-                                const Color(0xFFFFD700),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
+                      color: AppColors.slate700,
+                      size: 20,
                     ),
                   ),
+                  onPressed: () => Navigator.pop(context),
                 ),
               ),
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF181B2E),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(28),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        blurRadius: 24,
-                        offset: const Offset(0, -6),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white12,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildPricingBox(
-                            title: 'Monthly',
-                            price:
-                                _getProduct(
-                                  AdManager.monthlyProductId,
-                                )?.price ??
-                                '...',
-                            subtitle: 'Cancel anytime',
-                            badge: null,
-                            badgeColor: Colors.white30,
-                            isSelected:
-                                _selectedProductId ==
-                                AdManager.monthlyProductId,
-                            onTap: () => setState(
-                              () => _selectedProductId =
-                                  AdManager.monthlyProductId,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildPricingBox(
-                            title: 'Yearly',
-                            price:
-                                _getProduct(AdManager.yearlyProductId)?.price ??
-                                '...',
-                            subtitle: 'Save big',
-                            badge: 'BEST VALUE',
-                            badgeColor: accentColor,
-                            isSelected:
-                                _selectedProductId == AdManager.yearlyProductId,
-                            onTap: () => setState(
-                              () => _selectedProductId =
-                                  AdManager.yearlyProductId,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildPricingBox(
-                            title: 'Lifetime',
-                            price:
-                                _getProduct(AdManager.productId)?.price ??
-                                '...',
-                            subtitle: 'Own forever',
-                            badge: 'POPULAR',
-                            badgeColor: const Color(0xFFEF4444),
-                            isSelected:
-                                _selectedProductId == AdManager.productId,
-                            onTap: () => setState(
-                              () => _selectedProductId = AdManager.productId,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: _available && !_isLoading
-                              ? _buyProduct
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: accentColor,
-                            foregroundColor: Colors.black,
-                            elevation: 0,
-                            shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 24,
-                                  width: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: Colors.black,
-                                  ),
-                                )
-                              : Text(
-                                  _selectedProductId == AdManager.productId
-                                      ? 'Get Lifetime Access'
-                                      : _selectedProductId ==
-                                            AdManager.yearlyProductId
-                                      ? 'Start Yearly Plan'
-                                      : 'Start Monthly Plan',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildTrustBadge(
-                            _selectedProductId == AdManager.productId
-                                ? '✓  Lifetime'
-                                : _selectedProductId ==
-                                      AdManager.yearlyProductId
-                                ? '✓  Yearly'
-                                : '✓  Monthly',
-                          ),
-                          _dot(),
-                          _buildTrustBadge(
-                            _selectedProductId == AdManager.productId
-                                ? '✓  No subscription'
-                                : '✓  Cancel anytime',
-                          ),
-                          _dot(),
-                          _buildTrustBadge('✓  GST-ready'),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      TextButton(
-                        onPressed: _restorePurchases,
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white38,
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(0, 36),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text(
-                          'Already purchased? Restore Purchases',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _dot() => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 4),
-    child: Text('•', style: TextStyle(color: Colors.white24, fontSize: 11)),
-  );
-
-  Widget _buildTrustBadge(String text) => Text(
-    text,
-    style: const TextStyle(
-      color: Colors.white54,
-      fontSize: 11,
-      fontWeight: FontWeight.w600,
-    ),
-  );
-
-  Widget _buildPricingBox({
-    required String title,
-    required String price,
-    required String subtitle,
-    required String? badge,
-    required Color badgeColor,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    const accentColor = Color(0xFFFFD700);
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? accentColor.withValues(alpha: 0.08)
-                : const Color(0xFF222540),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected
-                  ? accentColor
-                  : Colors.white.withValues(alpha: 0.08),
-              width: isSelected ? 2 : 1,
             ),
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 6),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: isSelected ? Colors.white : Colors.white70,
-                    ),
+
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Hero Icon & PRO Badge
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.accentCyan,
+                                borderRadius: BorderRadius.circular(50),
+                              ),
+                              child: const Text(
+                                'PRO',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // High Impact Headline
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(
+                          'Make Invoicing\nEven easier',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textPrimary,
+                            letterSpacing: -1.0,
+                            height: 1.15,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Feature Checklist with Teal Checkmarks
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          children: [
+                            _buildFeatureItem(
+                              'Unlimited GST & Pro Invoices',
+                              'Create and send invoices with zero monthly limits.',
+                            ),
+                            _buildFeatureItem(
+                              'Custom Branding & Logo',
+                              'Export clean PDF invoices with no watermark.',
+                            ),
+                            _buildFeatureItem(
+                              'Client & Inventory Manager',
+                              'Save unlimited clients and product details.',
+                            ),
+                            _buildFeatureItem(
+                              'Premium Support 24/7',
+                              'Direct priority support from our developer team.',
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    price,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 19,
-                      color: isSelected ? accentColor : Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white54 : Colors.white38,
-                      fontSize: 10,
-                    ),
+                ),
+              ),
+            ),
+
+            // Bottom Pricing & CTA Area (Grouped Inset Container)
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+                border: Border.all(color: AppColors.cardBorder),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromRGBO(0, 0, 0, 0.05),
+                    blurRadius: 20,
+                    offset: Offset(0, -6),
                   ),
                 ],
               ),
-              if (badge != null)
-                Positioned(
-                  top: -24,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: badgeColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        badge,
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 7.5,
-                          letterSpacing: 0.1,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Side-by-Side Pricing Cards
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildPricingBox(
+                          title: 'Monthly',
+                          price:
+                              _getProduct(AdManager.monthlyProductId)?.price ??
+                              '₹299',
+                          period: '/ month',
+                          badge: 'POPULAR',
+                          badgeColor: AppColors.primary,
+                          isSelected:
+                              _selectedProductId == AdManager.monthlyProductId,
+                          onTap: () => setState(
+                            () => _selectedProductId =
+                                AdManager.monthlyProductId,
+                          ),
                         ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildPricingBox(
+                          title: 'Lifetime',
+                          price:
+                              _getProduct(AdManager.productId)?.price ??
+                              '₹2,999',
+                          period: 'one-time',
+                          badge: 'BEST PRICE',
+                          badgeColor: AppColors.primary,
+                          isSelected:
+                              _selectedProductId == AdManager.productId,
+                          onTap: () => setState(
+                            () => _selectedProductId = AdManager.productId,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Full-Width Stadium Pill CTA
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.ctaGradient,
+                        borderRadius: BorderRadius.circular(50),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color.fromRGBO(0, 77, 64, 0.30),
+                            blurRadius: 18,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: _available && !_isLoading ? _buyProduct : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(50),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                _selectedProductId == AdManager.productId
+                                    ? 'Unlock Lifetime Access'
+                                    : 'Subscribe for ${_getProduct(_selectedProductId)?.price ?? 'Pro'}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
+                  const SizedBox(height: 12),
+
+                  // Footer Restore & Privacy links
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: _restorePurchases,
+                        child: const Text(
+                          'Restore purchase',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          '•',
+                          style: TextStyle(
+                            color: AppColors.slate400,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'Privacy Policy',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildFeatureRow(
-    IconData icon,
-    String title,
-    String subtitle,
-    Color iconColor,
-  ) {
+  Widget _buildFeatureItem(String title, String subtitle) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 18),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 44,
-            height: 44,
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.primaryMuted,
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: iconColor, size: 22),
+            child: const Icon(
+              Icons.check_rounded,
+              color: AppColors.primary,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -671,32 +528,129 @@ class _PaywallScreenState extends State<PaywallScreen>
                 Text(
                   title,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14.5,
-                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: const TextStyle(
-                    fontSize: 12.5,
-                    color: Colors.white54,
-                    height: 1.3,
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    height: 1.35,
                   ),
                 ),
               ],
             ),
           ),
-          const Icon(
-            Icons.check_circle_rounded,
-            color: Color(0xFF4ADE80),
-            size: 18,
-          ),
         ],
       ),
     );
   }
+
+  Widget _buildPricingBox({
+    required String title,
+    required String price,
+    required String period,
+    required String badge,
+    required Color badgeColor,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppColors.accentCyan : AppColors.cardBorder,
+            width: isSelected ? 2.0 : 1.0,
+          ),
+          boxShadow: [
+            if (isSelected)
+              const BoxShadow(
+                color: Color.fromRGBO(0, 191, 165, 0.15),
+                blurRadius: 16,
+                offset: Offset(0, 4),
+              ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isSelected ? AppColors.accentCyan : Colors.transparent,
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.accentCyan
+                          : AppColors.slate300,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: isSelected
+                      ? const Icon(
+                          Icons.check,
+                          size: 12,
+                          color: Colors.white,
+                        )
+                      : null,
+                ),
+                const Spacer(),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              price,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.5,
+              ),
+            ),
+            Text(
+              period,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary : AppColors.slate100,
+                borderRadius: BorderRadius.circular(50),
+              ),
+              child: Text(
+                badge,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: isSelected ? Colors.white : AppColors.slate600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

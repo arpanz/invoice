@@ -217,91 +217,90 @@ class _ClientListScreenState extends State<ClientListScreen> {
   Widget build(BuildContext context) {
     final filtered = _filteredClients;
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF0F172A),
-            Color(0xFF1E40AF),
-            Color(0xFF2563EB),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          widget.selectionMode ? 'Select Client' : 'Clients',
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+            letterSpacing: -0.4,
+            color: Colors.white,
+          ),
         ),
       ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          systemOverlayStyle: SystemUiOverlayStyle.light,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: Text(
-            widget.selectionMode ? 'Select Client' : 'Clients',
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: AppColors.cardShadow,
-                ),
-                child: CustomTextField(
-                  hint: 'Search clients...',
-                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(50),
+                border: Border.all(color: AppColors.cardBorder),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromRGBO(0, 0, 0, 0.02),
+                    blurRadius: 10,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: CustomTextField(
+                hint: 'Search clients...',
+                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                onChanged: (v) => setState(() => _searchQuery = v),
               ),
             ),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                  : filtered.isEmpty
-                  ? EmptyStateView(
-                      icon: Icons.people_outline_rounded,
-                      title: _searchQuery.isEmpty
-                          ? 'No Clients Yet'
-                          : 'No Results',
-                      subtitle: _searchQuery.isEmpty
-                          ? 'Add your first client to get started'
-                          : 'Try a different search term',
-                      actionLabel: _searchQuery.isEmpty ? 'Add Client' : null,
-                      onAction: _searchQuery.isEmpty
-                          ? () => _showAddEditDialog()
-                          : null,
-                      isDarkBackground: true,
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (_, index) => StaggeredEntrance(
-                        index: index,
-                        child: _buildClientCard(filtered[index]),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-        floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 70),
-          child: FloatingActionButton.extended(
-            onPressed: () => _showAddEditDialog(),
-            icon: const Icon(Icons.person_add_rounded),
-            label: const Text('Add Client', style: TextStyle(fontWeight: FontWeight.w800)),
-            backgroundColor: Colors.white,
-            foregroundColor: AppColors.primary,
           ),
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  )
+                : filtered.isEmpty
+                    ? EmptyStateView(
+                        icon: Icons.people_outline_rounded,
+                        title: _searchQuery.isEmpty
+                            ? 'No Clients Yet'
+                            : 'No Results',
+                        subtitle: _searchQuery.isEmpty
+                            ? 'Add your first client to start sending invoices'
+                            : 'Try a different search term',
+                        actionLabel: _searchQuery.isEmpty ? 'Add Client' : null,
+                        onAction: _searchQuery.isEmpty
+                            ? () => _showAddEditDialog()
+                            : null,
+                        isDarkBackground: false,
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (_, index) => StaggeredEntrance(
+                          index: index,
+                          child: _buildClientCard(filtered[index]),
+                        ),
+                      ),
+          ),
+        ],
+      ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 70),
+        child: FloatingActionButton.extended(
+          onPressed: () => _showAddEditDialog(),
+          icon: const Icon(Icons.person_add_rounded, color: Colors.white),
+          label: const Text(
+            'Add Client',
+            style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+          ),
+          backgroundColor: AppColors.primary,
         ),
       ),
     );

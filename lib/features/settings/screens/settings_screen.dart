@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../../core/ads/ad_manager.dart';
 import '../../../core/app/app_review_service.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/models/currency_model.dart';
@@ -25,9 +24,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final currencyProvider = context.watch<CurrencyProvider>();
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.primary,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -35,76 +34,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Settings',
           style: TextStyle(
             fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
+            fontSize: 20,
+            letterSpacing: -0.4,
             color: Colors.white,
           ),
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
         children: [
           if (!billing.isPro) ...[
             _buildProUpsellCard(context),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
           ] else ...[
             _buildProBadgeCard(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
           ],
+
           _buildSectionHeader('Workspace'),
-          _buildListTile(
-            icon: Icons.business_outlined,
-            title: 'Business Profile',
-            subtitle: 'Name, address, bank details, logo',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const BusinessProfileScreen()),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildSectionHeader('Preferences'),
-          _buildCurrencyTile(currencyProvider.selectedCurrency),
-          const Divider(height: 1, indent: 56),
-          _buildTaxRateTile(currencyProvider),
-          const SizedBox(height: 16),
-          _buildSectionHeader('Support'),
-          _buildListTile(
-            icon: Icons.star_outline,
-            title: 'Rate Us on Play Store',
-            subtitle: 'Leave a rating for com.livinlabs.invoice',
-            onTap: _showRateDialog,
-            trailing: const Icon(
-              Icons.open_in_new,
-              size: 16,
-              color: AppColors.slate400,
-            ),
-          ),
-          const Divider(height: 1, indent: 56),
-          _buildListTile(
-            icon: Icons.mail_outline,
-            title: 'Contact Developer',
-            subtitle: 'support@invoicemakerpro.app',
-            onTap: () {},
-          ),
-          const SizedBox(height: 16),
-          _buildSectionHeader('About'),
-          _buildListTile(
-            icon: Icons.info_outline,
-            title: 'Invoice Maker Pro',
-            subtitle: 'Version 1.0.0 | 100% Offline & Private',
-            onTap: null,
-          ),
-          const SizedBox(height: 12),
-          _buildListTile(
-            icon: Icons.bug_report_outlined,
-            title: 'Debug: Show Onboarding',
-            subtitle: 'Temporarily view the onboarding flow',
-            onTap: () {
-              Navigator.push(
+          _buildCardGroup([
+            _buildGroupedTile(
+              icon: Icons.business_rounded,
+              iconBg: AppColors.squirclePurple,
+              iconColor: AppColors.squirclePurpleIcon,
+              title: 'Business Profile',
+              subtitle: 'Name, address, bank details, logo',
+              onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-              );
-            },
-          ),
+                MaterialPageRoute(
+                  builder: (_) => const BusinessProfileScreen(),
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 20),
+
+          _buildSectionHeader('Preferences'),
+          _buildCardGroup([
+            _buildCurrencyTile(currencyProvider.selectedCurrency),
+            const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+            _buildTaxRateTile(currencyProvider),
+          ]),
+          const SizedBox(height: 20),
+
+          _buildSectionHeader('Support & Legal'),
+          _buildCardGroup([
+            _buildGroupedTile(
+              icon: Icons.star_rounded,
+              iconBg: AppColors.squircleOrange,
+              iconColor: AppColors.squircleOrangeIcon,
+              title: 'Rate Us on Play Store',
+              subtitle: 'Leave a rating for Invoice Maker Pro',
+              onTap: _showRateDialog,
+              trailing: const Icon(
+                Icons.open_in_new_rounded,
+                size: 16,
+                color: AppColors.slate400,
+              ),
+            ),
+            const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+            _buildGroupedTile(
+              icon: Icons.mail_rounded,
+              iconBg: AppColors.squircleCyan,
+              iconColor: AppColors.squircleCyanIcon,
+              title: 'Contact Developer',
+              subtitle: 'support@invoicemakerpro.app',
+              onTap: () {},
+            ),
+          ]),
+          const SizedBox(height: 20),
+
+          _buildSectionHeader('About'),
+          _buildCardGroup([
+            _buildGroupedTile(
+              icon: Icons.info_outline_rounded,
+              iconBg: AppColors.squircleGreen,
+              iconColor: AppColors.squircleGreenIcon,
+              title: 'Invoice Maker Pro',
+              subtitle: 'Version 1.1.0 • 100% Offline & Private',
+              onTap: null,
+            ),
+            const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+            _buildGroupedTile(
+              icon: Icons.explore_outlined,
+              iconBg: AppColors.squircleTeal,
+              iconColor: AppColors.squircleTealIcon,
+              title: 'View Onboarding Tour',
+              subtitle: 'Replay the setup journey',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                );
+              },
+            ),
+          ]),
           const SizedBox(height: 32),
         ],
       ),
@@ -118,74 +142,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildProUpsellCard(BuildContext context) {
-    final lifetimeProduct = AdManager.instance.products
-        .where((p) => p.id == AdManager.productId)
-        .firstOrNull;
-    final priceLabel = lifetimeProduct?.price ?? 'PRO';
+  Widget _buildCardGroup(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.02),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: children,
+        ),
+      ),
+    );
+  }
 
+  Widget _buildProUpsellCard(BuildContext context) {
     return GestureDetector(
       onTap: _openPaywall,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          gradient: AppColors.heroGradient,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: AppColors.heroShadow,
+          border: Border.all(
+            color: AppColors.accentCyan.withValues(alpha: 0.5),
+            width: 1.5,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color.fromRGBO(0, 191, 165, 0.08),
+              blurRadius: 16,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
-              width: 50,
-              height: 50,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(14),
+                color: AppColors.primaryMuted,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
                 Icons.workspace_premium_rounded,
-                color: Colors.white,
-                size: 28,
+                color: AppColors.primary,
+                size: 24,
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
+            const SizedBox(width: 14),
+            const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Unlock Pro Workspace',
+                  Text(
+                    'Upgrade plan',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 2),
                   Text(
-                    'Remove watermark. Unlimited invoices & clients.',
+                    'Unlock unlimited invoices, custom logo & clean PDF',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: AppColors.textSecondary,
                       fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.proGold,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                priceLabel,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.slate400,
+              size: 24,
             ),
           ],
         ),
@@ -198,12 +242,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.statusPaidBg,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.statusPaid.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.verified_rounded, color: AppColors.statusPaid, size: 28),
+          const Icon(
+            Icons.verified_rounded,
+            color: AppColors.statusPaid,
+            size: 26,
+          ),
           const SizedBox(width: 12),
           const Expanded(
             child: Column(
@@ -235,104 +283,100 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: Colors.white.withValues(alpha: 0.9),
-          letterSpacing: 1.2,
+        title,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textSecondary,
+          letterSpacing: 0.2,
         ),
       ),
     );
   }
 
-  Widget _buildListTile({
+  Widget _buildGroupedTile({
     required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
     required String title,
     required String subtitle,
     required VoidCallback? onTap,
     Widget? trailing,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: AppColors.cardShadow,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: ListTile(
-          leading: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.primaryMuted,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 20, color: AppColors.primary),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: iconBg,
+            borderRadius: BorderRadius.circular(12),
           ),
-          title: Text(
-            title,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-          ),
-          subtitle: Text(
-            subtitle,
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-          ),
-          trailing:
-              trailing ??
-              (onTap != null
-                  ? const Icon(Icons.chevron_right_rounded, color: AppColors.slate400)
-                  : null),
-          onTap: onTap,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Icon(icon, size: 20, color: iconColor),
         ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+            letterSpacing: -0.2,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        ),
+        trailing: trailing ??
+            (onTap != null
+                ? const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.slate400,
+                  )
+                : null),
+        onTap: onTap,
       ),
     );
   }
 
   Widget _buildCurrencyTile(Currency selectedCurrency) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-        child: ListTile(
-          leading: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.slate100,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.currency_exchange,
-              size: 18,
-              color: AppColors.slate600,
-            ),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.squircleGreen,
+            borderRadius: BorderRadius.circular(12),
           ),
-          title: const Text(
-            'Default Currency',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          child: const Icon(
+            Icons.currency_exchange_rounded,
+            size: 20,
+            color: AppColors.squircleGreenIcon,
           ),
-          subtitle: Text(
-            '${selectedCurrency.symbol} ${selectedCurrency.code}',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-          ),
-          trailing: const Icon(Icons.chevron_right, color: AppColors.slate400),
-          onTap: () => _showCurrencyPicker(context),
         ),
+        title: const Text(
+          'Default Currency',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+            letterSpacing: -0.2,
+          ),
+        ),
+        subtitle: Text(
+          '${selectedCurrency.symbol} ${selectedCurrency.code} • ${selectedCurrency.name}',
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: AppColors.slate400,
+        ),
+        onTap: () => _showCurrencyPicker(context),
       ),
     );
   }

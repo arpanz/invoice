@@ -23,7 +23,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('WORKSPACE'), findsOneWidget);
+    expect(find.text('Workspace'), findsOneWidget);
     expect(find.text('Rate Us on Play Store'), findsOneWidget);
   });
 }

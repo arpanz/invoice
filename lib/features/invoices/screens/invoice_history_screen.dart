@@ -20,6 +20,7 @@ import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
 import '../services/pdf_generator_service.dart';
 import 'create_invoice_screen.dart';
+import 'invoice_preview_screen.dart';
 import '../../paywall/paywall_screen.dart';
 
 class InvoiceHistoryScreen extends StatefulWidget {
@@ -126,80 +127,15 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   }
 
   Future<void> _showInvoicePreview(InvoiceModel invoice) async {
-    final pdfBytes = await _buildInvoicePdf(invoice);
-    if (!mounted) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      enableDrag: false,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(ctx).size.height * 0.9,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-              child: Row(
-                children: [
-                  const Text(
-                    'Invoice Preview',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(child: _PdfRasterViewer(pdfBytes: pdfBytes)),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () =>
-                          _runWithInterstitial(() => _printPdf(invoice)),
-                      icon: const Icon(Icons.print_outlined, size: 18),
-                      label: const Text('Print'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () =>
-                          _runWithInterstitial(() => _sharePdf(invoice)),
-                      icon: const Icon(Icons.share_outlined, size: 18),
-                      label: const Text('Share'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+    final updated = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InvoicePreviewScreen(invoice: invoice),
       ),
     );
+    if (updated == true || mounted) {
+      await _loadInvoices();
+    }
   }
 
   Future<void> _printPdf(InvoiceModel invoice) async {
@@ -347,7 +283,9 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         // Invoice list
         Expanded(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Colors.white))
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                )
               : filtered.isEmpty
               ? EmptyStateView(
                   icon: Icons.receipt_long_rounded,
@@ -355,9 +293,10 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   subtitle: _filterStatus == 'all'
                       ? 'Create your first invoice to get started'
                       : 'No $_filterStatus invoices found',
-                  isDarkBackground: true,
+                  isDarkBackground: false,
                 )
               : RefreshIndicator(
+                  color: AppColors.primary,
                   onRefresh: _loadInvoices,
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
@@ -380,30 +319,36 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(50),
           border: Border.all(
-            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.25),
-            width: 1.5,
+            color: isSelected ? AppColors.primary : AppColors.cardBorder,
+            width: 1.0,
           ),
           boxShadow: isSelected
-              ? const [
+              ? [
                   BoxShadow(
-                    color: Color.fromRGBO(0, 0, 0, 0.15),
+                    color: AppColors.primary.withValues(alpha: 0.25),
                     blurRadius: 10,
-                    offset: Offset(0, 4),
+                    offset: const Offset(0, 4),
                   ),
                 ]
-              : null,
+              : const [
+                  BoxShadow(
+                    color: Color.fromRGBO(0, 0, 0, 0.02),
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: isSelected ? AppColors.primary : Colors.white,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            color: isSelected ? Colors.white : AppColors.textSecondary,
           ),
         ),
       ),
