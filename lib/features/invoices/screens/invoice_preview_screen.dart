@@ -36,6 +36,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   bool _isSent = false;
   final TransformationController _zoomController = TransformationController();
   bool _isZoomed = false;
+  TapDownDetails? _doubleTapDetails;
   PdfTheme _currentTheme = PdfTheme.defaultTheme;
 
   @override
@@ -79,6 +80,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       bankName: prefs.getString('biz_bank_name'),
       accountNumber: prefs.getString('biz_account'),
       ifscCode: prefs.getString('biz_ifsc'),
+      upiId: prefs.getString('biz_upi'),
       logoPath: prefs.getString('biz_logo_path'),
       signaturePath: prefs.getString('biz_signature_path'),
       currency: _invoice.currency,
@@ -632,12 +634,27 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   }
 
   void _toggleZoom() {
+    _handleDoubleTapZoom(null);
+  }
+
+  void _handleDoubleTapZoom(Offset? tapPosition) {
     setState(() {
-      _isZoomed = !_isZoomed;
       if (_isZoomed) {
-        _zoomController.value = Matrix4.diagonal3Values(1.7, 1.7, 1.0);
-      } else {
         _zoomController.value = Matrix4.identity();
+        _isZoomed = false;
+      } else {
+        const zoomScale = 2.5;
+        if (tapPosition != null) {
+          // Zoom into the tapped position
+          final x = -tapPosition.dx * (zoomScale - 1);
+          final y = -tapPosition.dy * (zoomScale - 1);
+          _zoomController.value = Matrix4.identity()
+            ..translate(x, y)
+            ..scale(zoomScale);
+        } else {
+          _zoomController.value = Matrix4.diagonal3Values(zoomScale, zoomScale, 1.0);
+        }
+        _isZoomed = true;
       }
     });
   }
@@ -704,40 +721,64 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                         )
                       : (_rasterPages == null || _rasterPages!.isEmpty)
                           ? const Center(child: Text('Failed to render PDF'))
-                          : InteractiveViewer(
-                              transformationController: _zoomController,
-                              minScale: 0.8,
-                              maxScale: 4.0,
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                                child: Center(
-                                  child: Column(
-                                    children: _rasterPages!.map((img) {
-                                      return Container(
-                                        margin: const EdgeInsets.only(bottom: 16),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(8),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.08),
-                                              blurRadius: 16,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ],
+                          : LayoutBuilder(
+                              builder: (context, constraints) {
+                                return GestureDetector(
+                                  onDoubleTapDown: (details) {
+                                    _doubleTapDetails = details;
+                                  },
+                                  onDoubleTap: () {
+                                    _handleDoubleTapZoom(
+                                      _doubleTapDetails?.localPosition,
+                                    );
+                                  },
+                                  child: InteractiveViewer(
+                                    transformationController: _zoomController,
+                                    constrained: false,
+                                    minScale: 1.0,
+                                    maxScale: 4.0,
+                                    boundaryMargin: EdgeInsets.zero,
+                                    onInteractionEnd: (_) {
+                                      final scale = _zoomController.value.getMaxScaleOnAxis();
+                                      final zoomed = scale > 1.05;
+                                      if (zoomed != _isZoomed) {
+                                        setState(() => _isZoomed = zoomed);
+                                      }
+                                    },
+                                    child: SizedBox(
+                                      width: constraints.maxWidth,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                        child: Column(
+                                          children: _rasterPages!.map((img) {
+                                            return Container(
+                                              margin: const EdgeInsets.only(bottom: 16),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(8),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withValues(alpha: 0.08),
+                                                    blurRadius: 16,
+                                                    offset: const Offset(0, 4),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(8),
+                                                child: Image(
+                                                  image: img,
+                                                  fit: BoxFit.contain,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
                                         ),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Image(
-                                            image: img,
-                                            fit: BoxFit.contain,
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
+                                );
+                              },
                             ),
                 ),
                 // Quick Theme selector pill overlay in top left

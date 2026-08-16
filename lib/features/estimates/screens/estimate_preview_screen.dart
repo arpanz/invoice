@@ -60,6 +60,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
       bankName: prefs.getString('biz_bank_name'),
       accountNumber: prefs.getString('biz_account'),
       ifscCode: prefs.getString('biz_ifsc'),
+      upiId: prefs.getString('biz_upi'),
       logoPath: prefs.getString('biz_logo_path'),
       signaturePath: prefs.getString('biz_signature_path'),
       currency: _estimate.currency,

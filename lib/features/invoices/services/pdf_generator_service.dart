@@ -20,6 +20,7 @@ class BusinessProfile {
   final String? bankName;
   final String? accountNumber;
   final String? ifscCode;
+  final String? upiId;
   final String? logoPath;
   final String? signaturePath;
   final String currency;
@@ -34,6 +35,7 @@ class BusinessProfile {
     this.bankName,
     this.accountNumber,
     this.ifscCode,
+    this.upiId,
     this.logoPath,
     this.signaturePath,
     this.currency = 'INR',
@@ -44,6 +46,7 @@ class BusinessProfile {
   String get taxIdLabel => currencyConfig?.defaultTax.taxIdLabel ?? 'Tax ID';
   String get bankRoutingLabel => currencyConfig?.defaultTax.bankRoutingLabel ?? 'Routing / IFSC';
   String get bankAccountLabel => currencyConfig?.defaultTax.bankAccountLabel ?? 'Account Number';
+  String get digitalPaymentLabel => currencyConfig?.defaultTax.digitalPaymentLabel ?? 'Digital Payment';
   String get invoiceTitle => invoiceTitleOverride ?? currencyConfig?.defaultTax.invoiceTitle ?? 'INVOICE';
   bool get isDualTax => currencyConfig?.defaultTax.isDualTax ?? false;
   String get taxShortName => currencyConfig?.defaultTax.shortName ?? 'Tax';
@@ -71,6 +74,7 @@ class PdfGeneratorService {
       bankName: businessProfile.bankName,
       accountNumber: businessProfile.accountNumber,
       ifscCode: businessProfile.ifscCode,
+      upiId: businessProfile.upiId,
       logoPath: businessProfile.logoPath,
       signaturePath: businessProfile.signaturePath,
       currency: estimate.currency,
@@ -1217,7 +1221,7 @@ class PdfGeneratorService {
   ) {
     return pw.Column(
       children: [
-        if (profile.bankName != null || profile.accountNumber != null) ...[
+        if (profile.bankName != null || profile.accountNumber != null || profile.upiId != null) ...[
           pw.Divider(color: theme.borderColor, thickness: 0.8),
           pw.SizedBox(height: 6),
           pw.Row(
@@ -1250,6 +1254,11 @@ class PdfGeneratorService {
                     if (profile.ifscCode != null && profile.ifscCode!.trim().isNotEmpty)
                       pw.Text(
                         '${profile.bankRoutingLabel}: ${profile.ifscCode}',
+                        style: pw.TextStyle(fontSize: 8.5, color: theme.slateColor),
+                      ),
+                    if (profile.upiId != null && profile.upiId!.trim().isNotEmpty)
+                      pw.Text(
+                        '${profile.digitalPaymentLabel}: ${profile.upiId}',
                         style: pw.TextStyle(fontSize: 8.5, color: theme.slateColor),
                       ),
                   ],

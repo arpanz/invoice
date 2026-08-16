@@ -36,6 +36,11 @@ class CurrencyProvider extends ChangeNotifier {
   String get invoiceTitle => _selectedCurrency.defaultTax.invoiceTitle;
   String get bankRoutingLabel => _selectedCurrency.defaultTax.bankRoutingLabel;
   String get bankAccountLabel => _selectedCurrency.defaultTax.bankAccountLabel;
+  String get bankNameHint => _selectedCurrency.defaultTax.bankNameHint;
+  String get bankAccountHint => _selectedCurrency.defaultTax.bankAccountHint;
+  String get bankRoutingHint => _selectedCurrency.defaultTax.bankRoutingHint;
+  String get digitalPaymentLabel => _selectedCurrency.defaultTax.digitalPaymentLabel;
+  String get digitalPaymentHint => _selectedCurrency.defaultTax.digitalPaymentHint;
   List<double> get presetTaxRates => _selectedCurrency.defaultTax.presetRates;
 
   CurrencyProvider() {

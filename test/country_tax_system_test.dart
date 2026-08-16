@@ -39,8 +39,18 @@ void main() {
       expect(usd.defaultTax.taxIdLabel, 'Tax ID / EIN');
       expect(usd.defaultTax.bankRoutingLabel, 'Routing Number (ABA)');
       expect(usd.defaultTax.bankAccountLabel, 'Account Number');
+      expect(usd.defaultTax.digitalPaymentLabel, contains('Zelle'));
+      expect(usd.defaultTax.bankNameHint, contains('Chase'));
       expect(usd.defaultTax.presetRates, containsAll([0.0, 5.0, 7.0, 8.875, 10.0]));
       expect(usd.decimalPlaces, 2);
+    });
+
+    test('India has UPI and IFSC configuration', () {
+      final inr = SupportedCurrencies.getByCode('INR');
+      expect(inr, isNotNull);
+      expect(inr!.defaultTax.bankRoutingLabel, 'IFSC Code');
+      expect(inr.defaultTax.digitalPaymentLabel, 'UPI ID / VPA');
+      expect(inr.defaultTax.digitalPaymentHint, contains('upi'));
     });
 
     test('United Kingdom has appropriate VAT and Sort Code configuration', () {
@@ -52,10 +62,11 @@ void main() {
       expect(gbp.defaultTax.rate, 20.0);
       expect(gbp.defaultTax.taxIdLabel, 'VAT Reg No.');
       expect(gbp.defaultTax.bankRoutingLabel, 'Sort Code');
+      expect(gbp.defaultTax.digitalPaymentLabel, contains('Paym'));
       expect(gbp.defaultTax.presetRates, containsAll([0.0, 5.0, 20.0]));
     });
 
-    test('Australia has appropriate GST and BSB Code configuration', () {
+    test('Australia has appropriate GST, BSB Code and PayID configuration', () {
       final aud = SupportedCurrencies.getByCode('AUD');
       expect(aud, isNotNull);
       expect(aud!.countryName, 'Australia');
@@ -64,7 +75,15 @@ void main() {
       expect(aud.defaultTax.rate, 10.0);
       expect(aud.defaultTax.taxIdLabel, 'ABN (Business No.)');
       expect(aud.defaultTax.bankRoutingLabel, 'BSB Code');
+      expect(aud.defaultTax.digitalPaymentLabel, contains('PayID'));
       expect(aud.defaultTax.presetRates, containsAll([0.0, 10.0]));
+    });
+
+    test('Brazil has Pix and Agência configuration', () {
+      final brl = SupportedCurrencies.getByCode('BRL');
+      expect(brl, isNotNull);
+      expect(brl!.defaultTax.digitalPaymentLabel, contains('Pix'));
+      expect(brl.defaultTax.bankRoutingLabel, contains('Agência'));
     });
 
     test('UAE has appropriate VAT and TRN configuration', () {
