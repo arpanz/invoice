@@ -36,12 +36,12 @@ class _PaywallScreenState extends State<PaywallScreen>
   void _initAnimations() {
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 500),
     );
     _fadeAnimation = Tween<double>(
-      begin: 0.15,
+      begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
   }
 
@@ -233,292 +233,184 @@ class _PaywallScreenState extends State<PaywallScreen>
     }
   }
 
+  // ── Build ──────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
+      body: FadeTransition(
+        opacity: _fadeAnimation,
         child: Column(
           children: [
-            // Top Close Button
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Align(
-                alignment: Alignment.topRight,
-                child: IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppColors.slate100,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close_rounded,
-                      color: AppColors.slate700,
-                      size: 20,
-                    ),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-            ),
-
+            // ── Scrollable content ───────────────────────────────────
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Hero Icon & PRO Badge
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.accentCyan,
-                                borderRadius: BorderRadius.circular(50),
-                              ),
-                              child: const Text(
-                                'PRO',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // High Impact Headline
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24),
-                        child: Text(
-                          'Make Invoicing\nEven easier',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w900,
-                            color: AppColors.textPrimary,
-                            letterSpacing: -1.0,
-                            height: 1.15,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Feature Checklist with Teal Checkmarks
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          children: [
-                            _buildFeatureItem(
-                              'Unlimited GST & Pro Invoices',
-                              'Create and send invoices with zero monthly limits.',
-                            ),
-                            _buildFeatureItem(
-                              'Custom Branding & Logo',
-                              'Export clean PDF invoices with no watermark.',
-                            ),
-                            _buildFeatureItem(
-                              'Client & Inventory Manager',
-                              'Save unlimited clients and product details.',
-                            ),
-                            _buildFeatureItem(
-                              'Premium Support 24/7',
-                              'Direct priority support from our developer team.',
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+                child: Column(
+                  children: [
+                    _buildHeader(topPadding),
+                    _buildFeaturesList(),
+                  ],
                 ),
               ),
             ),
 
-            // Bottom Pricing & CTA Area (Grouped Inset Container)
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(28),
-                ),
-                border: Border.all(color: AppColors.cardBorder),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color.fromRGBO(0, 0, 0, 0.05),
-                    blurRadius: 20,
-                    offset: Offset(0, -6),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Side-by-Side Pricing Cards
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildPricingBox(
-                          title: 'Monthly',
-                          price:
-                              _getProduct(AdManager.monthlyProductId)?.price ??
-                              '₹299',
-                          period: '/ month',
-                          badge: 'POPULAR',
-                          badgeColor: AppColors.primary,
-                          isSelected:
-                              _selectedProductId == AdManager.monthlyProductId,
-                          onTap: () => setState(
-                            () => _selectedProductId =
-                                AdManager.monthlyProductId,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildPricingBox(
-                          title: 'Lifetime',
-                          price:
-                              _getProduct(AdManager.productId)?.price ??
-                              '₹2,999',
-                          period: 'one-time',
-                          badge: 'BEST PRICE',
-                          badgeColor: AppColors.primary,
-                          isSelected:
-                              _selectedProductId == AdManager.productId,
-                          onTap: () => setState(
-                            () => _selectedProductId = AdManager.productId,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Full-Width Stadium Pill CTA
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: AppColors.ctaGradient,
-                        borderRadius: BorderRadius.circular(50),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color.fromRGBO(0, 77, 64, 0.30),
-                            blurRadius: 18,
-                            offset: Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: _available && !_isLoading ? _buyProduct : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(50),
-                          ),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(
-                                _selectedProductId == AdManager.productId
-                                    ? 'Unlock Lifetime Access'
-                                    : 'Subscribe for ${_getProduct(_selectedProductId)?.price ?? 'Pro'}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Footer Restore & Privacy links
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      GestureDetector(
-                        onTap: _restorePurchases,
-                        child: const Text(
-                          'Restore purchase',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          '•',
-                          style: TextStyle(
-                            color: AppColors.slate400,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const Text(
-                        'Privacy Policy',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            // ── Bottom CTA area ──────────────────────────────────────
+            _buildBottomCta(bottomPadding),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFeatureItem(String title, String subtitle) {
+  // ── Header ───────────────────────────────────────────────────────────────
+
+  Widget _buildHeader(double topPadding) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1E3A5F),
+            Color(0xFF2563EB),
+          ],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 16, 36),
+          child: Column(
+            children: [
+              // Close button row
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: Colors.white.withValues(alpha: 0.8),
+                    size: 24,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Crown icon
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Color(0xFFFFD700),
+                  size: 38,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Title
+              const Text(
+                'Invoice Maker Pro',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Subtitle
+              Text(
+                'Unlimited invoices, custom branding\n& premium PDF themes.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white.withValues(alpha: 0.80),
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Features list ────────────────────────────────────────────────────────
+
+  Widget _buildFeaturesList() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section label
+          Text(
+            'WHAT\'S INCLUDED',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppColors.slate400,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          _buildFeatureRow(
+            Icons.receipt_long_rounded,
+            'Unlimited Invoices',
+            'Create and send GST invoices with no limits.',
+          ),
+          _buildFeatureRow(
+            Icons.branding_watermark_rounded,
+            'Custom Branding & Logo',
+            'Clean PDF exports, no watermark.',
+          ),
+          _buildFeatureRow(
+            Icons.palette_rounded,
+            '10 Premium PDF Themes',
+            'Modern, Minimalist, Corporate & more.',
+          ),
+          _buildFeatureRow(
+            Icons.people_alt_rounded,
+            'Client & Inventory Manager',
+            'Save clients, items & quick search.',
+          ),
+          _buildFeatureRow(
+            Icons.support_agent_rounded,
+            'Priority Support',
+            'Fast-track help & automatic backups.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureRow(IconData icon, String title, String subtitle) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(4),
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: AppColors.primaryMuted,
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
-              Icons.check_rounded,
-              color: AppColors.primary,
-              size: 18,
-            ),
+            child: Icon(icon, color: AppColors.primary, size: 19),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -528,8 +420,8 @@ class _PaywallScreenState extends State<PaywallScreen>
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
                     letterSpacing: -0.2,
                   ),
@@ -538,9 +430,9 @@ class _PaywallScreenState extends State<PaywallScreen>
                 Text(
                   subtitle,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 12.5,
                     color: AppColors.textSecondary,
-                    height: 1.35,
+                    height: 1.3,
                   ),
                 ),
               ],
@@ -551,12 +443,137 @@ class _PaywallScreenState extends State<PaywallScreen>
     );
   }
 
-  Widget _buildPricingBox({
-    required String title,
+  // ── Bottom CTA ───────────────────────────────────────────────────────────
+
+  Widget _buildBottomCta(double bottomPadding) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPadding > 0 ? bottomPadding : 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: AppColors.cardBorder, width: 1),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Pricing cards
+          Row(
+            children: [
+              Expanded(
+                child: _buildPlanCard(
+                  label: 'Monthly',
+                  price:
+                      _getProduct(AdManager.monthlyProductId)?.price ?? '₹299',
+                  period: '/month',
+                  isSelected:
+                      _selectedProductId == AdManager.monthlyProductId,
+                  onTap: () => setState(
+                    () => _selectedProductId = AdManager.monthlyProductId,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildPlanCard(
+                  label: 'Lifetime',
+                  price:
+                      _getProduct(AdManager.productId)?.price ?? '₹2,999',
+                  period: 'one-time',
+                  badge: 'BEST VALUE',
+                  isSelected: _selectedProductId == AdManager.productId,
+                  onTap: () => setState(
+                    () => _selectedProductId = AdManager.productId,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // CTA button
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _available && !_isLoading ? _buyProduct : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppColors.slate300,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      _selectedProductId == AdManager.productId
+                          ? 'Unlock Lifetime Access'
+                          : 'Subscribe for ${_getProduct(_selectedProductId)?.price ?? 'Pro'}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.1,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Footer links
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: _restorePurchases,
+                child: const Text(
+                  'Restore purchase',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  '·',
+                  style: TextStyle(
+                    color: AppColors.slate400,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const Text(
+                'Privacy Policy',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanCard({
+    required String label,
     required String price,
     required String period,
-    required String badge,
-    required Color badgeColor,
+    String? badge,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
@@ -564,57 +581,58 @@ class _PaywallScreenState extends State<PaywallScreen>
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.04)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? AppColors.accentCyan : AppColors.cardBorder,
+            color: isSelected ? AppColors.primary : AppColors.cardBorder,
             width: isSelected ? 2.0 : 1.0,
           ),
-          boxShadow: [
-            if (isSelected)
-              const BoxShadow(
-                color: Color.fromRGBO(0, 191, 165, 0.15),
-                blurRadius: 16,
-                offset: Offset(0, 4),
-              ),
-          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Label + radio
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                ),
                 Container(
                   width: 18,
                   height: 18,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isSelected ? AppColors.accentCyan : Colors.transparent,
+                    color: isSelected ? AppColors.primary : Colors.transparent,
                     border: Border.all(
-                      color: isSelected
-                          ? AppColors.accentCyan
-                          : AppColors.slate300,
+                      color: isSelected ? AppColors.primary : AppColors.slate300,
                       width: 1.5,
                     ),
                   ),
                   child: isSelected
-                      ? const Icon(
-                          Icons.check,
-                          size: 12,
-                          color: Colors.white,
-                        )
+                      ? const Icon(Icons.check, size: 12, color: Colors.white)
                       : null,
                 ),
-                const Spacer(),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+
+            // Price
             Text(
               price,
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: AppColors.textPrimary,
                 letterSpacing: -0.5,
@@ -623,395 +641,37 @@ class _PaywallScreenState extends State<PaywallScreen>
             Text(
               period,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 11.5,
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : AppColors.slate100,
-                borderRadius: BorderRadius.circular(50),
-              ),
-              child: Text(
-                badge,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  color: isSelected ? Colors.white : AppColors.slate600,
-                  letterSpacing: 0.5,
+
+            // Badge
+            if (badge != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// NEW Hero animation — an invoice document that writes itself:
-// header fills in, then line items stamp across one by one,
-// a gold ✓ seal pulses at the end, then loops.
-// ─────────────────────────────────────────────────────────────────────────────
-class _InvoiceProAnimation extends StatefulWidget {
-  final double size;
-  const _InvoiceProAnimation({required this.size});
-
-  @override
-  State<_InvoiceProAnimation> createState() => _InvoiceProAnimationState();
-}
-
-class _InvoiceProAnimationState extends State<_InvoiceProAnimation>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  // Phase timings (0–1 normalised)
-  // 0.00 – 0.20  paper slides up
-  // 0.20 – 0.40  header block draws in
-  // 0.40 – 0.75  3 line-item rows stamp in sequentially
-  // 0.75 – 0.90  total row highlights
-  // 0.90 – 1.00  gold seal pops + holds
-  static const _paperStart = 0.0;
-  static const _paperEnd = 0.20;
-  static const _headerStart = 0.20;
-  static const _headerEnd = 0.40;
-  static const _row1Start = 0.40;
-  static const _row1End = 0.55;
-  static const _row2Start = 0.52;
-  static const _row2End = 0.67;
-  static const _row3Start = 0.64;
-  static const _row3End = 0.78;
-  static const _totalStart = 0.75;
-  static const _totalEnd = 0.90;
-  static const _sealStart = 0.88;
-  static const _sealEnd = 1.00;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2800),
-    );
-    _runLoop();
-  }
-
-  void _runLoop() async {
-    while (mounted) {
-      try {
-        await _ctrl.forward(from: 0);
-        await Future.delayed(const Duration(milliseconds: 1600));
-        if (!mounted) break;
-        await _ctrl.reverse();
-        await Future.delayed(const Duration(milliseconds: 400));
-      } catch (_) {
-        break;
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  double _phase(double start, double end) =>
-      ((_ctrl.value - start) / (end - start)).clamp(0.0, 1.0);
-
-  @override
-  Widget build(BuildContext context) {
-    final size = widget.size;
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, _) {
-        final paperProgress = _phase(_paperStart, _paperEnd);
-        final headerProgress = _phase(_headerStart, _headerEnd);
-        final row1Progress = _phase(_row1Start, _row1End);
-        final row2Progress = _phase(_row2Start, _row2End);
-        final row3Progress = _phase(_row3Start, _row3End);
-        final totalProgress = _phase(_totalStart, _totalEnd);
-        final sealProgress = _phase(_sealStart, _sealEnd);
-
-        // Paper slides up with a slight elastic overshoot
-        final paperOffset =
-            (1.0 - Curves.easeOutBack.transform(paperProgress)) * 18.0;
-
-        return Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.none,
-          children: [
-            // Glow behind the doc
-            Opacity(
-              opacity: paperProgress * 0.6,
-              child: Container(
-                width: size * 0.9,
-                height: size * 0.9,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF2563EB).withValues(alpha: 0.25),
-                      blurRadius: 40,
-                      spreadRadius: 10,
-                    ),
-                  ],
+                  color: isSelected
+                      ? AppColors.proGold.withValues(alpha: 0.12)
+                      : AppColors.slate100,
+                  borderRadius: BorderRadius.circular(50),
                 ),
-              ),
-            ),
-
-            // The document card
-            Transform.translate(
-              offset: Offset(0, paperOffset),
-              child: Opacity(
-                opacity: paperProgress.clamp(0.0, 1.0),
-                child: Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1C2035),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.07),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  padding: EdgeInsets.all(size * 0.10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── Header block ──────────────────────────────────
-                      ClipRect(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          widthFactor: headerProgress,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: size * 0.14,
-                                height: size * 0.14,
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF2563EB,
-                                  ).withValues(alpha: 0.9),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Icon(
-                                  Icons.receipt_long_rounded,
-                                  color: Colors.white,
-                                  size: size * 0.08,
-                                ),
-                              ),
-                              SizedBox(width: size * 0.05),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: size * 0.38,
-                                    height: size * 0.045,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.9,
-                                      ),
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  ),
-                                  SizedBox(height: size * 0.02),
-                                  Container(
-                                    width: size * 0.24,
-                                    height: size * 0.03,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.35,
-                                      ),
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      SizedBox(height: size * 0.07),
-
-                      // Thin divider
-                      Opacity(
-                        opacity: headerProgress,
-                        child: Container(
-                          height: 1,
-                          width: double.infinity,
-                          color: Colors.white.withValues(alpha: 0.08),
-                        ),
-                      ),
-
-                      SizedBox(height: size * 0.07),
-
-                      // ── Line items ────────────────────────────────────
-                      _buildRow(
-                        size,
-                        row1Progress,
-                        const Color(0xFF60A5FA),
-                        0.55,
-                      ),
-                      SizedBox(height: size * 0.045),
-                      _buildRow(
-                        size,
-                        row2Progress,
-                        const Color(0xFF34D399),
-                        0.45,
-                      ),
-                      SizedBox(height: size * 0.045),
-                      _buildRow(
-                        size,
-                        row3Progress,
-                        const Color(0xFFA78BFA),
-                        0.50,
-                      ),
-
-                      SizedBox(height: size * 0.07),
-
-                      // ── Total row ─────────────────────────────────────
-                      Opacity(
-                        opacity: totalProgress,
-                        child: Container(
-                          height: size * 0.085,
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF2563EB,
-                            ).withValues(alpha: 0.15 + totalProgress * 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: const Color(
-                                0xFF2563EB,
-                              ).withValues(alpha: totalProgress * 0.5),
-                              width: 1,
-                            ),
-                          ),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: size * 0.05,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                width: size * 0.22,
-                                height: size * 0.035,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                              Container(
-                                width: size * 0.22,
-                                height: size * 0.04,
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFFFFD700,
-                                  ).withValues(alpha: 0.85),
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                child: Text(
+                  badge,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: isSelected ? AppColors.proGold : AppColors.slate500,
+                    letterSpacing: 0.4,
                   ),
                 ),
               ),
-            ),
-
-            // ── Gold seal ─────────────────────────────────────────────
-            if (sealProgress > 0)
-              Positioned(
-                top: -10,
-                right: -6,
-                child: Transform.scale(
-                  scale: Curves.elasticOut
-                      .transform(sealProgress)
-                      .clamp(0.0, 1.4),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFFFFD700),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFFD700).withValues(alpha: 0.5),
-                          blurRadius: 12,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.check_rounded,
-                      color: Colors.black,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildRow(
-    double size,
-    double progress,
-    Color dotColor,
-    double barFraction,
-  ) {
-    return ClipRect(
-      child: Align(
-        widthFactor: progress,
-        alignment: Alignment.centerLeft,
-        child: Row(
-          children: [
-            Container(
-              width: size * 0.05,
-              height: size * 0.05,
-              decoration: BoxDecoration(
-                color: dotColor.withValues(alpha: 0.8),
-                shape: BoxShape.circle,
-              ),
-            ),
-            SizedBox(width: size * 0.04),
-            Expanded(
-              child: Container(
-                height: size * 0.032,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-            SizedBox(width: size * 0.04),
-            Container(
-              width: size * barFraction * 0.4,
-              height: size * 0.032,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
+            ],
           ],
         ),
       ),

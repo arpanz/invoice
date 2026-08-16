@@ -125,7 +125,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               iconBg: AppColors.squircleCyan,
               iconColor: AppColors.squircleCyanIcon,
               title: 'Contact Developer',
-              subtitle: 'support@invoicemakerpro.app',
+              subtitle: 'connect.livinlabs@gmail.com',
               onTap: () {},
             ),
           ]),
@@ -138,7 +138,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               iconBg: AppColors.squircleGreen,
               iconColor: AppColors.squircleGreenIcon,
               title: 'Invoice Maker Pro',
-              subtitle: 'Version 1.1.0 • 100% Offline & Private',
+              subtitle: '100% Offline & Private',
               onTap: null,
             ),
             const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
@@ -185,10 +185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: children,
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: children),
       ),
     );
   }
@@ -356,7 +353,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle,
           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
-        trailing: trailing ??
+        trailing:
+            trailing ??
             (onTap != null
                 ? const Icon(
                     Icons.chevron_right_rounded,
@@ -419,7 +417,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           decoration: BoxDecoration(
             color: _defaultTheme.previewBg,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _defaultTheme.previewPrimary.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: _defaultTheme.previewPrimary.withValues(alpha: 0.3),
+            ),
           ),
           child: Icon(
             Icons.palette_outlined,
@@ -447,7 +447,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           decoration: BoxDecoration(
             color: _defaultTheme.previewBg,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: _defaultTheme.previewPrimary.withValues(alpha: 0.2)),
+            border: Border.all(
+              color: _defaultTheme.previewPrimary.withValues(alpha: 0.2),
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -531,7 +533,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               color: AppColors.slate100,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.percent, size: 18, color: AppColors.slate600),
+            child: const Icon(
+              Icons.percent,
+              size: 18,
+              color: AppColors.slate600,
+            ),
           ),
           title: Text(
             'Default ${defaultTax.shortName} Rate',
@@ -539,7 +545,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           subtitle: Text(
             '${defaultTax.rate}% | $sourceLabel',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
           ),
           trailing: Text(
             '${defaultTax.rate}%',
@@ -585,7 +594,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: currencyProvider.presetTaxRates.map((rate) {
-                        final isSel = (double.tryParse(controller.text) ?? -1) == rate;
+                        final isSel =
+                            (double.tryParse(controller.text) ?? -1) == rate;
                         return ActionChip(
                           label: Text(
                             rate == 0
@@ -594,15 +604,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: isSel ? Colors.white : AppColors.textPrimary,
+                              color: isSel
+                                  ? Colors.white
+                                  : AppColors.textPrimary,
                             ),
                           ),
-                          backgroundColor: isSel ? AppColors.primary : AppColors.slate100,
+                          backgroundColor: isSel
+                              ? AppColors.primary
+                              : AppColors.slate100,
                           side: BorderSide.none,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           onPressed: () {
                             setSheetState(() {
-                              controller.text = rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1);
+                              controller.text = rate.toStringAsFixed(
+                                rate % 1 == 0 ? 0 : 1,
+                              );
                             });
                           },
                         );
@@ -616,7 +634,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       decimal: true,
                     ),
                     decoration: InputDecoration(
-                      labelText: '${currencyProvider.defaultTax.shortName} Rate (%)',
+                      labelText:
+                          '${currencyProvider.defaultTax.shortName} Rate (%)',
                       hintText: 'e.g. ${currencyProvider.defaultTax.rate}',
                     ),
                     validator: (value) {

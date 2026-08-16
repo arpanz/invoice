@@ -184,7 +184,8 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
     return val;
   }
 
-  double get _taxableAmount => (_subtotal - _discountAmount).clamp(0.0, double.infinity);
+  double get _taxableAmount =>
+      (_subtotal - _discountAmount).clamp(0.0, double.infinity);
 
   double get _taxAmount {
     if (!_hasTax) return 0.0;
@@ -211,19 +212,35 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
       clientName: _clientNameCtrl.text.trim().isEmpty
           ? 'Valued Client'
           : _clientNameCtrl.text.trim(),
-      clientEmail: _clientEmailCtrl.text.trim().isEmpty ? null : _clientEmailCtrl.text.trim(),
-      clientPhone: _clientPhoneCtrl.text.trim().isEmpty ? null : _clientPhoneCtrl.text.trim(),
-      clientAddress: _clientAddressCtrl.text.trim().isEmpty ? null : _clientAddressCtrl.text.trim(),
-      clientGstin: _clientGstinCtrl.text.trim().isEmpty ? null : _clientGstinCtrl.text.trim(),
+      clientEmail: _clientEmailCtrl.text.trim().isEmpty
+          ? null
+          : _clientEmailCtrl.text.trim(),
+      clientPhone: _clientPhoneCtrl.text.trim().isEmpty
+          ? null
+          : _clientPhoneCtrl.text.trim(),
+      clientAddress: _clientAddressCtrl.text.trim().isEmpty
+          ? null
+          : _clientAddressCtrl.text.trim(),
+      clientGstin: _clientGstinCtrl.text.trim().isEmpty
+          ? null
+          : _clientGstinCtrl.text.trim(),
       estimateDate: _estimateDate,
       expiryDate: _expiryDate,
       subtotal: _subtotal,
       discountType: _hasDiscount ? _discountType : DiscountType.none,
-      discountValue: _hasDiscount ? (double.tryParse(_discountCtrl.text) ?? 0) : 0,
+      discountValue: _hasDiscount
+          ? (double.tryParse(_discountCtrl.text) ?? 0)
+          : 0,
       discountAmount: _discountAmount,
-      sgstRate: _hasTax && !_useIGST ? (double.tryParse(_sgstCtrl.text) ?? 0) : 0,
-      cgstRate: _hasTax && !_useIGST ? (double.tryParse(_cgstCtrl.text) ?? 0) : 0,
-      igstRate: _hasTax && _useIGST ? (double.tryParse(_igstCtrl.text) ?? 0) : 0,
+      sgstRate: _hasTax && !_useIGST
+          ? (double.tryParse(_sgstCtrl.text) ?? 0)
+          : 0,
+      cgstRate: _hasTax && !_useIGST
+          ? (double.tryParse(_cgstCtrl.text) ?? 0)
+          : 0,
+      igstRate: _hasTax && _useIGST
+          ? (double.tryParse(_igstCtrl.text) ?? 0)
+          : 0,
       taxAmount: _taxAmount,
       grandTotal: _grandTotal,
       status: _status,
@@ -295,7 +312,10 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
 
       // Save theme preference for this estimate
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('estimate_theme_${estimate.id}', _selectedTheme.id.name);
+      await prefs.setString(
+        'estimate_theme_${estimate.id}',
+        _selectedTheme.id.name,
+      );
 
       if (mounted) {
         setState(() => _isSaving = false);
@@ -306,9 +326,9 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save estimate: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save estimate: $e')));
       }
     }
   }
@@ -326,12 +346,16 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
   }
 
   void _showItemDialog({LineItemModel? existingItem, int? index}) {
-    final descCtrl = TextEditingController(text: existingItem?.description ?? '');
+    final descCtrl = TextEditingController(
+      text: existingItem?.description ?? '',
+    );
     final qtyCtrl = TextEditingController(
       text: existingItem != null ? existingItem.quantity.toString() : '1',
     );
     final priceCtrl = TextEditingController(
-      text: existingItem != null ? existingItem.unitPrice.toStringAsFixed(2) : '',
+      text: existingItem != null
+          ? existingItem.unitPrice.toStringAsFixed(2)
+          : '',
     );
     final formKey = GlobalKey<FormState>();
 
@@ -377,7 +401,8 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                 label: 'Description / Item Name *',
                 hint: 'e.g. Website Design, Consultation, Parts',
                 controller: descCtrl,
-                validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               Row(
@@ -387,7 +412,9 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       label: 'Quantity *',
                       hint: '1',
                       controller: qtyCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       validator: (v) {
                         final parsed = double.tryParse(v ?? '');
                         if (parsed == null || parsed <= 0) return 'Invalid';
@@ -402,8 +429,11 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       label: 'Unit Price *',
                       hint: '0.00',
                       controller: priceCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      prefixText: '${CurrencyFormatter.getCurrencySymbol(_currency)} ',
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      prefixText:
+                          '${CurrencyFormatter.getCurrencySymbol(_currency)} ',
                       validator: (v) {
                         final parsed = double.tryParse(v ?? '');
                         if (parsed == null || parsed < 0) return 'Invalid';
@@ -421,12 +451,15 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: () {
                     if (formKey.currentState!.validate()) {
                       final qty = double.tryParse(qtyCtrl.text.trim()) ?? 1.0;
-                      final price = double.tryParse(priceCtrl.text.trim()) ?? 0.0;
+                      final price =
+                          double.tryParse(priceCtrl.text.trim()) ?? 0.0;
                       final total = qty * price;
 
                       setState(() {
@@ -459,7 +492,10 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                   },
                   child: Text(
                     existingItem == null ? 'Add to Estimate' : 'Save Changes',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ),
@@ -512,7 +548,10 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppColors.textPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -571,7 +610,9 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                             ),
                             child: Text(
                               DateFormat('dd/MM/yyyy').format(_estimateDate),
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
@@ -587,7 +628,9 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                           onTap: () async {
                             final picked = await showDatePicker(
                               context: context,
-                              initialDate: _expiryDate ?? DateTime.now().add(const Duration(days: 30)),
+                              initialDate:
+                                  _expiryDate ??
+                                  DateTime.now().add(const Duration(days: 30)),
                               firstDate: DateTime(2020),
                               lastDate: DateTime(2035),
                             );
@@ -602,9 +645,13 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                             ),
                             child: Text(
                               _expiryDate != null
-                                  ? DateFormat('dd/MM/yyyy').format(_expiryDate!)
+                                  ? DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(_expiryDate!)
                                   : 'No Expiry',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
@@ -616,7 +663,10 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     children: [
                       const Text(
                         'Quick Validity: ',
-                        style: TextStyle(fontSize: 12, color: AppColors.slate500),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.slate500,
+                        ),
                       ),
                       _buildQuickDateChip('7 Days', 7),
                       const SizedBox(width: 6),
@@ -642,7 +692,11 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       color: AppColors.primaryMuted,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.palette_rounded, color: AppColors.primary, size: 20),
+                    child: const Icon(
+                      Icons.palette_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -651,16 +705,27 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       children: [
                         const Text(
                           'PDF Theme',
-                          style: TextStyle(fontSize: 12, color: AppColors.slate500, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.slate500,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         Text(
                           _selectedTheme.name,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.slate400,
+                  ),
                 ],
               ),
             ),
@@ -680,10 +745,23 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         color: const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.storefront_rounded, color: Color(0xFF3B82F6), size: 20),
+                      child: const Icon(
+                        Icons.storefront_rounded,
+                        color: Color(0xFF3B82F6),
+                        size: 20,
+                      ),
                     ),
-                    title: const Text('Bill From', style: TextStyle(fontSize: 12, color: AppColors.slate500)),
-                    subtitle: Text(_bizName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    title: const Text(
+                      'Bill From',
+                      style: TextStyle(fontSize: 12, color: AppColors.slate500),
+                    ),
+                    subtitle: Text(
+                      _bizName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
                   ),
                   const Divider(height: 20),
                   // Bill To
@@ -696,20 +774,34 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                           color: const Color(0xFFFEF3C7),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.person_rounded, color: Color(0xFFD97706), size: 20),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          color: Color(0xFFD97706),
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Bill To (Client) *', style: TextStyle(fontSize: 12, color: AppColors.slate500)),
+                            const Text(
+                              'Bill To (Client) *',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.slate500,
+                              ),
+                            ),
                             Text(
-                              _clientNameCtrl.text.isEmpty ? 'Select / Add Client' : _clientNameCtrl.text,
+                              _clientNameCtrl.text.isEmpty
+                                  ? 'Select / Add Client'
+                                  : _clientNameCtrl.text,
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 15,
-                                color: _clientNameCtrl.text.isEmpty ? AppColors.slate400 : AppColors.textPrimary,
+                                color: _clientNameCtrl.text.isEmpty
+                                    ? AppColors.slate400
+                                    : AppColors.textPrimary,
                               ),
                             ),
                           ],
@@ -717,7 +809,10 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       ),
                       IconButton(
                         tooltip: 'Select Client',
-                        icon: const Icon(Icons.contacts_rounded, color: AppColors.primary),
+                        icon: const Icon(
+                          Icons.contacts_rounded,
+                          color: AppColors.primary,
+                        ),
                         onPressed: _pickClient,
                       ),
                     ],
@@ -746,7 +841,11 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     children: [
                       const Text(
                         'Items & Services',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                       TextButton.icon(
                         icon: const Icon(Icons.add_rounded, size: 18),
@@ -762,9 +861,19 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       alignment: Alignment.center,
                       child: Column(
                         children: [
-                          Icon(Icons.inventory_2_outlined, size: 36, color: AppColors.slate300),
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 36,
+                            color: AppColors.slate300,
+                          ),
                           const SizedBox(height: 8),
-                          const Text('No items added yet', style: TextStyle(color: AppColors.slate500, fontSize: 13)),
+                          const Text(
+                            'No items added yet',
+                            style: TextStyle(
+                              color: AppColors.slate500,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     )
@@ -773,7 +882,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _items.length,
-                      separatorBuilder: (_, __) => const Divider(height: 16),
+                      separatorBuilder: (_, _) => const Divider(height: 16),
                       itemBuilder: (ctx, i) {
                         final item = _items[i];
                         return Row(
@@ -784,28 +893,47 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                                 children: [
                                   Text(
                                     item.description,
-                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     '${item.quantity} x $currencySymbol${item.unitPrice.toStringAsFixed(2)}',
-                                    style: const TextStyle(color: AppColors.slate500, fontSize: 12),
+                                    style: const TextStyle(
+                                      color: AppColors.slate500,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                             Text(
                               '$currencySymbol${item.total.toStringAsFixed(2)}',
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.slate400),
-                              onPressed: () => _showItemDialog(existingItem: item, index: i),
+                              icon: const Icon(
+                                Icons.edit_outlined,
+                                size: 18,
+                                color: AppColors.slate400,
+                              ),
+                              onPressed: () =>
+                                  _showItemDialog(existingItem: item, index: i),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.accentRed),
-                              onPressed: () => setState(() => _items.removeAt(i)),
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                                color: AppColors.accentRed,
+                              ),
+                              onPressed: () =>
+                                  setState(() => _items.removeAt(i)),
                             ),
                           ],
                         );
@@ -821,18 +949,27 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
               child: Column(
                 children: [
                   // Subtotal
-                  _buildSummaryRow('Subtotal', '$currencySymbol${_subtotal.toStringAsFixed(2)}'),
+                  _buildSummaryRow(
+                    'Subtotal',
+                    '$currencySymbol${_subtotal.toStringAsFixed(2)}',
+                  ),
                   const SizedBox(height: 8),
 
                   // Discount switch & inputs
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Discount', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      const Text(
+                        'Discount',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
                       Switch(
                         value: _hasDiscount,
                         onChanged: (v) => setState(() => _hasDiscount = v),
-                        activeColor: AppColors.primary,
+                        activeThumbColor: AppColors.primary,
                       ),
                     ],
                   ),
@@ -842,20 +979,25 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         ChoiceChip(
                           label: const Text('%'),
                           selected: _discountType == DiscountType.percentage,
-                          onSelected: (_) => setState(() => _discountType = DiscountType.percentage),
+                          onSelected: (_) => setState(
+                            () => _discountType = DiscountType.percentage,
+                          ),
                         ),
                         const SizedBox(width: 8),
                         ChoiceChip(
                           label: Text(currencySymbol),
                           selected: _discountType == DiscountType.flat,
-                          onSelected: (_) => setState(() => _discountType = DiscountType.flat),
+                          onSelected: (_) =>
+                              setState(() => _discountType = DiscountType.flat),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: CustomTextField(
                             hint: '0',
                             controller: _discountCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                             onChanged: (_) => setState(() {}),
                           ),
                         ),
@@ -875,13 +1017,18 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        currencyProvider.taxIdLabel.isNotEmpty ? currencyProvider.taxIdLabel : 'Tax',
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        currencyProvider.taxIdLabel.isNotEmpty
+                            ? currencyProvider.taxIdLabel
+                            : 'Tax',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
                       ),
                       Switch(
                         value: _hasTax,
                         onChanged: (v) => setState(() => _hasTax = v),
-                        activeColor: AppColors.primary,
+                        activeThumbColor: AppColors.primary,
                       ),
                     ],
                   ),
@@ -910,7 +1057,10 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                               child: CustomTextField(
                                 label: 'SGST %',
                                 controller: _sgstCtrl,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                 onChanged: (_) => setState(() {}),
                               ),
                             ),
@@ -919,7 +1069,10 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                               child: CustomTextField(
                                 label: 'CGST %',
                                 controller: _cgstCtrl,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                 onChanged: (_) => setState(() {}),
                               ),
                             ),
@@ -929,14 +1082,19 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         CustomTextField(
                           label: 'IGST %',
                           controller: _igstCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           onChanged: (_) => setState(() {}),
                         ),
                     ] else ...[
                       CustomTextField(
-                        label: '${currencyProvider.selectedCurrency.defaultTax.shortName} %',
+                        label:
+                            '${currencyProvider.selectedCurrency.defaultTax.shortName} %',
                         controller: _igstCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         onChanged: (_) => setState(() {}),
                       ),
                     ],
@@ -954,7 +1112,11 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     children: [
                       const Text(
                         'Total Estimated',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                       Text(
                         '$currencySymbol${_grandTotal.toStringAsFixed(2)}',
@@ -978,7 +1140,11 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                 children: [
                   const Text(
                     'Notes & Terms',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   CustomTextField(
@@ -1011,13 +1177,21 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: AppColors.primary, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    side: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.5,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: _openPreview,
                   child: const Text(
                     'Preview PDF',
-                    style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
               ),
@@ -1027,18 +1201,28 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                  onPressed: _isSaving ? null : () => _saveEstimate(popAfter: true),
+                  onPressed: _isSaving
+                      ? null
+                      : () => _saveEstimate(popAfter: true),
                   child: _isSaving
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Text(
                           'Save Estimate',
-                          style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
                         ),
                 ),
               ),
@@ -1065,7 +1249,11 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+          ),
         ),
       ),
     );
@@ -1094,11 +1282,22 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {bool isNegative = false}) {
+  Widget _buildSummaryRow(
+    String label,
+    String value, {
+    bool isNegative = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: AppColors.slate600, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            color: AppColors.slate600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         Text(
           value,
           style: TextStyle(
