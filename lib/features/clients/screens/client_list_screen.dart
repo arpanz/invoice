@@ -331,6 +331,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
           : Padding(
               padding: const EdgeInsets.only(bottom: 86),
               child: FloatingActionButton.extended(
+                heroTag: 'client_list_fab',
                 onPressed: () => _showAddEditDialog(),
                 icon: const Icon(Icons.person_add_rounded, color: Colors.white),
                 label: const Text(

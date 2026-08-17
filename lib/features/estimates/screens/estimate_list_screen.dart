@@ -600,6 +600,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
           : Padding(
               padding: const EdgeInsets.only(bottom: 86),
               child: FloatingActionButton.extended(
+                heroTag: 'estimate_list_fab',
                 onPressed: _createNewEstimate,
                 icon: const Icon(Icons.add_rounded, color: Colors.white),
                 label: const Text(

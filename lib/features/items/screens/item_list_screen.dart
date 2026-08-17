@@ -358,6 +358,7 @@ class ItemListScreenState extends State<ItemListScreen> {
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 80),
         child: FloatingActionButton.extended(
+          heroTag: 'item_list_fab',
           onPressed: () {
             HapticFeedback.mediumImpact();
             _createItem();
