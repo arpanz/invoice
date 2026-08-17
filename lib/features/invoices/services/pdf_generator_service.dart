@@ -44,6 +44,38 @@ class BusinessProfile {
     this.invoiceTitleOverride,
   });
 
+  BusinessProfile copyWith({
+    String? businessName,
+    String? address,
+    String? phone,
+    String? email,
+    String? gstin,
+    String? bankName,
+    String? accountNumber,
+    String? ifscCode,
+    String? upiId,
+    String? logoPath,
+    String? signaturePath,
+    String? currency,
+    String? invoiceTitleOverride,
+  }) {
+    return BusinessProfile(
+      businessName: businessName ?? this.businessName,
+      address: address ?? this.address,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      gstin: gstin ?? this.gstin,
+      bankName: bankName ?? this.bankName,
+      accountNumber: accountNumber ?? this.accountNumber,
+      ifscCode: ifscCode ?? this.ifscCode,
+      upiId: upiId ?? this.upiId,
+      logoPath: logoPath ?? this.logoPath,
+      signaturePath: signaturePath ?? this.signaturePath,
+      currency: currency ?? this.currency,
+      invoiceTitleOverride: invoiceTitleOverride ?? this.invoiceTitleOverride,
+    );
+  }
+
   Currency? get currencyConfig => SupportedCurrencies.getByCode(currency);
   String get taxIdLabel => currencyConfig?.defaultTax.taxIdLabel ?? 'Tax ID';
   String get bankRoutingLabel => currencyConfig?.defaultTax.bankRoutingLabel ?? 'Routing / IFSC';

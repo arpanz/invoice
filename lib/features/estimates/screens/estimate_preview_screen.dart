@@ -571,7 +571,11 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                     ),
                   ),
                 Text(
-                  '$currencySymbol${_estimate.grandTotal.toStringAsFixed(2)}',
+                  CurrencyFormatter.format(
+                    _estimate.grandTotal,
+                    currencyCode: _estimate.currency,
+                    currencySymbol: currencySymbol,
+                  ),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,

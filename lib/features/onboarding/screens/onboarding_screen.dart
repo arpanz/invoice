@@ -436,8 +436,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                   ),
                                   Text(
                                     _invoiceBuildStep >= 3
-                                        ? '\$1,800.00'
-                                        : '\$0.00',
+                                        ? '${_selectedCurrency.symbol}1,800.00'
+                                        : '${_selectedCurrency.symbol}0.00',
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w900,
@@ -496,8 +496,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                 ),
                                 Text(
                                   _invoiceBuildStep >= 4
-                                      ? '\$2,450.00'
-                                      : '\$0.00',
+                                      ? '${_selectedCurrency.symbol}2,450.00'
+                                      : '${_selectedCurrency.symbol}0.00',
                                   style: TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w900,
@@ -999,8 +999,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text(
+                    children: [
+                      const Text(
                         'Sample Service Item',
                         style: TextStyle(
                           fontSize: 11,
@@ -1009,8 +1009,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         ),
                       ),
                       Text(
-                        '\$1,200.00',
-                        style: TextStyle(
+                        '${_selectedCurrency.symbol}1,200.00',
+                        style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: AppColors.textPrimary,

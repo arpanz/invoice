@@ -863,7 +863,6 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
 
   Widget _buildInvoiceCard(InvoiceModel invoice) {
     final dateFormatted = DateFormat('dd/MM/yyyy').format(invoice.invoiceDate);
-    final currencySymbol = CurrencyFormatter.getCurrencySymbol(invoice.currency);
 
     Color badgeColor;
     Color badgeBg;
@@ -948,7 +947,10 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '$currencySymbol${invoice.grandTotal.toStringAsFixed(2)}',
+                      CurrencyFormatter.format(
+                        invoice.grandTotal,
+                        currencyCode: invoice.currency,
+                      ),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,

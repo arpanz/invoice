@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../core/providers/currency_provider.dart';
 import '../core/theme/app_colors.dart';
 
 class CustomTextField extends StatelessWidget {
@@ -115,7 +117,7 @@ class AmountTextField extends StatelessWidget {
   final String? label;
   final String? hint;
   final TextEditingController? controller;
-  final String currencySymbol;
+  final String? currencySymbol;
   final void Function(String)? onChanged;
   final String? Function(String?)? validator;
 
@@ -124,13 +126,22 @@ class AmountTextField extends StatelessWidget {
     this.label,
     this.hint,
     this.controller,
-    this.currencySymbol = '₹',
+    this.currencySymbol,
     this.onChanged,
     this.validator,
   });
 
   @override
   Widget build(BuildContext context) {
+    String resolvedSymbol = currencySymbol ?? '';
+    if (resolvedSymbol.isEmpty) {
+      try {
+        resolvedSymbol = context.watch<CurrencyProvider>().currencySymbol;
+      } catch (_) {
+        resolvedSymbol = '\$';
+      }
+    }
+
     return CustomTextField(
       label: label,
       hint: hint ?? '0.00',
@@ -139,7 +150,7 @@ class AmountTextField extends StatelessWidget {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
       ],
-      prefixText: '$currencySymbol ',
+      prefixText: '$resolvedSymbol ',
       onChanged: onChanged,
       validator: validator,
     );

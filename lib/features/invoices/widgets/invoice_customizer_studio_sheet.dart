@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/invoice_customization_config.dart';
 import '../models/invoice_model.dart';
@@ -119,8 +121,12 @@ class _InvoiceCustomizerStudioSheetState
     if (!mounted) return;
     setState(() => _isRendering = true);
     try {
-      final inv = widget.invoice ?? DummyInvoiceData.sampleInvoice;
-      final profile = widget.businessProfile ?? DummyInvoiceData.sampleProfile;
+      String? currencyCode;
+      try {
+        currencyCode = context.read<CurrencyProvider>().currencyCode;
+      } catch (_) {}
+      final inv = widget.invoice ?? DummyInvoiceData.getSampleInvoice(currencyCode);
+      final profile = widget.businessProfile ?? DummyInvoiceData.getSampleProfile(currencyCode);
 
       final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
         invoice: inv,
@@ -1253,8 +1259,12 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
 
   Future<void> _renderHighRes() async {
     try {
-      final inv = widget.invoice ?? DummyInvoiceData.sampleInvoice;
-      final profile = widget.businessProfile ?? DummyInvoiceData.sampleProfile;
+      String? currencyCode;
+      try {
+        currencyCode = context.read<CurrencyProvider>().currencyCode;
+      } catch (_) {}
+      final inv = widget.invoice ?? DummyInvoiceData.getSampleInvoice(currencyCode);
+      final profile = widget.businessProfile ?? DummyInvoiceData.getSampleProfile(currencyCode);
 
       final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
         invoice: inv,

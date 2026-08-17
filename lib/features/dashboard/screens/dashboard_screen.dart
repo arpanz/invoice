@@ -171,7 +171,9 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _promptPartialPayment(InvoiceModel invoice) async {
-    final currencySymbol = CurrencyFormatter.getCurrencySymbol(_currency);
+    final currencySymbol = CurrencyFormatter.getCurrencySymbol(
+      invoice.currency.isNotEmpty ? invoice.currency : _currency,
+    );
     final amount = await AppDialog.showPartialPayment(
       context: context,
       documentNumber: invoice.invoiceNumber,
@@ -450,7 +452,9 @@ class DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final isPro = context.watch<BillingService>().isPro;
-    final currencySymbol = CurrencyFormatter.getCurrencySymbol(_currency);
+    final currencyProvider = context.watch<CurrencyProvider>();
+    final currencyCode = currencyProvider.currencyCode;
+    final currencySymbol = currencyProvider.currencySymbol;
     final filtered = _filteredInvoices;
     final grouped = _groupByMonth(filtered);
 
@@ -614,7 +618,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '$currencySymbol${_totalPaid.toStringAsFixed(2)}',
+                                  CurrencyFormatter.format(
+                                    _totalPaid,
+                                    currencyCode: currencyCode,
+                                    currencySymbol: currencySymbol,
+                                  ),
                                   style: const TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w900,
@@ -656,7 +664,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '$currencySymbol${_totalUnpaid.toStringAsFixed(2)}',
+                                  CurrencyFormatter.format(
+                                    _totalUnpaid,
+                                    currencyCode: currencyCode,
+                                    currencySymbol: currencySymbol,
+                                  ),
                                   style: const TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w900,
@@ -730,7 +742,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                           ),
-                          ...invoicesInMonth.map((inv) => _buildInvoiceCard(inv, currencySymbol)),
+                          ...invoicesInMonth.map(_buildInvoiceCard),
                         ],
                       );
                     },
@@ -899,7 +911,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildInvoiceCard(InvoiceModel invoice, String currencySymbol) {
+  Widget _buildInvoiceCard(InvoiceModel invoice) {
     final dateFormatted = DateFormat('dd/MM/yyyy').format(invoice.invoiceDate);
 
     Color badgeColor;
@@ -985,7 +997,12 @@ class DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '$currencySymbol${invoice.grandTotal.toStringAsFixed(2)}',
+                      CurrencyFormatter.format(
+                        invoice.grandTotal,
+                        currencyCode: invoice.currency.isNotEmpty
+                            ? invoice.currency
+                            : _currency,
+                      ),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,

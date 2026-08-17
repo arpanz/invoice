@@ -14,12 +14,14 @@ class CurrencyFormatter {
     int? decimalDigits,
   }) {
     final currency = currencyCode != null
-        ? SupportedCurrencies.getByCode(currencyCode)
+        ? SupportedCurrencies.getByCode(currencyCode.trim())
         : null;
 
-    final symbol = currencySymbol ?? currency?.symbol ?? '₹';
+    final symbol = currencySymbol ??
+        currency?.symbol ??
+        (currencyCode != null ? getCurrencySymbol(currencyCode) : '\$');
     final decimals = decimalDigits ?? currency?.decimalPlaces ?? 2;
-    final isINR = (currencyCode?.toUpperCase() == 'INR') || (symbol == '₹');
+    final isINR = (currencyCode?.toUpperCase().trim() == 'INR') || (symbol == '₹');
     final locale = isINR ? 'en_IN' : 'en_US';
 
     final formatter = NumberFormat.decimalPatternDigits(
@@ -42,10 +44,12 @@ class CurrencyFormatter {
     String? currencySymbol,
   }) {
     final currency = currencyCode != null
-        ? SupportedCurrencies.getByCode(currencyCode)
+        ? SupportedCurrencies.getByCode(currencyCode.trim())
         : null;
-    final symbol = currencySymbol ?? currency?.symbol ?? '₹';
-    final isINR = (currencyCode?.toUpperCase() == 'INR') || (symbol == '₹');
+    final symbol = currencySymbol ??
+        currency?.symbol ??
+        (currencyCode != null ? getCurrencySymbol(currencyCode) : '\$');
+    final isINR = (currencyCode?.toUpperCase().trim() == 'INR') || (symbol == '₹');
     final isNegative = amount < 0;
     final absAmount = amount.abs();
     final prefix = isNegative ? '-$symbol' : symbol;
@@ -73,9 +77,10 @@ class CurrencyFormatter {
   /// Returns the currency symbol for a given ISO currency [code].
   /// Uses [SupportedCurrencies] as the source of truth so all 35+
   /// currencies are covered. Falls back to the code itself if unknown.
-  static String getCurrencySymbol(String code) {
-    final currency = SupportedCurrencies.getByCode(code);
-    return currency?.symbol ?? code;
+  static String getCurrencySymbol(String? code) {
+    if (code == null || code.trim().isEmpty) return '\$';
+    final currency = SupportedCurrencies.getByCode(code.trim());
+    return currency?.symbol ?? code.trim();
   }
 
   static double parseAmount(String value) {

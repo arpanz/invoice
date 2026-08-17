@@ -1065,7 +1065,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
-                        '$currencySymbol${_invoice.grandTotal.toStringAsFixed(2)}',
+                        CurrencyFormatter.format(
+                          _invoice.grandTotal,
+                          currencyCode: _invoice.currency,
+                          currencySymbol: currencySymbol,
+                        ),
                         style: const TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w800,
@@ -1096,7 +1100,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     Row(
                       children: [
                         Text(
-                          'Paid: $currencySymbol${_invoice.paidAmount.toStringAsFixed(2)}',
+                          'Paid: ${CurrencyFormatter.format(_invoice.paidAmount, currencyCode: _invoice.currency, currencySymbol: currencySymbol)}',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -1105,7 +1109,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          'Balance Due: $currencySymbol${_invoice.balanceDue.toStringAsFixed(2)}',
+                          'Balance Due: ${CurrencyFormatter.format(_invoice.balanceDue, currencyCode: _invoice.currency, currencySymbol: currencySymbol)}',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,

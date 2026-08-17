@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/invoice_customization_config.dart';
 import '../models/pdf_theme.dart';
@@ -53,9 +55,7 @@ class PdfThemePickerSheet extends StatefulWidget {
 class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
   late PdfTheme _selectedTheme;
   bool _setAsDefault = false;
-
-  // Cache of live rasterized thumbnails for all 10 themes
-  static final Map<PdfThemeId, Uint8List> _thumbnailCache = {};
+  final Map<PdfThemeId, Uint8List> _thumbnailCache = {};
 
   @override
   void initState() {
@@ -65,12 +65,20 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
   }
 
   Future<void> _warmUpThumbnails() async {
+    String? currencyCode;
+    try {
+      currencyCode = context.read<CurrencyProvider>().currencyCode;
+    } catch (_) {}
+
+    final sampleInv = DummyInvoiceData.getSampleInvoice(currencyCode);
+    final sampleProf = DummyInvoiceData.getSampleProfile(currencyCode);
+
     for (final theme in PdfTheme.all) {
       if (_thumbnailCache.containsKey(theme.id)) continue;
       try {
         final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
-          invoice: DummyInvoiceData.sampleInvoice,
-          businessProfile: DummyInvoiceData.sampleProfile,
+          invoice: sampleInv,
+          businessProfile: sampleProf,
           isPro: true,
           theme: theme,
           isSamplePreview: true,

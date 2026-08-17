@@ -77,6 +77,16 @@ class DummyInvoiceData {
     currency: 'USD',
   );
 
+  static InvoiceModel getSampleInvoice([String? currency]) {
+    if (currency == null || currency.isEmpty) return sampleInvoice;
+    return sampleInvoice.copyWith(currency: currency);
+  }
+
+  static BusinessProfile getSampleProfile([String? currency]) {
+    if (currency == null || currency.isEmpty) return sampleProfile;
+    return sampleProfile.copyWith(currency: currency);
+  }
+
   /// Draws a clean, high-resolution vector corporate logo badge
   static pw.Widget buildVectorLogo(PdfTheme theme, {double size = 48}) {
     return pw.Container(

@@ -400,7 +400,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.slate400,
+                    ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],

@@ -10,6 +10,7 @@ import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared_widgets/custom_text_field.dart';
+import '../../../shared_widgets/currency_picker_sheet.dart';
 import '../../clients/models/client_model.dart';
 import '../../clients/screens/client_list_screen.dart';
 import '../../invoices/models/invoice_model.dart';
@@ -941,7 +942,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${item.quantity} x $currencySymbol${item.unitPrice.toStringAsFixed(2)}',
+                                    '${item.quantity.toString().replaceAll(".0", "")} x ${CurrencyFormatter.format(item.unitPrice, currencyCode: _currency, currencySymbol: currencySymbol)}',
                                     style: const TextStyle(
                                       color: AppColors.slate500,
                                       fontSize: 12,
@@ -951,7 +952,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                               ),
                             ),
                             Text(
-                              '$currencySymbol${item.total.toStringAsFixed(2)}',
+                              CurrencyFormatter.format(item.total, currencyCode: _currency, currencySymbol: currencySymbol),
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 14,
@@ -992,7 +993,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                   // Subtotal
                   _buildSummaryRow(
                     'Subtotal',
-                    '$currencySymbol${_subtotal.toStringAsFixed(2)}',
+                    CurrencyFormatter.format(_subtotal, currencyCode: _currency, currencySymbol: currencySymbol),
                   ),
                   const SizedBox(height: 8),
 
@@ -1047,7 +1048,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     const SizedBox(height: 8),
                     _buildSummaryRow(
                       'Discount Amount',
-                      '-$currencySymbol${_discountAmount.toStringAsFixed(2)}',
+                      '-${CurrencyFormatter.format(_discountAmount, currencyCode: _currency, currencySymbol: currencySymbol)}',
                       isNegative: true,
                     ),
                   ],
@@ -1142,7 +1143,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     const SizedBox(height: 8),
                     _buildSummaryRow(
                       'Tax Amount',
-                      '+$currencySymbol${_taxAmount.toStringAsFixed(2)}',
+                      '+${CurrencyFormatter.format(_taxAmount, currencyCode: _currency, currencySymbol: currencySymbol)}',
                     ),
                   ],
                   const Divider(height: 24),
@@ -1160,7 +1161,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         ),
                       ),
                       Text(
-                        '$currencySymbol${_grandTotal.toStringAsFixed(2)}',
+                        CurrencyFormatter.format(_grandTotal, currencyCode: _currency, currencySymbol: currencySymbol),
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
@@ -1174,7 +1175,67 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
             ),
             const SizedBox(height: 12),
 
-            // 6. Notes & Terms Card
+            // 6. Currency & Settings Card
+            _buildCardContainer(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    CurrencyPickerSheet.show(
+                      context,
+                      onCurrencySelected: (curr) {
+                        setState(() => _currency = curr.code);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.slate100,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.payments_outlined,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Currency',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '$_currency $currencySymbol',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.slate600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.slate400,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // 7. Notes & Terms Card
             _buildCardContainer(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

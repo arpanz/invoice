@@ -22,6 +22,7 @@ import '../widgets/pdf_theme_picker_sheet.dart';
 import 'invoice_preview_screen.dart';
 import '../../../shared_widgets/app_dialog.dart';
 import '../../../shared_widgets/app_popup_menu.dart';
+import '../../../shared_widgets/currency_picker_sheet.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   final InvoiceModel? existingInvoice;
@@ -1348,35 +1349,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   void _showCurrencySheet() {
-    final supported = ['INR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'AED', 'SGD', 'JPY'];
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Text('Select Currency', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            ),
-            ...supported.map((c) {
-              final symbol = CurrencyFormatter.getCurrencySymbol(c);
-              final isSel = _currency == c;
-              return ListTile(
-                title: Text('$c ($symbol)', style: TextStyle(fontWeight: isSel ? FontWeight.w700 : FontWeight.w500)),
-                trailing: isSel ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
-                onTap: () {
-                  setState(() => _currency = c);
-                  Navigator.pop(ctx);
-                },
-              );
-            }),
-          ],
-        ),
-      ),
+    CurrencyPickerSheet.show(
+      context,
+      onCurrencySelected: (curr) {
+        setState(() => _currency = curr.code);
+        Navigator.pop(context);
+      },
     );
   }
 
@@ -2035,7 +2013,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           icon: Icons.percent_rounded,
                           title: 'Discount',
                           subtitle: _hasDiscount ? '(${_discountCtrl.text}${_discountType == DiscountType.percentage ? "%" : ""})' : '(0%)',
-                          value: _hasDiscount ? '-$currencySymbol${_discountAmount.toStringAsFixed(2)}' : '-$currencySymbol 0.00',
+                          value: _hasDiscount
+                              ? '-${CurrencyFormatter.format(_discountAmount, currencyCode: _currency, currencySymbol: currencySymbol)}'
+                              : '-$currencySymbol 0.00',
                           onTap: _showDiscountSheet,
                         ),
                         const Divider(height: 16),
@@ -2047,7 +2027,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                   ? '(CGST ${_cgstCtrl.text}% + SGST ${_sgstCtrl.text}%)'
                                   : '(${_useIGST ? _igstCtrl.text : ((double.tryParse(_sgstCtrl.text) ?? 0) + (double.tryParse(_cgstCtrl.text) ?? 0)).toStringAsFixed(1).replaceAll('.0', '')}%)')
                               : '(0%)',
-                          value: '$currencySymbol${_taxAmount.toStringAsFixed(2)}',
+                          value: CurrencyFormatter.format(_taxAmount, currencyCode: _currency, currencySymbol: currencySymbol),
                           onTap: _showTaxSheet,
                         ),
                         const Divider(height: 16),
@@ -2055,7 +2035,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           icon: Icons.local_shipping_outlined,
                           title: 'Shipping',
                           subtitle: '',
-                          value: '$currencySymbol${_shippingFee.toStringAsFixed(2)}',
+                          value: CurrencyFormatter.format(_shippingFee, currencyCode: _currency, currencySymbol: currencySymbol),
                           onTap: _showShippingSheet,
                         ),
                         const SizedBox(height: 12),
@@ -2071,7 +2051,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             children: [
                               const Text('Total', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
                               Text(
-                                '$currencySymbol${_grandTotal.toStringAsFixed(2)}',
+                                CurrencyFormatter.format(_grandTotal, currencyCode: _currency, currencySymbol: currencySymbol),
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
                               ),
                             ],
@@ -2102,7 +2082,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           icon: Icons.monetization_on_outlined,
                           title: 'Payments',
                           subtitle: '',
-                          value: '$currencySymbol${_paidAmount.toStringAsFixed(2)}',
+                          value: CurrencyFormatter.format(_paidAmount, currencyCode: _currency, currencySymbol: currencySymbol),
                           onTap: _showPaymentsSheet,
                         ),
                         const SizedBox(height: 12),
@@ -2117,7 +2097,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             children: [
                               const Text('Balance Due', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
                               Text(
-                                '$currencySymbol${_balanceDue.toStringAsFixed(2)}',
+                                CurrencyFormatter.format(_balanceDue, currencyCode: _currency, currencySymbol: currencySymbol),
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.primary),
                               ),
                             ],

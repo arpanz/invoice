@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:invoice/core/theme/app_colors.dart';
 import 'package:invoice/core/theme/app_typography.dart';
 import 'package:invoice/shared_widgets/app_dialog.dart';
 import 'package:invoice/shared_widgets/app_popup_menu.dart';

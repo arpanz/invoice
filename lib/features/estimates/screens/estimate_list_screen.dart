@@ -300,7 +300,9 @@ class EstimateListScreenState extends State<EstimateListScreen> {
   @override
   Widget build(BuildContext context) {
     final isPro = context.watch<BillingService>().isPro;
-    final currencySymbol = CurrencyFormatter.getCurrencySymbol(_currency);
+    final currencyProvider = context.watch<CurrencyProvider>();
+    final currencyCode = currencyProvider.currencyCode;
+    final currencySymbol = currencyProvider.currencySymbol;
     final filtered = _filteredEstimates;
 
     return Scaffold(
@@ -427,7 +429,11 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '$currencySymbol${_totalEstimated.toStringAsFixed(0)}',
+                                  CurrencyFormatter.formatCompact(
+                                    _totalEstimated,
+                                    currencyCode: currencyCode,
+                                    currencySymbol: currencySymbol,
+                                  ),
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w900,
@@ -465,7 +471,11 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '$currencySymbol${_totalPending.toStringAsFixed(0)}',
+                                  CurrencyFormatter.formatCompact(
+                                    _totalPending,
+                                    currencyCode: currencyCode,
+                                    currencySymbol: currencySymbol,
+                                  ),
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w900,
@@ -503,7 +513,11 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '$currencySymbol${_totalAccepted.toStringAsFixed(0)}',
+                                  CurrencyFormatter.formatCompact(
+                                    _totalAccepted,
+                                    currencyCode: currencyCode,
+                                    currencySymbol: currencySymbol,
+                                  ),
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w900,
@@ -571,7 +585,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                       final est = filtered[index];
                       return StaggeredEntrance(
                         index: index,
-                        child: _buildEstimateCard(est, currencySymbol),
+                        child: _buildEstimateCard(est),
                       );
                     },
                     childCount: filtered.length,
@@ -627,7 +641,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
     );
   }
 
-  Widget _buildEstimateCard(EstimateModel estimate, String currencySymbol) {
+  Widget _buildEstimateCard(EstimateModel estimate) {
     final dateFormat = DateFormat('dd MMM yyyy');
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -669,7 +683,12 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                       ),
                     ),
                     Text(
-                      '$currencySymbol${estimate.grandTotal.toStringAsFixed(2)}',
+                      CurrencyFormatter.format(
+                        estimate.grandTotal,
+                        currencyCode: estimate.currency.isNotEmpty
+                            ? estimate.currency
+                            : _currency,
+                      ),
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w900,

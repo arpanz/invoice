@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/currency_model.dart';
+import '../utils/currency_formatter.dart';
 
 /// Keys for SharedPreferences
 class CurrencyPreferences {
@@ -100,6 +100,14 @@ class CurrencyProvider extends ChangeNotifier {
     }
   }
 
+  /// Set the selected currency by ISO code
+  Future<void> setCurrencyByCode(String code) async {
+    final curr = SupportedCurrencies.getByCode(code);
+    if (curr != null) {
+      await setCurrency(curr);
+    }
+  }
+
   /// Mark onboarding as complete
   Future<void> completeOnboarding() async {
     _onboardingComplete = true;
@@ -162,98 +170,20 @@ class CurrencyProvider extends ChangeNotifier {
 
   /// Format amount with selected currency
   String formatAmount(double amount) {
-    final formatter = _getFormatter();
-    final formatted = formatter.format(amount);
-    return '${_selectedCurrency.symbol}$formatted';
+    return CurrencyFormatter.format(
+      amount,
+      currencyCode: _selectedCurrency.code,
+      currencySymbol: _selectedCurrency.symbol,
+      decimalDigits: _selectedCurrency.decimalPlaces,
+    );
   }
 
   /// Format amount with compact notation (L/Cr for INR, K/M/B for international)
   String formatAmountCompact(double amount) {
-    final isINR = _selectedCurrency.code == 'INR';
-    final symbol = _selectedCurrency.symbol;
-
-    if (isINR) {
-      if (amount >= 10000000) {
-        return '$symbol${(amount / 10000000).toStringAsFixed(2)}Cr';
-      } else if (amount >= 100000) {
-        return '$symbol${(amount / 100000).toStringAsFixed(2)}L';
-      } else if (amount >= 1000) {
-        return '$symbol${(amount / 1000).toStringAsFixed(1)}K';
-      }
-    } else {
-      if (amount >= 1000000000) {
-        return '$symbol${(amount / 1000000000).toStringAsFixed(2)}B';
-      } else if (amount >= 1000000) {
-        return '$symbol${(amount / 1000000).toStringAsFixed(2)}M';
-      } else if (amount >= 1000) {
-        return '$symbol${(amount / 1000).toStringAsFixed(1)}K';
-      }
-    }
-    return formatAmount(amount);
-  }
-
-  NumberFormat _getFormatter() {
-    final locale = _getLocaleForCurrency(_selectedCurrency.code);
-    return NumberFormat.currency(
-      symbol: '',
-      decimalDigits: _selectedCurrency.decimalPlaces,
-      locale: locale,
+    return CurrencyFormatter.formatCompact(
+      amount,
+      currencyCode: _selectedCurrency.code,
+      currencySymbol: _selectedCurrency.symbol,
     );
-  }
-
-  String _getLocaleForCurrency(String code) {
-    switch (code) {
-      case 'INR':
-        return 'en_IN';
-      case 'USD':
-      case 'GBP':
-      case 'CAD':
-      case 'AUD':
-      case 'SGD':
-      case 'HKD':
-      case 'NZD':
-      case 'PHP':
-      case 'MYR':
-      case 'ZAR':
-      case 'NGN':
-      case 'KES':
-        return 'en_US';
-      case 'EUR':
-        return 'de_DE';
-      case 'JPY':
-        return 'ja_JP';
-      case 'CNY':
-        return 'zh_CN';
-      case 'KRW':
-        return 'ko_KR';
-      case 'BRL':
-        return 'pt_BR';
-      case 'MXN':
-        return 'es_MX';
-      case 'THB':
-        return 'th_TH';
-      case 'IDR':
-        return 'id_ID';
-      case 'VND':
-        return 'vi_VN';
-      case 'PLN':
-        return 'pl_PL';
-      case 'SEK':
-        return 'sv_SE';
-      case 'NOK':
-        return 'nb_NO';
-      case 'DKK':
-        return 'da_DK';
-      case 'CHF':
-        return 'de_CH';
-      case 'AED':
-      case 'SAR':
-      case 'QAR':
-      case 'KWD':
-      case 'BHD':
-        return 'en_US';
-      default:
-        return 'en_US';
-    }
   }
 }
