@@ -371,7 +371,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -380,23 +380,32 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 40,
+                width: 42,
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(99),
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
-                'Create New Document',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Create New Document',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               // Option 1: New Invoice
               InkWell(
                 borderRadius: BorderRadius.circular(16),

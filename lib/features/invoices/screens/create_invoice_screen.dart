@@ -20,6 +20,8 @@ import '../models/line_item_model.dart';
 import '../models/pdf_theme.dart';
 import '../widgets/pdf_theme_picker_sheet.dart';
 import 'invoice_preview_screen.dart';
+import '../../../shared_widgets/app_dialog.dart';
+import '../../../shared_widgets/app_popup_menu.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   final InvoiceModel? existingInvoice;
@@ -1502,20 +1504,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   Future<void> _handleDeleteInvoice() async {
-    final confirm = await showDialog<bool>(
+    final confirm = await AppDialog.showDelete(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Invoice?'),
-        content: const Text('Are you sure you want to delete this invoice?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accentRed, foregroundColor: Colors.white),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      title: 'Delete Invoice?',
+      message: 'Are you sure you want to delete this invoice? This action cannot be undone.',
     );
 
     if (confirm == true && _activeInvoiceId != null) {
@@ -1587,8 +1579,18 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               }
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(value: 'clear', child: Text('Clear Items')),
-              const PopupMenuItem(value: 'reset_tips', child: Text('Reset Helpful Tips')),
+              AppPopupMenuItem.item(
+                value: 'clear',
+                title: 'Clear Items',
+                icon: Icons.clear_all_rounded,
+                iconColor: AppColors.slate600,
+              ),
+              AppPopupMenuItem.item(
+                value: 'reset_tips',
+                title: 'Reset Helpful Tips',
+                icon: Icons.lightbulb_outline_rounded,
+                iconColor: AppColors.primary,
+              ),
             ],
           ),
           const SizedBox(width: 4),

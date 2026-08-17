@@ -22,6 +22,8 @@ import '../services/pdf_generator_service.dart';
 import 'create_invoice_screen.dart';
 import 'invoice_preview_screen.dart';
 import '../../paywall/paywall_screen.dart';
+import '../../../shared_widgets/app_dialog.dart';
+import '../../../shared_widgets/app_popup_menu.dart';
 
 class InvoiceHistoryScreen extends StatefulWidget {
   const InvoiceHistoryScreen({super.key});
@@ -154,89 +156,37 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     await _loadInvoices();
   }
 
-  void _promptPartialPayment(InvoiceModel invoice) {
-    final defaultAmount = invoice.paidAmount > 0
-        ? invoice.paidAmount
-        : (invoice.grandTotal * 0.5);
-    final ctrl = TextEditingController(
-      text: defaultAmount > 0
-          ? defaultAmount.toStringAsFixed(2).replaceAll('.00', '')
-          : '',
-    );
+  Future<void> _promptPartialPayment(InvoiceModel invoice) async {
     final currencySymbol = CurrencyFormatter.getCurrencySymbol(invoice.currency);
-
-    showDialog(
+    final amount = await AppDialog.showPartialPayment(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Record Partial Payment',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Enter amount paid for ${invoice.invoiceNumber} (Total: $currencySymbol${invoice.grandTotal.toStringAsFixed(2)}):',
-              style: const TextStyle(fontSize: 13, color: AppColors.slate600),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                prefixText: '$currencySymbol ',
-                labelText: 'Amount Paid',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final amount = double.tryParse(ctrl.text.trim()) ?? 0.0;
-              Navigator.pop(ctx);
-              if (amount >= invoice.grandTotal && invoice.grandTotal > 0) {
-                _quickUpdateStatus(
-                  invoice,
-                  InvoiceStatus.paid,
-                  paidAmount: invoice.grandTotal,
-                );
-              } else if (amount <= 0) {
-                _quickUpdateStatus(
-                  invoice,
-                  InvoiceStatus.unpaid,
-                  paidAmount: 0.0,
-                );
-              } else {
-                _quickUpdateStatus(
-                  invoice,
-                  InvoiceStatus.partiallyPaid,
-                  paidAmount: amount,
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      documentNumber: invoice.invoiceNumber,
+      grandTotal: invoice.grandTotal,
+      currencySymbol: currencySymbol,
+      currentPaidAmount: invoice.paidAmount,
     );
+
+    if (amount == null) return;
+
+    if (amount >= invoice.grandTotal && invoice.grandTotal > 0) {
+      _quickUpdateStatus(
+        invoice,
+        InvoiceStatus.paid,
+        paidAmount: invoice.grandTotal,
+      );
+    } else if (amount <= 0) {
+      _quickUpdateStatus(
+        invoice,
+        InvoiceStatus.unpaid,
+        paidAmount: 0.0,
+      );
+    } else {
+      _quickUpdateStatus(
+        invoice,
+        InvoiceStatus.partiallyPaid,
+        paidAmount: amount,
+      );
+    }
   }
 
   void _showQuickStatusPicker(InvoiceModel invoice) {
@@ -244,95 +194,105 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 40,
+                width: 42,
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(99),
                 ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Update Status',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Invoice ${invoice.invoiceNumber}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.slate500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-              Text(
-                'Mark ${invoice.invoiceNumber} As',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                leading: const Icon(
-                  Icons.pending_rounded,
-                  color: AppColors.statusUnpaid,
-                ),
-                title: const Text(
-                  'Unpaid',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                trailing: invoice.status == InvoiceStatus.unpaid
-                    ? const Icon(Icons.check_rounded, color: AppColors.primary)
-                    : null,
+              _buildHistoryStatusTile(
+                ctx: ctx,
+                title: 'Unpaid',
+                subtitle: 'Awaiting payment from client',
+                icon: Icons.pending_actions_rounded,
+                iconColor: AppColors.statusUnpaid,
+                bgColor: AppColors.statusUnpaidBg,
+                isSelected: invoice.status == InvoiceStatus.unpaid,
                 onTap: () {
                   Navigator.pop(ctx);
                   _quickUpdateStatus(invoice, InvoiceStatus.unpaid);
                 },
               ),
-              ListTile(
-                leading: const Icon(
-                  Icons.pie_chart_outline_rounded,
-                  color: AppColors.statusPartiallyPaid,
-                ),
-                title: const Text(
-                  'Partially Paid',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                trailing: invoice.status == InvoiceStatus.partiallyPaid
-                    ? const Icon(Icons.check_rounded, color: AppColors.primary)
-                    : null,
+              const SizedBox(height: 8),
+              _buildHistoryStatusTile(
+                ctx: ctx,
+                title: 'Partially Paid',
+                subtitle: 'Record a deposit or partial amount',
+                icon: Icons.pie_chart_outline_rounded,
+                iconColor: AppColors.statusPartiallyPaid,
+                bgColor: AppColors.statusPartiallyPaidBg,
+                isSelected: invoice.status == InvoiceStatus.partiallyPaid,
                 onTap: () {
                   Navigator.pop(ctx);
                   _promptPartialPayment(invoice);
                 },
               ),
-              ListTile(
-                leading: const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.statusPaid,
-                ),
-                title: const Text(
-                  'Paid',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                trailing: invoice.status == InvoiceStatus.paid
-                    ? const Icon(Icons.check_rounded, color: AppColors.primary)
-                    : null,
+              const SizedBox(height: 8),
+              _buildHistoryStatusTile(
+                ctx: ctx,
+                title: 'Paid in Full',
+                subtitle: 'Payment received successfully',
+                icon: Icons.check_circle_rounded,
+                iconColor: AppColors.statusPaid,
+                bgColor: AppColors.statusPaidBg,
+                isSelected: invoice.status == InvoiceStatus.paid,
                 onTap: () {
                   Navigator.pop(ctx);
                   _quickUpdateStatus(invoice, InvoiceStatus.paid);
                 },
               ),
-              ListTile(
-                leading: const Icon(
-                  Icons.error_rounded,
-                  color: AppColors.statusOverdue,
-                ),
-                title: const Text(
-                  'Overdue',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                trailing: invoice.status == InvoiceStatus.overdue
-                    ? const Icon(Icons.check_rounded, color: AppColors.primary)
-                    : null,
+              const SizedBox(height: 8),
+              _buildHistoryStatusTile(
+                ctx: ctx,
+                title: 'Overdue',
+                subtitle: 'Past payment due date',
+                icon: Icons.alarm_off_rounded,
+                iconColor: AppColors.statusOverdue,
+                bgColor: AppColors.statusOverdueBg,
+                isSelected: invoice.status == InvoiceStatus.overdue,
                 onTap: () {
                   Navigator.pop(ctx);
                   _quickUpdateStatus(invoice, InvoiceStatus.overdue);
@@ -345,30 +305,77 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     );
   }
 
-  Future<void> _deleteInvoice(InvoiceModel invoice) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Invoice?'),
-        content: Text(
-          'Delete ${invoice.invoiceNumber}? This cannot be undone.',
+  Widget _buildHistoryStatusTile({
+    required BuildContext ctx,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryMuted : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppColors.primaryLight : AppColors.cardBorder,
+            width: isSelected ? 1.5 : 1.0,
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accentRed,
-              foregroundColor: Colors.white,
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
             ),
-            child: const Text('Delete'),
-          ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.slate500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22),
+          ],
+        ),
       ),
+    );
+  }
+
+  Future<void> _deleteInvoice(InvoiceModel invoice) async {
+    final confirm = await AppDialog.showDelete(
+      context: context,
+      title: 'Delete Invoice?',
+      message: 'Delete ${invoice.invoiceNumber}? This action cannot be undone.',
     );
     if (confirm == true) {
       await DbProvider.delete(DbProvider.tableInvoices, 'id = ?', [invoice.id]);
@@ -1010,32 +1017,37 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                     if (action == 'delete') _deleteInvoice(invoice);
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(
+                    AppPopupMenuItem.item(
                       value: 'preview',
-                      child: Text('View Details'),
+                      title: 'View Details',
+                      icon: Icons.visibility_outlined,
                     ),
-                    const PopupMenuItem(
+                    AppPopupMenuItem.item(
                       value: 'edit',
-                      child: Text('Edit Invoice'),
+                      title: 'Edit Invoice',
+                      icon: Icons.edit_outlined,
                     ),
-                    const PopupMenuItem(
+                    AppPopupMenuItem.item(
                       value: 'share',
-                      child: Text('Share PDF'),
+                      title: 'Share PDF',
+                      icon: Icons.share_outlined,
                     ),
-                    const PopupMenuItem(
+                    AppPopupMenuItem.item(
                       value: 'save',
-                      child: Text('Save PDF'),
+                      title: 'Save PDF',
+                      icon: Icons.download_rounded,
                     ),
-                    const PopupMenuItem(
+                    AppPopupMenuItem.item(
                       value: 'print',
-                      child: Text('Print'),
+                      title: 'Print',
+                      icon: Icons.print_outlined,
                     ),
-                    const PopupMenuItem(
+                    AppPopupMenuItem.divider(),
+                    AppPopupMenuItem.item(
                       value: 'delete',
-                      child: Text(
-                        'Delete',
-                        style: TextStyle(color: AppColors.accentRed),
-                      ),
+                      title: 'Delete Invoice',
+                      icon: Icons.delete_outline_rounded,
+                      isDestructive: true,
                     ),
                   ],
                 ),

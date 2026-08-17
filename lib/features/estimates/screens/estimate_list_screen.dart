@@ -21,6 +21,8 @@ import '../../paywall/paywall_screen.dart';
 import '../models/estimate_model.dart';
 import 'create_estimate_screen.dart';
 import 'estimate_preview_screen.dart';
+import '../../../shared_widgets/app_dialog.dart';
+import '../../../shared_widgets/app_popup_menu.dart';
 
 class EstimateListScreen extends StatefulWidget {
   const EstimateListScreen({super.key});
@@ -163,27 +165,10 @@ class EstimateListScreenState extends State<EstimateListScreen> {
   }
 
   Future<void> _convertToInvoice(EstimateModel estimate) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await AppDialog.showConvertEstimate(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Convert to Invoice?'),
-        content: Text('Convert ${estimate.estimateNumber} for ${estimate.clientName} into an active Invoice?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Convert'),
-          ),
-        ],
-      ),
+      estimateNumber: estimate.estimateNumber,
+      clientName: estimate.clientName,
     );
 
     if (confirm != true) return;
@@ -300,27 +285,10 @@ class EstimateListScreenState extends State<EstimateListScreen> {
   }
 
   Future<void> _deleteEstimate(EstimateModel estimate) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await AppDialog.showDelete(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Estimate?'),
-        content: Text('Are you sure you want to delete ${estimate.estimateNumber}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accentRed,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      title: 'Delete Estimate?',
+      message: 'Are you sure you want to delete ${estimate.estimateNumber}? This action cannot be undone.',
     );
 
     if (confirm == true) {
@@ -772,7 +740,6 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                     ),
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert_rounded, size: 20, color: AppColors.slate500),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       onSelected: (val) {
                         switch (val) {
                           case 'convert':
@@ -800,67 +767,44 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                       },
                       itemBuilder: (ctx) => [
                         if (estimate.canConvert)
-                          const PopupMenuItem(
+                          AppPopupMenuItem.item(
                             value: 'convert',
-                            child: Row(
-                              children: [
-                                Icon(Icons.transform_rounded, size: 18, color: Color(0xFF10B981)),
-                                SizedBox(width: 10),
-                                Text('Convert to Invoice', style: TextStyle(fontWeight: FontWeight.w700)),
-                              ],
-                            ),
+                            title: 'Convert to Invoice',
+                            icon: Icons.transform_rounded,
+                            iconColor: const Color(0xFF10B981),
+                            iconBgColor: const Color(0xFFDCFCE7),
                           ),
-                        const PopupMenuItem(
+                        AppPopupMenuItem.item(
                           value: 'preview',
-                          child: Row(
-                            children: [
-                              Icon(Icons.visibility_outlined, size: 18, color: AppColors.primary),
-                              SizedBox(width: 10),
-                              Text('View / Edit'),
-                            ],
-                          ),
+                          title: 'View Details',
+                          icon: Icons.visibility_outlined,
                         ),
-                        const PopupMenuItem(
+                        AppPopupMenuItem.item(
                           value: 'share',
-                          child: Row(
-                            children: [
-                              Icon(Icons.share_outlined, size: 18, color: AppColors.primary),
-                              SizedBox(width: 10),
-                              Text('Share PDF'),
-                            ],
-                          ),
+                          title: 'Share PDF',
+                          icon: Icons.share_outlined,
                         ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem(
+                        AppPopupMenuItem.divider(),
+                        AppPopupMenuItem.item(
                           value: 'accepted',
-                          child: Row(
-                            children: [
-                              Icon(Icons.check_circle_outline_rounded, size: 18, color: Color(0xFF10B981)),
-                              SizedBox(width: 10),
-                              Text('Mark Accepted'),
-                            ],
-                          ),
+                          title: 'Mark Accepted',
+                          icon: Icons.check_circle_outline_rounded,
+                          iconColor: const Color(0xFF10B981),
+                          iconBgColor: const Color(0xFFDCFCE7),
                         ),
-                        const PopupMenuItem(
+                        AppPopupMenuItem.item(
                           value: 'declined',
-                          child: Row(
-                            children: [
-                              Icon(Icons.cancel_outlined, size: 18, color: Color(0xFFEF4444)),
-                              SizedBox(width: 10),
-                              Text('Mark Declined'),
-                            ],
-                          ),
+                          title: 'Mark Declined',
+                          icon: Icons.cancel_outlined,
+                          iconColor: const Color(0xFFEF4444),
+                          iconBgColor: const Color(0xFFFEE2E2),
                         ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem(
+                        AppPopupMenuItem.divider(),
+                        AppPopupMenuItem.item(
                           value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.accentRed),
-                              SizedBox(width: 10),
-                              Text('Delete', style: TextStyle(color: AppColors.accentRed)),
-                            ],
-                          ),
+                          title: 'Delete Estimate',
+                          icon: Icons.delete_outline_rounded,
+                          isDestructive: true,
                         ),
                       ],
                     ),

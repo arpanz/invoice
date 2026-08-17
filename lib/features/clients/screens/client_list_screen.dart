@@ -12,6 +12,8 @@ import '../../../shared_widgets/empty_state_view.dart';
 import '../../../shared_widgets/primary_button.dart';
 import '../../paywall/paywall_screen.dart';
 import '../models/client_model.dart';
+import '../../../shared_widgets/app_dialog.dart';
+import '../../../shared_widgets/app_popup_menu.dart';
 
 class ClientListScreen extends StatefulWidget {
   final bool selectionMode;
@@ -83,90 +85,134 @@ class _ClientListScreenState extends State<ClientListScreen> {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 24,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 32,
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
         ),
         child: Form(
           key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.slate300,
-                    borderRadius: BorderRadius.circular(2),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.slate300,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                client == null ? 'Add New Client' : 'Edit Client',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.squirclePurple,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.person_outline_rounded,
+                            color: AppColors.squirclePurpleIcon,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              client == null ? 'Add New Client' : 'Edit Client',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              client == null
+                                  ? 'Save details for fast invoicing'
+                                  : 'Update client information',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.slate500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              CustomTextField(
-                label: 'Client Name *',
-                hint: 'John Doe / Acme Corp',
-                controller: nameCtrl,
-                textCapitalization: TextCapitalization.words,
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              CustomTextField(
-                label: 'Email',
-                hint: 'client@example.com',
-                controller: emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 12),
-              CustomTextField(
-                label: 'Phone',
-                hint: '+1 (555) 012-3456',
-                controller: phoneCtrl,
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 12),
-              CustomTextField(
-                label: 'Address',
-                hint: '123 Main St, City',
-                controller: addressCtrl,
-                maxLines: 2,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 12),
-              CustomTextField(
-                label: taxIdLabel,
-                hint: taxIdHint,
-                controller: gstinCtrl,
-                textCapitalization: TextCapitalization.characters,
-              ),
-              const SizedBox(height: 24),
-              PrimaryButton(
-                label: client == null ? 'Add Client' : 'Save Changes',
-                onPressed: () {
-                  if (formKey.currentState!.validate()) {
-                    Navigator.pop(ctx, true);
-                  }
-                },
-              ),
-            ],
+                const SizedBox(height: 18),
+                CustomTextField(
+                  label: 'Client Name *',
+                  hint: 'John Doe / Acme Corp',
+                  controller: nameCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                CustomTextField(
+                  label: 'Email',
+                  hint: 'client@example.com',
+                  controller: emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 12),
+                CustomTextField(
+                  label: 'Phone',
+                  hint: '+1 (555) 012-3456',
+                  controller: phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 12),
+                CustomTextField(
+                  label: 'Address',
+                  hint: '123 Main St, City',
+                  controller: addressCtrl,
+                  maxLines: 2,
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+                const SizedBox(height: 12),
+                CustomTextField(
+                  label: taxIdLabel,
+                  hint: taxIdHint,
+                  controller: gstinCtrl,
+                  textCapitalization: TextCapitalization.characters,
+                ),
+                const SizedBox(height: 22),
+                PrimaryButton(
+                  label: client == null ? 'Add Client' : 'Save Changes',
+                  onPressed: () {
+                    if (formKey.currentState!.validate()) {
+                      Navigator.pop(ctx, true);
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -191,26 +237,10 @@ class _ClientListScreenState extends State<ClientListScreen> {
   }
 
   Future<void> _deleteClient(ClientModel client) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await AppDialog.showDelete(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Client?'),
-        content: Text('Are you sure you want to delete "${client.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: AppColors.accentRed),
-            ),
-          ),
-        ],
-      ),
+      title: 'Delete Client?',
+      message: 'Are you sure you want to delete "${client.name}"? This action cannot be undone.',
     );
     if (confirm == true) {
       await DbProvider.delete(DbProvider.tableClients, 'id = ?', [client.id]);
@@ -394,9 +424,6 @@ class _ClientListScreenState extends State<ClientListScreen> {
               ? const Icon(Icons.chevron_right_rounded, color: AppColors.primary)
               : PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert_rounded, color: AppColors.slate400),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                   onSelected: (value) {
                     if (value == 'edit') {
                       _showAddEditDialog(client: client);
@@ -404,28 +431,17 @@ class _ClientListScreenState extends State<ClientListScreen> {
                     if (value == 'delete') _deleteClient(client);
                   },
                   itemBuilder: (_) => [
-                    PopupMenuItem(
+                    AppPopupMenuItem.item(
                       value: 'edit',
-                      child: Row(
-                        children: const [
-                          Icon(Icons.edit_outlined, size: 18, color: AppColors.slate600),
-                          SizedBox(width: 10),
-                          Text('Edit'),
-                        ],
-                      ),
+                      title: 'Edit Client',
+                      icon: Icons.edit_outlined,
                     ),
-                    PopupMenuItem(
+                    AppPopupMenuItem.divider(),
+                    AppPopupMenuItem.item(
                       value: 'delete',
-                      child: Row(
-                        children: const [
-                          Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.accentRed),
-                          SizedBox(width: 10),
-                          Text(
-                            'Delete',
-                            style: TextStyle(color: AppColors.accentRed),
-                          ),
-                        ],
-                      ),
+                      title: 'Delete Client',
+                      icon: Icons.delete_outline_rounded,
+                      isDestructive: true,
                     ),
                   ],
                 ),

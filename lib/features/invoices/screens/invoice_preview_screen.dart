@@ -19,6 +19,7 @@ import '../models/pdf_theme.dart';
 import '../services/pdf_generator_service.dart';
 import '../widgets/invoice_customizer_studio_sheet.dart';
 import 'create_invoice_screen.dart';
+import '../../../shared_widgets/app_dialog.dart';
 
 class InvoicePreviewScreen extends StatefulWidget {
   final InvoiceModel invoice;
@@ -222,86 +223,34 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     await _generateAndRasterizePdf();
   }
 
-  void _promptPartialPayment() {
-    final defaultAmount = _invoice.paidAmount > 0
-        ? _invoice.paidAmount
-        : (_invoice.grandTotal * 0.5);
-    final ctrl = TextEditingController(
-      text: defaultAmount > 0
-          ? defaultAmount.toStringAsFixed(2).replaceAll('.00', '')
-          : '',
-    );
+  Future<void> _promptPartialPayment() async {
     final currencySymbol = CurrencyFormatter.getCurrencySymbol(_invoice.currency);
-
-    showDialog(
+    final amount = await AppDialog.showPartialPayment(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Record Partial Payment',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Enter amount paid for ${_invoice.invoiceNumber} (Total: $currencySymbol${_invoice.grandTotal.toStringAsFixed(2)}):',
-              style: const TextStyle(fontSize: 13, color: AppColors.slate600),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                prefixText: '$currencySymbol ',
-                labelText: 'Amount Paid',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final amount = double.tryParse(ctrl.text.trim()) ?? 0.0;
-              Navigator.pop(ctx);
-              if (amount >= _invoice.grandTotal && _invoice.grandTotal > 0) {
-                _updateStatus(
-                  InvoiceStatus.paid,
-                  paidAmount: _invoice.grandTotal,
-                );
-              } else if (amount <= 0) {
-                _updateStatus(
-                  InvoiceStatus.unpaid,
-                  paidAmount: 0.0,
-                );
-              } else {
-                _updateStatus(
-                  InvoiceStatus.partiallyPaid,
-                  paidAmount: amount,
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      documentNumber: _invoice.invoiceNumber,
+      grandTotal: _invoice.grandTotal,
+      currencySymbol: currencySymbol,
+      currentPaidAmount: _invoice.paidAmount,
     );
+
+    if (amount == null) return;
+
+    if (amount >= _invoice.grandTotal && _invoice.grandTotal > 0) {
+      _updateStatus(
+        InvoiceStatus.paid,
+        paidAmount: _invoice.grandTotal,
+      );
+    } else if (amount <= 0) {
+      _updateStatus(
+        InvoiceStatus.unpaid,
+        paidAmount: 0.0,
+      );
+    } else {
+      _updateStatus(
+        InvoiceStatus.partiallyPaid,
+        paidAmount: amount,
+      );
+    }
   }
 
   void _showStatusPicker() {
@@ -309,53 +258,87 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 40,
+                width: 42,
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(99),
                 ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Change Invoice Status',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Invoice ${_invoice.invoiceNumber}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.slate500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Change Invoice Status',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
               _buildStatusOption(
                 InvoiceStatus.unpaid,
                 'Unpaid',
+                'Awaiting payment from client',
+                Icons.pending_actions_rounded,
                 AppColors.statusUnpaid,
                 AppColors.statusUnpaidBg,
               ),
+              const SizedBox(height: 8),
               _buildStatusOption(
                 InvoiceStatus.partiallyPaid,
                 'Partially Paid',
+                'Record a deposit or partial amount',
+                Icons.pie_chart_outline_rounded,
                 AppColors.statusPartiallyPaid,
                 AppColors.statusPartiallyPaidBg,
               ),
+              const SizedBox(height: 8),
               _buildStatusOption(
                 InvoiceStatus.paid,
-                'Paid',
+                'Paid in Full',
+                'Payment received successfully',
+                Icons.check_circle_rounded,
                 AppColors.statusPaid,
                 AppColors.statusPaidBg,
               ),
+              const SizedBox(height: 8),
               _buildStatusOption(
                 InvoiceStatus.overdue,
                 'Overdue',
+                'Past payment due date',
+                Icons.alarm_off_rounded,
                 AppColors.statusOverdue,
                 AppColors.statusOverdueBg,
               ),
@@ -369,39 +352,14 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   Widget _buildStatusOption(
     InvoiceStatus status,
     String label,
+    String subtitle,
+    IconData icon,
     Color color,
-    Color bg,
+    Color bgColor,
   ) {
     final isSelected = _invoice.status == status;
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: bg,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          status == InvoiceStatus.paid
-              ? Icons.check_circle_rounded
-              : status == InvoiceStatus.partiallyPaid
-                  ? Icons.pie_chart_outline_rounded
-                  : status == InvoiceStatus.overdue
-                      ? Icons.error_rounded
-                      : Icons.pending_rounded,
-          color: color,
-          size: 20,
-        ),
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          color: isSelected ? color : AppColors.textPrimary,
-        ),
-      ),
-      trailing: isSelected
-          ? Icon(Icons.check_rounded, color: color)
-          : null,
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
       onTap: () {
         Navigator.pop(context);
         if (status == InvoiceStatus.partiallyPaid) {
@@ -410,6 +368,56 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
           _updateStatus(status);
         }
       },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryMuted : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppColors.primaryLight : AppColors.cardBorder,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.slate500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22),
+          ],
+        ),
+      ),
     );
   }
 
@@ -490,31 +498,52 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 40,
+                width: 42,
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(99),
                 ),
               ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.palette_outlined, color: AppColors.slate700),
-                title: const Text('Change PDF Theme'),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'More Actions',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _buildActionTile(
+                icon: Icons.palette_outlined,
+                iconColor: AppColors.squirclePurpleIcon,
+                bgColor: AppColors.squirclePurple,
+                title: 'Change PDF Theme',
+                subtitle: 'Customize typography, colors & layout',
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: _currentTheme.previewBg,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: _currentTheme.previewPrimary.withValues(alpha: 0.3)),
                   ),
                   child: Text(
@@ -531,28 +560,33 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                   _openThemePicker();
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.copy_rounded, color: AppColors.slate700),
-                title: const Text('Duplicate Invoice'),
+              const SizedBox(height: 8),
+              _buildActionTile(
+                icon: Icons.copy_rounded,
+                iconColor: AppColors.squircleCyanIcon,
+                bgColor: AppColors.squircleCyan,
+                title: 'Duplicate Invoice',
+                subtitle: 'Create a new copy with same items',
                 onTap: () async {
                   Navigator.pop(ctx);
                   await _duplicateInvoice();
                 },
               ),
-              ListTile(
-                leading: Icon(
-                  _invoice.status == InvoiceStatus.paid
-                      ? Icons.pending_outlined
-                      : Icons.check_circle_outline_rounded,
-                  color: _invoice.status == InvoiceStatus.paid
-                      ? AppColors.statusUnpaid
-                      : AppColors.statusPaid,
-                ),
-                title: Text(
-                  _invoice.status == InvoiceStatus.paid
-                      ? 'Mark as Unpaid'
-                      : 'Mark as Paid',
-                ),
+              const SizedBox(height: 8),
+              _buildActionTile(
+                icon: _invoice.status == InvoiceStatus.paid
+                    ? Icons.pending_outlined
+                    : Icons.check_circle_outline_rounded,
+                iconColor: _invoice.status == InvoiceStatus.paid
+                    ? AppColors.statusUnpaid
+                    : AppColors.statusPaid,
+                bgColor: _invoice.status == InvoiceStatus.paid
+                    ? AppColors.statusUnpaidBg
+                    : AppColors.statusPaidBg,
+                title: _invoice.status == InvoiceStatus.paid
+                    ? 'Mark as Unpaid'
+                    : 'Mark as Paid',
+                subtitle: 'Toggle current payment state',
                 onTap: () {
                   Navigator.pop(ctx);
                   _updateStatus(
@@ -562,21 +596,26 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                   );
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.share_outlined, color: AppColors.slate700),
-                title: const Text('Share Invoice Link / File'),
+              const SizedBox(height: 8),
+              _buildActionTile(
+                icon: Icons.share_outlined,
+                iconColor: AppColors.primary,
+                bgColor: AppColors.squircleBlue,
+                title: 'Share Invoice Link / File',
+                subtitle: 'Export or send PDF via email/apps',
                 onTap: () {
                   Navigator.pop(ctx);
                   _sendInvoice();
                 },
               ),
-              const Divider(height: 16),
-              ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: AppColors.accentRed),
-                title: const Text(
-                  'Delete Invoice',
-                  style: TextStyle(color: AppColors.accentRed, fontWeight: FontWeight.w600),
-                ),
+              const SizedBox(height: 8),
+              _buildActionTile(
+                icon: Icons.delete_outline_rounded,
+                iconColor: AppColors.accentRed,
+                bgColor: const Color(0xFFFEE2E2),
+                title: 'Delete Invoice',
+                subtitle: 'Permanently remove this invoice',
+                isDestructive: true,
                 onTap: () async {
                   Navigator.pop(ctx);
                   await _confirmDelete();
@@ -584,6 +623,71 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Widget? trailing,
+    bool isDestructive = false,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDestructive
+                ? AppColors.accentRed.withValues(alpha: 0.2)
+                : AppColors.cardBorder,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isDestructive ? AppColors.accentRed : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.slate500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (trailing != null) trailing,
+          ],
         ),
       ),
     );
@@ -620,27 +724,10 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   }
 
   Future<void> _confirmDelete() async {
-    final confirm = await showDialog<bool>(
+    final confirm = await AppDialog.showDelete(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Delete Invoice?'),
-        content: Text('Are you sure you want to delete ${_invoice.invoiceNumber}? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accentRed,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      title: 'Delete Invoice?',
+      message: 'Are you sure you want to delete ${_invoice.invoiceNumber}? This action cannot be undone.',
     );
 
     if (confirm == true) {

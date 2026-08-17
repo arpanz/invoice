@@ -19,6 +19,7 @@ import '../../invoices/services/pdf_generator_service.dart';
 import '../../invoices/widgets/invoice_customizer_studio_sheet.dart';
 import '../models/estimate_model.dart';
 import 'create_estimate_screen.dart';
+import '../../../shared_widgets/app_dialog.dart';
 
 class EstimatePreviewScreen extends StatefulWidget {
   final EstimateModel estimate;
@@ -197,54 +198,91 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 40,
+                width: 42,
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(99),
                 ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Update Status',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Estimate ${_estimate.estimateNumber}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.slate500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Update Estimate Status',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                leading: Icon(EstimateStatus.pending.icon, color: EstimateStatus.pending.color),
-                title: const Text('Pending', style: TextStyle(fontWeight: FontWeight.w600)),
-                trailing: _estimate.status == EstimateStatus.pending ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
+              _buildEstimateStatusTile(
+                ctx: ctx,
+                title: 'Pending',
+                subtitle: 'Waiting for client approval',
+                icon: EstimateStatus.pending.icon,
+                iconColor: EstimateStatus.pending.color,
+                bgColor: AppColors.squircleOrange,
+                isSelected: _estimate.status == EstimateStatus.pending,
                 onTap: () {
                   Navigator.pop(ctx);
                   _updateStatus(EstimateStatus.pending);
                 },
               ),
-              ListTile(
-                leading: Icon(EstimateStatus.accepted.icon, color: EstimateStatus.accepted.color),
-                title: const Text('Accepted', style: TextStyle(fontWeight: FontWeight.w600)),
-                trailing: _estimate.status == EstimateStatus.accepted ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
+              const SizedBox(height: 8),
+              _buildEstimateStatusTile(
+                ctx: ctx,
+                title: 'Accepted',
+                subtitle: 'Client has approved this estimate',
+                icon: EstimateStatus.accepted.icon,
+                iconColor: EstimateStatus.accepted.color,
+                bgColor: AppColors.squircleGreen,
+                isSelected: _estimate.status == EstimateStatus.accepted,
                 onTap: () {
                   Navigator.pop(ctx);
                   _updateStatus(EstimateStatus.accepted);
                 },
               ),
-              ListTile(
-                leading: Icon(EstimateStatus.declined.icon, color: EstimateStatus.declined.color),
-                title: const Text('Declined', style: TextStyle(fontWeight: FontWeight.w600)),
-                trailing: _estimate.status == EstimateStatus.declined ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
+              const SizedBox(height: 8),
+              _buildEstimateStatusTile(
+                ctx: ctx,
+                title: 'Declined',
+                subtitle: 'Estimate was not accepted',
+                icon: EstimateStatus.declined.icon,
+                iconColor: EstimateStatus.declined.color,
+                bgColor: const Color(0xFFFEE2E2),
+                isSelected: _estimate.status == EstimateStatus.declined,
                 onTap: () {
                   Navigator.pop(ctx);
                   _updateStatus(EstimateStatus.declined);
@@ -257,38 +295,77 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
     );
   }
 
-  Future<void> _convertToInvoice() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Row(
+  Widget _buildEstimateStatusTile({
+    required BuildContext ctx,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryMuted : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppColors.primaryLight : AppColors.cardBorder,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
           children: [
-            Icon(Icons.receipt_long_rounded, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Convert to Invoice?'),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.slate500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22),
           ],
         ),
-        content: Text(
-          'This will generate a new Invoice from ${_estimate.estimateNumber} for ${_estimate.clientName} and mark this estimate as Converted.',
-          style: const TextStyle(fontSize: 14, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Convert Now'),
-          ),
-        ],
       ),
+    );
+  }
+
+  Future<void> _convertToInvoice() async {
+    final confirm = await AppDialog.showConvertEstimate(
+      context: context,
+      estimateNumber: _estimate.estimateNumber,
+      clientName: _estimate.clientName,
     );
 
     if (confirm != true) return;

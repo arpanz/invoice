@@ -181,117 +181,84 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   void _showLogoOptions() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.slate300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Business Logo',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 42,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.squirclePurple,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.photo_library_outlined,
-                  color: AppColors.squirclePurpleIcon,
-                  size: 20,
+                  color: AppColors.slate300,
+                  borderRadius: BorderRadius.circular(99),
                 ),
               ),
-              title: const Text(
-                'Choose from Gallery',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-              ),
-              subtitle: const Text(
-                'Select existing PNG or JPEG file',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickLogo(ImageSource.gallery);
-              },
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.squircleCyan,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.camera_alt_outlined,
-                  color: AppColors.squircleCyanIcon,
-                  size: 20,
-                ),
-              ),
-              title: const Text(
-                'Take Photo',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-              ),
-              subtitle: const Text(
-                'Capture company logo using camera',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickLogo(ImageSource.camera);
-              },
-            ),
-            if (_logoPath != null) ...[
-              const Divider(height: 16),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.statusOverdueBg,
-                    borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Business Logo',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.delete_outline_rounded,
-                    color: AppColors.accentRed,
-                    size: 20,
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    onPressed: () => Navigator.pop(ctx),
                   ),
-                ),
-                title: const Text(
-                  'Remove Logo',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: AppColors.accentRed,
-                  ),
-                ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _buildMediaOptionCard(
+                icon: Icons.photo_library_outlined,
+                iconColor: AppColors.squirclePurpleIcon,
+                bgColor: AppColors.squirclePurple,
+                title: 'Choose from Gallery',
+                subtitle: 'Select an existing PNG or JPEG image',
                 onTap: () {
                   Navigator.pop(ctx);
-                  setState(() => _logoPath = null);
-                  HapticFeedback.lightImpact();
+                  _pickLogo(ImageSource.gallery);
                 },
               ),
+              const SizedBox(height: 8),
+              _buildMediaOptionCard(
+                icon: Icons.camera_alt_outlined,
+                iconColor: AppColors.squircleCyanIcon,
+                bgColor: AppColors.squircleCyan,
+                title: 'Take Photo',
+                subtitle: 'Capture company logo using camera',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickLogo(ImageSource.camera);
+                },
+              ),
+              if (_logoPath != null) ...[
+                const SizedBox(height: 8),
+                _buildMediaOptionCard(
+                  icon: Icons.delete_outline_rounded,
+                  iconColor: AppColors.accentRed,
+                  bgColor: const Color(0xFFFEE2E2),
+                  title: 'Remove Logo',
+                  subtitle: 'Clear current logo image',
+                  isDestructive: true,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _logoPath = null);
+                    HapticFeedback.lightImpact();
+                  },
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -330,116 +297,146 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   void _showSignatureOptions() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.slate300,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Authorized Signature',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _buildMediaOptionCard(
+                icon: Icons.draw_rounded,
+                iconColor: AppColors.squirclePurpleIcon,
+                bgColor: AppColors.squirclePurple,
+                title: 'Draw Signature on Screen',
+                subtitle: 'Sign smoothly with your finger or stylus',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openSignatureDrawingPad();
+                },
+              ),
+              const SizedBox(height: 8),
+              _buildMediaOptionCard(
+                icon: Icons.image_outlined,
+                iconColor: AppColors.squircleTealIcon,
+                bgColor: AppColors.squircleTeal,
+                title: 'Upload Image from Gallery',
+                subtitle: 'PNG with transparent background recommended',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickSignatureFromGallery();
+                },
+              ),
+              if (_signaturePath != null) ...[
+                const SizedBox(height: 8),
+                _buildMediaOptionCard(
+                  icon: Icons.delete_outline_rounded,
+                  iconColor: AppColors.accentRed,
+                  bgColor: const Color(0xFFFEE2E2),
+                  title: 'Remove Signature',
+                  subtitle: 'Clear current signature',
+                  isDestructive: true,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _signaturePath = null);
+                    HapticFeedback.lightImpact();
+                  },
+                ),
+              ],
+            ],
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      ),
+    );
+  }
+
+  Widget _buildMediaOptionCard({
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDestructive
+                ? AppColors.accentRed.withValues(alpha: 0.2)
+                : AppColors.cardBorder,
+          ),
+        ),
+        child: Row(
           children: [
             Container(
               width: 40,
-              height: 4,
+              height: 40,
               decoration: BoxDecoration(
-                color: AppColors.slate300,
-                borderRadius: BorderRadius.circular(2),
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(icon, color: iconColor, size: 20),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Authorized Signature',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.squirclePurple,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.draw_rounded,
-                  color: AppColors.squirclePurpleIcon,
-                  size: 20,
-                ),
-              ),
-              title: const Text(
-                'Draw Signature on Screen',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-              ),
-              subtitle: const Text(
-                'Sign with your finger or stylus pen',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                _openSignatureDrawingPad();
-              },
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.squircleTeal,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.image_outlined,
-                  color: AppColors.squircleTealIcon,
-                  size: 20,
-                ),
-              ),
-              title: const Text(
-                'Upload Image from Gallery',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-              ),
-              subtitle: const Text(
-                'PNG with transparent background recommended',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickSignatureFromGallery();
-              },
-            ),
-            if (_signaturePath != null) ...[
-              const Divider(height: 16),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.statusOverdueBg,
-                    borderRadius: BorderRadius.circular(10),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: isDestructive ? AppColors.accentRed : AppColors.textPrimary,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.delete_outline_rounded,
-                    color: AppColors.accentRed,
-                    size: 20,
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.slate500,
+                    ),
                   ),
-                ),
-                title: const Text(
-                  'Remove Signature',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: AppColors.accentRed,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  setState(() => _signaturePath = null);
-                  HapticFeedback.lightImpact();
-                },
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),

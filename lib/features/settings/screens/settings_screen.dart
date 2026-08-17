@@ -24,7 +24,8 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   PdfTheme _defaultTheme = PdfTheme.defaultTheme;
-  InvoiceCustomizationConfig _defaultConfig = InvoiceCustomizationConfig.defaultConfig;
+  InvoiceCustomizationConfig _defaultConfig =
+      InvoiceCustomizationConfig.defaultConfig;
 
   @override
   void initState() {
@@ -36,7 +37,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     final savedConfigJson = prefs.getString('default_invoice_customization');
     if (savedConfigJson != null && mounted) {
-      final parsed = InvoiceCustomizationConfig.tryFromJsonString(savedConfigJson);
+      final parsed = InvoiceCustomizationConfig.tryFromJsonString(
+        savedConfigJson,
+      );
       if (parsed != null) {
         setState(() {
           _defaultConfig = parsed;
@@ -495,7 +498,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           );
           if (updated != null && mounted) {
             final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('default_invoice_customization', updated.toJsonString());
+            await prefs.setString(
+              'default_invoice_customization',
+              updated.toJsonString(),
+            );
             await prefs.setString('default_pdf_theme', updated.themeId.value);
             setState(() {
               _defaultConfig = updated;

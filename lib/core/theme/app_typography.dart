@@ -191,6 +191,120 @@ class AppTypography {
           thickness: 1,
           space: 1,
         ),
+        dialogTheme: DialogThemeData(
+          backgroundColor: AppColors.surface,
+          surfaceTintColor: Colors.transparent,
+          elevation: 16,
+          shadowColor: AppColors.slate900.withValues(alpha: 0.16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: AppColors.cardBorder, width: 1),
+          ),
+          titleTextStyle: GoogleFonts.inter(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+          contentTextStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: AppColors.slate600,
+            height: 1.45,
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        ),
+        popupMenuTheme: PopupMenuThemeData(
+          color: AppColors.surface,
+          surfaceTintColor: Colors.transparent,
+          elevation: 12,
+          shadowColor: AppColors.slate900.withValues(alpha: 0.12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppColors.cardBorder, width: 1),
+          ),
+          textStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+          menuPadding: const EdgeInsets.symmetric(vertical: 6),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: AppColors.surface,
+          surfaceTintColor: Colors.transparent,
+          elevation: 16,
+          modalBarrierColor: Color.fromRGBO(15, 23, 42, 0.45),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          clipBehavior: Clip.antiAliasWithSaveLayer,
+          showDragHandle: false,
+        ),
+        datePickerTheme: DatePickerThemeData(
+          backgroundColor: AppColors.surface,
+          surfaceTintColor: Colors.transparent,
+          elevation: 16,
+          shadowColor: AppColors.slate900.withValues(alpha: 0.16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: AppColors.cardBorder, width: 1),
+          ),
+          headerBackgroundColor: AppColors.primary,
+          headerForegroundColor: Colors.white,
+          headerHeadlineStyle: GoogleFonts.inter(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
+          headerHelpStyle: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.85),
+          ),
+          weekdayStyle: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppColors.slate500,
+          ),
+          dayStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textPrimary,
+          ),
+          todayForegroundColor: WidgetStateProperty.all(AppColors.primary),
+          todayBorder: const BorderSide(color: AppColors.primary, width: 1.5),
+          yearStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        timePickerTheme: TimePickerThemeData(
+          backgroundColor: AppColors.surface,
+          elevation: 16,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: AppColors.cardBorder, width: 1),
+          ),
+          hourMinuteShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          dayPeriodShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.slate900,
+          contentTextStyle: GoogleFonts.inter(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          elevation: 8,
+        ),
         chipTheme: ChipThemeData(
           backgroundColor: AppColors.slate100,
           labelStyle:
