@@ -7,7 +7,7 @@ class DbProvider {
   static Database? _database;
 
   static const String _dbName = 'invoice_maker_pro.db';
-  static const int _dbVersion = 3;
+  static const int _dbVersion = 4;
 
   // Table names
   static const String tableClients = 'clients';
@@ -15,6 +15,7 @@ class DbProvider {
   static const String tableLineItems = 'line_items';
   static const String tableEstimates = 'estimates';
   static const String tableEstimateLineItems = 'estimate_line_items';
+  static const String tableSavedItems = 'saved_items';
 
   static Future<Database> get database async {
     _database ??= await _initDatabase();
@@ -134,6 +135,24 @@ class DbProvider {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE $tableSavedItems (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        unit_price REAL NOT NULL DEFAULT 0,
+        unit TEXT DEFAULT 'pcs',
+        hsn_code TEXT,
+        category TEXT,
+        is_taxable INTEGER DEFAULT 1,
+        tax_rate REAL DEFAULT 0,
+        discount_rate REAL DEFAULT 0,
+        default_quantity REAL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+
     // Indexes for performance
     await db.execute('CREATE INDEX idx_invoices_client ON $tableInvoices(client_id)');
     await db.execute('CREATE INDEX idx_invoices_status ON $tableInvoices(status)');
@@ -141,6 +160,8 @@ class DbProvider {
     await db.execute('CREATE INDEX idx_estimates_client ON $tableEstimates(client_id)');
     await db.execute('CREATE INDEX idx_estimates_status ON $tableEstimates(status)');
     await db.execute('CREATE INDEX idx_estimate_line_items_estimate ON $tableEstimateLineItems(estimate_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_saved_items_category ON $tableSavedItems(category)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_saved_items_name ON $tableSavedItems(name)');
   }
 
   static Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -198,6 +219,34 @@ class DbProvider {
       try {
         await db.execute('ALTER TABLE $tableInvoices ADD COLUMN paid_amount REAL DEFAULT 0');
       } catch (_) {}
+    }
+
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableSavedItems (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT,
+          unit_price REAL NOT NULL DEFAULT 0,
+          unit TEXT DEFAULT 'pcs',
+          hsn_code TEXT,
+          category TEXT,
+          is_taxable INTEGER DEFAULT 1,
+          tax_rate REAL DEFAULT 0,
+          discount_rate REAL DEFAULT 0,
+          default_quantity REAL DEFAULT 1,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      ''');
+      try {
+        await db.execute('ALTER TABLE $tableSavedItems ADD COLUMN tax_rate REAL DEFAULT 0');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE $tableSavedItems ADD COLUMN discount_rate REAL DEFAULT 0');
+      } catch (_) {}
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_saved_items_category ON $tableSavedItems(category)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_saved_items_name ON $tableSavedItems(name)');
     }
   }
 

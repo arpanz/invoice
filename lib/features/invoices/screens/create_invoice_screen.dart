@@ -23,6 +23,7 @@ import 'invoice_preview_screen.dart';
 import '../../../shared_widgets/app_dialog.dart';
 import '../../../shared_widgets/app_popup_menu.dart';
 import '../../../shared_widgets/currency_picker_sheet.dart';
+import '../../items/screens/item_picker_sheet.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   final InvoiceModel? existingInvoice;
@@ -805,6 +806,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final descCtrl = TextEditingController(text: item?.description ?? '');
     final qtyCtrl = TextEditingController(text: item != null ? item.quantity.toString().replaceAll('.0', '') : '1');
     final priceCtrl = TextEditingController(text: item != null ? item.unitPrice.toString() : '');
+    final discountCtrl = TextEditingController();
+    final taxCtrl = TextEditingController();
+    bool showDiscountsAndTax = false;
 
     showModalBottomSheet(
       context: context,
@@ -817,7 +821,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         builder: (ctx, setSheetState) {
           final qty = double.tryParse(qtyCtrl.text) ?? 1;
           final price = double.tryParse(priceCtrl.text) ?? 0;
-          final total = qty * price;
+          final discountPercent = double.tryParse(discountCtrl.text) ?? 0;
+          final taxPercent = double.tryParse(taxCtrl.text) ?? 0;
+
+          final baseTotal = qty * price;
+          final discountAmount = ((baseTotal * discountPercent / 100).clamp(0.0, baseTotal)).toDouble();
+          final taxableBase = ((baseTotal - discountAmount).clamp(0.0, double.infinity)).toDouble();
+          final taxAmount = taxableBase * taxPercent / 100;
+          final netTotal = taxableBase + taxAmount;
+          final effectiveUnitPrice = qty > 0 ? (netTotal / qty) : price;
 
           return Padding(
             padding: EdgeInsets.only(
@@ -826,117 +838,203 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               top: 20,
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 28,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.slate300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  editIndex != null ? 'Edit Item' : 'Add Item',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  label: 'Description *',
-                  hint: 'e.g. Consulting, Design, Product',
-                  controller: descCtrl,
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'Quantity',
-                        hint: '1',
-                        controller: qtyCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        onChanged: (_) => setSheetState(() {}),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.slate300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'Unit Price',
-                        hint: '0.00',
-                        controller: priceCtrl,
-                        prefixText: '$_currencySymbol ',
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        onChanged: (_) => setSheetState(() {}),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.slate100,
-                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(height: 18),
+                  Text(
+                    editIndex != null ? 'Edit Item' : 'Add Item',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Description *',
+                    hint: 'e.g. Consulting, Design, Product',
+                    controller: descCtrl,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
                     children: [
-                      const Text('Total Amount:', style: TextStyle(fontWeight: FontWeight.w500)),
-                      Text(
-                        CurrencyFormatter.format(total, currencySymbol: _currencySymbol),
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.primary),
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'Quantity',
+                          hint: '1',
+                          controller: qtyCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          onChanged: (_) => setSheetState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'Unit Price',
+                          hint: '0.00',
+                          controller: priceCtrl,
+                          prefixText: '$_currencySymbol ',
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          onChanged: (_) => setSheetState(() {}),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (descCtrl.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter an item description')),
-                        );
-                        return;
-                      }
-                      final q = double.tryParse(qtyCtrl.text) ?? 1;
-                      final p = double.tryParse(priceCtrl.text) ?? 0;
-                      final newItem = LineItemModel(
-                        id: item?.id ?? const Uuid().v4(),
-                        invoiceId: _activeInvoiceId ?? '',
-                        description: descCtrl.text.trim(),
-                        quantity: q,
-                        unitPrice: p,
-                        total: q * p,
-                        sortOrder: editIndex ?? _items.length,
-                      );
-
-                      setState(() {
-                        if (editIndex != null) {
-                          _items[editIndex] = newItem;
-                        } else {
-                          _items.add(newItem);
-                        }
-                      });
-                      Navigator.pop(ctx);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => setSheetState(() => showDiscountsAndTax = !showDiscountsAndTax),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            showDiscountsAndTax ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                            size: 20,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            showDiscountsAndTax ? 'Hide Item Discount & Tax' : '+ Add Item Discount & Tax',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Text(editIndex != null ? 'Update Item' : 'Add to Invoice', style: const TextStyle(fontWeight: FontWeight.w700)),
                   ),
-                ),
-              ],
+                  if (showDiscountsAndTax) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CustomTextField(
+                            label: 'Discount (%)',
+                            hint: '0',
+                            controller: discountCtrl,
+                            suffixText: '%',
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            onChanged: (_) => setSheetState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: CustomTextField(
+                            label: 'Tax Rate (%)',
+                            hint: '0',
+                            controller: taxCtrl,
+                            suffixText: '%',
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            onChanged: (_) => setSheetState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.slate100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        if (discountAmount > 0 || taxAmount > 0) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Base Amount:', style: TextStyle(fontSize: 12, color: AppColors.slate600)),
+                              Text(CurrencyFormatter.format(baseTotal, currencySymbol: _currencySymbol), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          if (discountAmount > 0)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Discount (${discountPercent.toString().replaceAll(".0", "")}%):', style: const TextStyle(fontSize: 12, color: Color(0xFFD97706))),
+                                Text('-${CurrencyFormatter.format(discountAmount, currencySymbol: _currencySymbol)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
+                              ],
+                            ),
+                          if (taxAmount > 0)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Tax (${taxPercent.toString().replaceAll(".0", "")}%):', style: const TextStyle(fontSize: 12, color: AppColors.squircleGreenIcon)),
+                                Text('+${CurrencyFormatter.format(taxAmount, currencySymbol: _currencySymbol)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.squircleGreenIcon)),
+                              ],
+                            ),
+                          const Divider(height: 12),
+                        ],
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Total Amount:', style: TextStyle(fontWeight: FontWeight.w600)),
+                            Text(
+                              CurrencyFormatter.format(netTotal, currencySymbol: _currencySymbol),
+                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (descCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter an item description')),
+                          );
+                          return;
+                        }
+                        final q = double.tryParse(qtyCtrl.text) ?? 1;
+                        final finalUnitPrice = (discountAmount > 0 || taxAmount > 0) ? effectiveUnitPrice : price;
+                        final newItem = LineItemModel(
+                          id: item?.id ?? const Uuid().v4(),
+                          invoiceId: _activeInvoiceId ?? '',
+                          description: descCtrl.text.trim(),
+                          quantity: q,
+                          unitPrice: finalUnitPrice,
+                          total: netTotal,
+                          sortOrder: editIndex ?? _items.length,
+                        );
+
+                        setState(() {
+                          if (editIndex != null) {
+                            _items[editIndex] = newItem;
+                          } else {
+                            _items.add(newItem);
+                          }
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text(editIndex != null ? 'Update Item' : 'Add to Invoice', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -1936,6 +2034,27 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 ],
                               ),
                             ),
+                            GestureDetector(
+                              onTap: () async {
+                                final picked = await ItemPickerSheet.show(
+                                  context,
+                                  invoiceId: _activeInvoiceId ?? '',
+                                );
+                                if (picked != null && picked.isNotEmpty) {
+                                  setState(() => _items.addAll(picked));
+                                }
+                              },
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: AppColors.squirclePurple,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.inventory_2_outlined, color: AppColors.squirclePurpleIcon, size: 18),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             GestureDetector(
                               onTap: () => _showAddItemSheet(),
                               child: Container(

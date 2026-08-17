@@ -13,6 +13,7 @@ import '../../invoices/models/pdf_theme.dart';
 import '../../invoices/widgets/invoice_customizer_studio_sheet.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../paywall/paywall_screen.dart';
+import '../../invoices/screens/invoice_history_screen.dart';
 import 'business_profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -106,6 +107,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => const BusinessProfileScreen(),
+                ),
+              ),
+            ),
+            const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+            _buildGroupedTile(
+              icon: Icons.history_rounded,
+              iconBg: AppColors.squircleBlue,
+              iconColor: AppColors.squircleBlueIcon,
+              title: 'Invoice History',
+              subtitle: 'View all past invoices',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const InvoiceHistoryScreen(),
                 ),
               ),
             ),

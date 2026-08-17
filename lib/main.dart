@@ -16,7 +16,7 @@ import 'features/dashboard/screens/dashboard_screen.dart';
 import 'features/estimates/screens/create_estimate_screen.dart';
 import 'features/estimates/screens/estimate_list_screen.dart';
 import 'features/invoices/screens/create_invoice_screen.dart';
-import 'features/invoices/screens/invoice_history_screen.dart';
+import 'features/items/screens/item_list_screen.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
 
 void main() async {
@@ -177,13 +177,13 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   final _dashboardKey = GlobalKey<DashboardScreenState>();
   final _estimatesKey = GlobalKey<EstimateListScreenState>();
-  final _historyKey = GlobalKey<InvoiceHistoryScreenState>();
+  final _itemsKey = GlobalKey<ItemListScreenState>();
 
   List<Widget> get _screens => [
     DashboardScreen(key: _dashboardKey),
     EstimateListScreen(key: _estimatesKey),
     const ClientListScreen(),
-    InvoiceHistoryScreen(key: _historyKey),
+    ItemListScreen(key: _itemsKey),
   ];
 
   @override
@@ -283,9 +283,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 ),
                 _buildNavItem(
                   index: 3,
-                  icon: Icons.folder_outlined,
-                  activeIcon: Icons.folder_rounded,
-                  label: 'History',
+                  icon: Icons.inventory_2_outlined,
+                  activeIcon: Icons.inventory_2_rounded,
+                  label: 'Items',
                 ),
               ],
             ),
@@ -308,7 +308,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         setState(() => _currentIndex = index);
         if (index == 0) _dashboardKey.currentState?.reload();
         if (index == 1) _estimatesKey.currentState?.reload();
-        if (index == 3) _historyKey.currentState?.reload();
+        if (index == 3) _itemsKey.currentState?.reload();
       },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
@@ -424,7 +424,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     );
                     if (mounted) {
                       _dashboardKey.currentState?.reload();
-                      _historyKey.currentState?.reload();
+                      _itemsKey.currentState?.reload();
                     }
                   }
                 },

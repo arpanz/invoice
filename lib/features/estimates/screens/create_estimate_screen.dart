@@ -18,6 +18,7 @@ import '../../invoices/models/line_item_model.dart';
 import '../../invoices/models/pdf_theme.dart';
 import '../../invoices/widgets/pdf_theme_picker_sheet.dart';
 import '../../paywall/paywall_screen.dart';
+import '../../items/screens/item_picker_sheet.dart';
 import '../models/estimate_model.dart';
 import 'estimate_preview_screen.dart';
 
@@ -889,10 +890,27 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                           color: AppColors.textPrimary,
                         ),
                       ),
-                      TextButton.icon(
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('Add Item'),
-                        onPressed: () => _showItemDialog(),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            icon: const Icon(Icons.inventory_2_outlined, size: 16),
+                            label: const Text('Catalog'),
+                            onPressed: () async {
+                              final picked = await ItemPickerSheet.show(
+                                context,
+                                invoiceId: _activeEstimateId ?? '',
+                              );
+                              if (picked != null && picked.isNotEmpty) {
+                                setState(() => _items.addAll(picked));
+                              }
+                            },
+                          ),
+                          TextButton.icon(
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('Add Item'),
+                            onPressed: () => _showItemDialog(),
+                          ),
+                        ],
                       ),
                     ],
                   ),
