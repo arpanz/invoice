@@ -12,11 +12,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/pdf_helper.dart';
 import '../../paywall/paywall_screen.dart';
+import '../models/invoice_customization_config.dart';
 import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
 import '../models/pdf_theme.dart';
 import '../services/pdf_generator_service.dart';
-import '../widgets/pdf_theme_picker_sheet.dart';
+import '../widgets/invoice_customizer_studio_sheet.dart';
 import 'create_invoice_screen.dart';
 
 class InvoicePreviewScreen extends StatefulWidget {
@@ -38,6 +39,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   bool _isZoomed = false;
   TapDownDetails? _doubleTapDetails;
   PdfTheme _currentTheme = PdfTheme.defaultTheme;
+  InvoiceCustomizationConfig _customConfig = InvoiceCustomizationConfig.defaultConfig;
 
   @override
   void initState() {
@@ -89,25 +91,42 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
 
   Future<void> _loadThemeAndRender() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedThemeId = prefs.getString('invoice_theme_${_invoice.id}') ??
-        prefs.getString('default_pdf_theme');
-    if (savedThemeId != null) {
-      _currentTheme = PdfTheme.fromId(savedThemeId);
+    final savedConfigJson = prefs.getString('invoice_customization_${_invoice.id}') ??
+        prefs.getString('default_invoice_customization');
+    if (savedConfigJson != null) {
+      final parsed = InvoiceCustomizationConfig.tryFromJsonString(savedConfigJson);
+      if (parsed != null) {
+        _customConfig = parsed;
+        _currentTheme = parsed.toPdfTheme();
+      }
+    } else {
+      final savedThemeId = prefs.getString('invoice_theme_${_invoice.id}') ??
+          prefs.getString('default_pdf_theme');
+      if (savedThemeId != null) {
+        _currentTheme = PdfTheme.fromId(savedThemeId);
+        _customConfig = InvoiceCustomizationConfig.fromTheme(_currentTheme);
+      }
     }
     await _generateAndRasterizePdf();
   }
 
   Future<void> _openThemePicker() async {
-    final selected = await PdfThemePickerSheet.show(
+    final profile = await _getBusinessProfile();
+    final updated = await InvoiceCustomizerStudioSheet.show(
       context,
-      currentTheme: _currentTheme,
+      initialConfig: _customConfig,
+      invoice: _invoice,
+      businessProfile: profile,
       showSetAsDefault: true,
+      title: 'Invoice Design Studio',
     );
-    if (selected != null && mounted) {
+    if (updated != null && mounted) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('invoice_theme_${_invoice.id}', selected.id.value);
+      await prefs.setString('invoice_customization_${_invoice.id}', updated.toJsonString());
+      await prefs.setString('invoice_theme_${_invoice.id}', updated.themeId.value);
       setState(() {
-        _currentTheme = selected;
+        _customConfig = updated;
+        _currentTheme = updated.toPdfTheme();
       });
       await _generateAndRasterizePdf();
     }
@@ -122,7 +141,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         invoice: _invoice,
         businessProfile: profile,
         isPro: isPro,
-        theme: _currentTheme,
+        customizationConfig: _customConfig,
       );
 
       final images = <MemoryImage>[];

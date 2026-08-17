@@ -8,8 +8,9 @@ import '../../../core/models/currency_model.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared_widgets/currency_picker_sheet.dart';
+import '../../invoices/models/invoice_customization_config.dart';
 import '../../invoices/models/pdf_theme.dart';
-import '../../invoices/widgets/pdf_theme_picker_sheet.dart';
+import '../../invoices/widgets/invoice_customizer_studio_sheet.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../paywall/paywall_screen.dart';
 import 'business_profile_screen.dart';
@@ -23,6 +24,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   PdfTheme _defaultTheme = PdfTheme.defaultTheme;
+  InvoiceCustomizationConfig _defaultConfig = InvoiceCustomizationConfig.defaultConfig;
 
   @override
   void initState() {
@@ -32,10 +34,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadDefaultTheme() async {
     final prefs = await SharedPreferences.getInstance();
+    final savedConfigJson = prefs.getString('default_invoice_customization');
+    if (savedConfigJson != null && mounted) {
+      final parsed = InvoiceCustomizationConfig.tryFromJsonString(savedConfigJson);
+      if (parsed != null) {
+        setState(() {
+          _defaultConfig = parsed;
+          _defaultTheme = parsed.toPdfTheme();
+        });
+        return;
+      }
+    }
     final savedThemeId = prefs.getString('default_pdf_theme');
     if (savedThemeId != null && mounted) {
       setState(() {
         _defaultTheme = PdfTheme.fromId(savedThemeId);
+        _defaultConfig = InvoiceCustomizationConfig.fromTheme(_defaultTheme);
       });
     }
   }
@@ -423,13 +437,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           child: Icon(
-            Icons.palette_outlined,
+            Icons.auto_fix_high_rounded,
             size: 20,
             color: _defaultTheme.previewPrimary,
           ),
         ),
         title: const Text(
-          'Default PDF Theme',
+          'Default Design & Typography',
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
@@ -438,7 +452,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         subtitle: Text(
-          '${_defaultTheme.name} • ${_defaultTheme.description}',
+          '${_defaultTheme.name} • ${_defaultConfig.fontFamily.displayName} • ${_defaultConfig.density.displayName}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
@@ -473,19 +487,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         onTap: () async {
-          final selected = await PdfThemePickerSheet.show(
+          final updated = await InvoiceCustomizerStudioSheet.show(
             context,
-            currentTheme: _defaultTheme,
-            showSetAsDefault: false,
+            initialConfig: _defaultConfig,
+            showSetAsDefault: true,
+            title: 'Default Invoice Design Studio',
           );
-          if (selected != null) {
+          if (updated != null && mounted) {
             final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('default_pdf_theme', selected.id.value);
-            if (mounted) {
-              setState(() {
-                _defaultTheme = selected;
-              });
-            }
+            await prefs.setString('default_invoice_customization', updated.toJsonString());
+            await prefs.setString('default_pdf_theme', updated.themeId.value);
+            setState(() {
+              _defaultConfig = updated;
+              _defaultTheme = updated.toPdfTheme();
+            });
           }
         },
       ),

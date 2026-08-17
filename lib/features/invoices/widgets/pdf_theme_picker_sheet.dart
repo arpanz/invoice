@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
+import '../models/invoice_customization_config.dart';
 import '../models/pdf_theme.dart';
 import '../services/dummy_invoice_data.dart';
 import '../services/pdf_generator_service.dart';
+import 'invoice_customizer_studio_sheet.dart';
 
 class PdfThemePickerSheet extends StatefulWidget {
   final PdfTheme currentTheme;
@@ -152,7 +154,78 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
+            // Customizer Studio Banner
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: InkWell(
+                onTap: () async {
+                  final config = InvoiceCustomizationConfig.fromTheme(_selectedTheme);
+                  final saved = await InvoiceCustomizerStudioSheet.show(
+                    context,
+                    initialConfig: config,
+                    showSetAsDefault: widget.showSetAsDefault,
+                  );
+                  if (saved != null && context.mounted) {
+                    widget.onThemeSelected(saved.toPdfTheme(), _setAsDefault);
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.auto_fix_high_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Customize Design & Typography',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            Text(
+                              'Change font family, sizing scale & element layout',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.slate600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: AppColors.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             const Divider(height: 1, color: AppColors.cardBorder),
 
             // 2-Column Live Preview Only Grid (No text labels)

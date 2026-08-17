@@ -11,11 +11,12 @@ import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../invoices/models/invoice_customization_config.dart';
 import '../../invoices/models/line_item_model.dart';
 import '../../invoices/models/pdf_theme.dart';
 import '../../invoices/screens/invoice_preview_screen.dart';
 import '../../invoices/services/pdf_generator_service.dart';
-import '../../invoices/widgets/pdf_theme_picker_sheet.dart';
+import '../../invoices/widgets/invoice_customizer_studio_sheet.dart';
 import '../models/estimate_model.dart';
 import 'create_estimate_screen.dart';
 
@@ -35,6 +36,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
   bool _isLoading = true;
   final TransformationController _zoomController = TransformationController();
   PdfTheme _currentTheme = PdfTheme.defaultTheme;
+  InvoiceCustomizationConfig _customConfig = InvoiceCustomizationConfig.defaultConfig;
 
   @override
   void initState() {
@@ -70,10 +72,21 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
 
   Future<void> _loadThemeAndRender() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedThemeId = prefs.getString('estimate_theme_${_estimate.id}') ??
-        prefs.getString('default_pdf_theme');
-    if (savedThemeId != null) {
-      _currentTheme = PdfTheme.fromId(savedThemeId);
+    final savedConfigJson = prefs.getString('estimate_customization_${_estimate.id}') ??
+        prefs.getString('default_invoice_customization');
+    if (savedConfigJson != null) {
+      final parsed = InvoiceCustomizationConfig.tryFromJsonString(savedConfigJson);
+      if (parsed != null) {
+        _customConfig = parsed;
+        _currentTheme = parsed.toPdfTheme();
+      }
+    } else {
+      final savedThemeId = prefs.getString('estimate_theme_${_estimate.id}') ??
+          prefs.getString('default_pdf_theme');
+      if (savedThemeId != null) {
+        _currentTheme = PdfTheme.fromId(savedThemeId);
+        _customConfig = InvoiceCustomizationConfig.fromTheme(_currentTheme);
+      }
     }
     await _generateAndRasterizePdf();
   }
@@ -88,7 +101,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
         estimate: _estimate,
         businessProfile: profile,
         isPro: isPro,
-        theme: _currentTheme,
+        customizationConfig: _customConfig,
       );
 
       final images = <MemoryImage>[];
@@ -115,14 +128,22 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
   }
 
   Future<void> _openThemePicker() async {
-    final selected = await PdfThemePickerSheet.show(
+    final profile = await _getBusinessProfile();
+    final updated = await InvoiceCustomizerStudioSheet.show(
       context,
-      currentTheme: _currentTheme,
+      initialConfig: _customConfig,
+      businessProfile: profile,
+      showSetAsDefault: true,
+      title: 'Estimate Design Studio',
     );
-    if (selected != null && selected.id != _currentTheme.id) {
-      setState(() => _currentTheme = selected);
+    if (updated != null && mounted) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('estimate_theme_${_estimate.id}', selected.id.name);
+      await prefs.setString('estimate_customization_${_estimate.id}', updated.toJsonString());
+      await prefs.setString('estimate_theme_${_estimate.id}', updated.themeId.value);
+      setState(() {
+        _customConfig = updated;
+        _currentTheme = updated.toPdfTheme();
+      });
       await _generateAndRasterizePdf();
     }
   }

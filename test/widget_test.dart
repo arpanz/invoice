@@ -33,7 +33,7 @@ void main() {
 
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Workspace'), findsOneWidget);
-    expect(find.text('Default PDF Theme'), findsOneWidget);
+    expect(find.text('Default Design & Typography'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Rate Us on Play Store'), 100);
     expect(find.text('Rate Us on Play Store'), findsOneWidget);
   });
