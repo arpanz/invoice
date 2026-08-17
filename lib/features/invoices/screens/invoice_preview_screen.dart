@@ -40,7 +40,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   bool _isZoomed = false;
   TapDownDetails? _doubleTapDetails;
   PdfTheme _currentTheme = PdfTheme.defaultTheme;
-  InvoiceCustomizationConfig _customConfig = InvoiceCustomizationConfig.defaultConfig;
+  InvoiceCustomizationConfig _customConfig =
+      InvoiceCustomizationConfig.defaultConfig;
 
   @override
   void initState() {
@@ -92,16 +93,20 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
 
   Future<void> _loadThemeAndRender() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedConfigJson = prefs.getString('invoice_customization_${_invoice.id}') ??
+    final savedConfigJson =
+        prefs.getString('invoice_customization_${_invoice.id}') ??
         prefs.getString('default_invoice_customization');
     if (savedConfigJson != null) {
-      final parsed = InvoiceCustomizationConfig.tryFromJsonString(savedConfigJson);
+      final parsed = InvoiceCustomizationConfig.tryFromJsonString(
+        savedConfigJson,
+      );
       if (parsed != null) {
         _customConfig = parsed;
         _currentTheme = parsed.toPdfTheme();
       }
     } else {
-      final savedThemeId = prefs.getString('invoice_theme_${_invoice.id}') ??
+      final savedThemeId =
+          prefs.getString('invoice_theme_${_invoice.id}') ??
           prefs.getString('default_pdf_theme');
       if (savedThemeId != null) {
         _currentTheme = PdfTheme.fromId(savedThemeId);
@@ -123,8 +128,14 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     );
     if (updated != null && mounted) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('invoice_customization_${_invoice.id}', updated.toJsonString());
-      await prefs.setString('invoice_theme_${_invoice.id}', updated.themeId.value);
+      await prefs.setString(
+        'invoice_customization_${_invoice.id}',
+        updated.toJsonString(),
+      );
+      await prefs.setString(
+        'invoice_theme_${_invoice.id}',
+        updated.themeId.value,
+      );
       setState(() {
         _customConfig = updated;
         _currentTheme = updated.toPdfTheme();
@@ -161,9 +172,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error rendering preview: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error rendering preview: $e')));
       }
     }
   }
@@ -208,12 +219,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       updateData['paid_amount'] = 0.0;
     }
 
-    await DbProvider.update(
-      DbProvider.tableInvoices,
-      updateData,
-      'id = ?',
-      [_invoice.id],
-    );
+    await DbProvider.update(DbProvider.tableInvoices, updateData, 'id = ?', [
+      _invoice.id,
+    ]);
     _invoice = _invoice.copyWith(
       status: newStatus,
       paidAmount: finalPaidAmount,
@@ -224,7 +232,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   }
 
   Future<void> _promptPartialPayment() async {
-    final currencySymbol = CurrencyFormatter.getCurrencySymbol(_invoice.currency);
+    final currencySymbol = CurrencyFormatter.getCurrencySymbol(
+      _invoice.currency,
+    );
     final amount = await AppDialog.showPartialPayment(
       context: context,
       documentNumber: _invoice.invoiceNumber,
@@ -236,20 +246,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     if (amount == null) return;
 
     if (amount >= _invoice.grandTotal && _invoice.grandTotal > 0) {
-      _updateStatus(
-        InvoiceStatus.paid,
-        paidAmount: _invoice.grandTotal,
-      );
+      _updateStatus(InvoiceStatus.paid, paidAmount: _invoice.grandTotal);
     } else if (amount <= 0) {
-      _updateStatus(
-        InvoiceStatus.unpaid,
-        paidAmount: 0.0,
-      );
+      _updateStatus(InvoiceStatus.unpaid, paidAmount: 0.0);
     } else {
-      _updateStatus(
-        InvoiceStatus.partiallyPaid,
-        paidAmount: amount,
-      );
+      _updateStatus(InvoiceStatus.partiallyPaid, paidAmount: amount);
     }
   }
 
@@ -301,7 +302,10 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.slate400,
+                    ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -399,7 +403,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w700,
-                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -414,7 +420,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.primary,
+                size: 22,
+              ),
           ],
         ),
       ),
@@ -428,17 +438,16 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         _pdfBytes!,
         _invoice.invoiceNumber,
       );
-      await Share.shareXFiles(
-        [XFile(path)],
-        text: 'Invoice ${_invoice.invoiceNumber} for ${_invoice.clientName}',
-      );
+      await Share.shareXFiles([
+        XFile(path),
+      ], text: 'Invoice ${_invoice.invoiceNumber} for ${_invoice.clientName}');
       await _markSentStatus(true);
       await AppReviewService.instance.registerSignificantAction();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send invoice: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to send invoice: $e')));
       }
     }
   }
@@ -466,9 +475,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save invoice: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save invoice: $e')));
       }
     }
   }
@@ -527,7 +536,10 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.slate400,
+                    ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -540,11 +552,18 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 title: 'Change PDF Theme',
                 subtitle: 'Customize typography, colors & layout',
                 trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: _currentTheme.previewBg,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _currentTheme.previewPrimary.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: _currentTheme.previewPrimary.withValues(
+                        alpha: 0.3,
+                      ),
+                    ),
                   ),
                   child: Text(
                     _currentTheme.name,
@@ -672,7 +691,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: isDestructive ? AppColors.accentRed : AppColors.textPrimary,
+                      color: isDestructive
+                          ? AppColors.accentRed
+                          : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -686,7 +707,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 ],
               ),
             ),
-            if (trailing != null) trailing,
+            ?trailing,
           ],
         ),
       ),
@@ -694,7 +715,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   }
 
   Future<void> _duplicateInvoice() async {
-    final newInvNumber = 'INV${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+    final newInvNumber =
+        'INV${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
     final duplicate = _invoice.copyWith(
       id: 'inv-${DateTime.now().millisecondsSinceEpoch}',
       invoiceNumber: newInvNumber,
@@ -717,9 +739,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Duplicated as $newInvNumber')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Duplicated as $newInvNumber')));
     Navigator.pop(context, true);
   }
 
@@ -727,11 +749,14 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     final confirm = await AppDialog.showDelete(
       context: context,
       title: 'Delete Invoice?',
-      message: 'Are you sure you want to delete ${_invoice.invoiceNumber}? This action cannot be undone.',
+      message:
+          'Are you sure you want to delete ${_invoice.invoiceNumber}? This action cannot be undone.',
     );
 
     if (confirm == true) {
-      await DbProvider.delete(DbProvider.tableInvoices, 'id = ?', [_invoice.id]);
+      await DbProvider.delete(DbProvider.tableInvoices, 'id = ?', [
+        _invoice.id,
+      ]);
       await PdfHelper.deletePdf(_invoice.invoiceNumber);
       if (mounted) {
         Navigator.pop(context, true);
@@ -760,7 +785,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
             ..storage[0] = zoomScale
             ..storage[5] = zoomScale;
         } else {
-          _zoomController.value = Matrix4.diagonal3Values(zoomScale, zoomScale, 1.0);
+          _zoomController.value = Matrix4.diagonal3Values(
+            zoomScale,
+            zoomScale,
+            1.0,
+          );
         }
         _isZoomed = true;
       }
@@ -770,7 +799,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   @override
   Widget build(BuildContext context) {
     final isPro = context.watch<BillingService>().isPro;
-    final currencySymbol = CurrencyFormatter.getCurrencySymbol(_invoice.currency);
+    final currencySymbol = CurrencyFormatter.getCurrencySymbol(
+      _invoice.currency,
+    );
     final dueDateFormatted = _invoice.dueDate != null
         ? DateFormat('dd/MM/yyyy').format(_invoice.dueDate!)
         : DateFormat('dd/MM/yyyy').format(_invoice.invoiceDate);
@@ -782,7 +813,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 20,
+            color: AppColors.textPrimary,
+          ),
           onPressed: () => Navigator.pop(context, true),
         ),
         title: Text(
@@ -796,20 +831,29 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.palette_outlined, color: AppColors.textPrimary),
+            icon: const Icon(
+              Icons.palette_outlined,
+              color: AppColors.textPrimary,
+            ),
             tooltip: 'PDF Theme',
             onPressed: _openThemePicker,
           ),
           if (!isPro)
             IconButton(
-              icon: const Icon(Icons.workspace_premium_rounded, color: AppColors.proGold),
+              icon: const Icon(
+                Icons.workspace_premium_rounded,
+                color: AppColors.proGold,
+              ),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const PaywallScreen()),
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.share_outlined, color: AppColors.textPrimary),
+            icon: const Icon(
+              Icons.share_outlined,
+              color: AppColors.textPrimary,
+            ),
             onPressed: _sendInvoice,
           ),
           const SizedBox(width: 4),
@@ -825,69 +869,83 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                   color: const Color(0xFFF1F5F9),
                   child: _isLoading
                       ? const Center(
-                          child: CircularProgressIndicator(color: AppColors.primary),
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                          ),
                         )
                       : (_rasterPages == null || _rasterPages!.isEmpty)
-                          ? const Center(child: Text('Failed to render PDF'))
-                          : LayoutBuilder(
-                              builder: (context, constraints) {
-                                return GestureDetector(
-                                  onDoubleTapDown: (details) {
-                                    _doubleTapDetails = details;
-                                  },
-                                  onDoubleTap: () {
-                                    _handleDoubleTapZoom(
-                                      _doubleTapDetails?.localPosition,
-                                    );
-                                  },
-                                  child: InteractiveViewer(
-                                    transformationController: _zoomController,
-                                    constrained: false,
-                                    minScale: 1.0,
-                                    maxScale: 4.0,
-                                    boundaryMargin: const EdgeInsets.all(100),
-                                    onInteractionEnd: (_) {
-                                      final scale = _zoomController.value.getMaxScaleOnAxis();
-                                      final zoomed = scale > 1.05;
-                                      if (zoomed != _isZoomed) {
-                                        setState(() => _isZoomed = zoomed);
-                                      }
-                                    },
-                                    child: SizedBox(
-                                      width: constraints.maxWidth,
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                                        child: Column(
-                                          children: _rasterPages!.map((img) {
-                                            return Container(
-                                              margin: const EdgeInsets.only(bottom: 16),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(8),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black.withValues(alpha: 0.08),
-                                                    blurRadius: 16,
-                                                    offset: const Offset(0, 4),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: ClipRRect(
-                                                borderRadius: BorderRadius.circular(8),
-                                                child: Image(
-                                                  image: img,
-                                                  fit: BoxFit.contain,
-                                                ),
-                                              ),
-                                            );
-                                          }).toList(),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                      ? const Center(child: Text('Failed to render PDF'))
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            return GestureDetector(
+                              onDoubleTapDown: (details) {
+                                _doubleTapDetails = details;
+                              },
+                              onDoubleTap: () {
+                                _handleDoubleTapZoom(
+                                  _doubleTapDetails?.localPosition,
                                 );
                               },
-                            ),
+                              child: InteractiveViewer(
+                                transformationController: _zoomController,
+                                constrained: false,
+                                minScale: 1.0,
+                                maxScale: 4.0,
+                                boundaryMargin: const EdgeInsets.all(100),
+                                onInteractionEnd: (_) {
+                                  final scale = _zoomController.value
+                                      .getMaxScaleOnAxis();
+                                  final zoomed = scale > 1.05;
+                                  if (zoomed != _isZoomed) {
+                                    setState(() => _isZoomed = zoomed);
+                                  }
+                                },
+                                child: SizedBox(
+                                  width: constraints.maxWidth,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 16,
+                                    ),
+                                    child: Column(
+                                      children: _rasterPages!.map((img) {
+                                        return Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 16,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.08,
+                                                ),
+                                                blurRadius: 16,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            child: Image(
+                                              image: img,
+                                              fit: BoxFit.contain,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                 ),
                 // Quick Theme selector pill overlay in top left
                 Positioned(
@@ -896,7 +954,10 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                   child: GestureDetector(
                     onTap: _openThemePicker,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(20),
@@ -929,7 +990,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             ),
                           ),
                           const SizedBox(width: 2),
-                          const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: AppColors.slate500),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 16,
+                            color: AppColors.slate500,
+                          ),
                         ],
                       ),
                     ),
@@ -953,7 +1018,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     ),
                     child: IconButton(
                       icon: Icon(
-                        _isZoomed ? Icons.zoom_out_rounded : Icons.zoom_in_rounded,
+                        _isZoomed
+                            ? Icons.zoom_out_rounded
+                            : Icons.zoom_in_rounded,
                         color: AppColors.textPrimary,
                         size: 22,
                       ),
@@ -971,7 +1038,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.08),
@@ -1001,24 +1070,32 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                       GestureDetector(
                         onTap: _showStatusPicker,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: _invoice.status == InvoiceStatus.paid
                                 ? AppColors.statusPaidBg
                                 : _invoice.status == InvoiceStatus.partiallyPaid
-                                    ? AppColors.statusPartiallyPaidBg
-                                    : _invoice.status == InvoiceStatus.overdue
-                                        ? AppColors.statusOverdueBg
-                                        : AppColors.primaryMuted,
+                                ? AppColors.statusPartiallyPaidBg
+                                : _invoice.status == InvoiceStatus.overdue
+                                ? AppColors.statusOverdueBg
+                                : AppColors.primaryMuted,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: _invoice.status == InvoiceStatus.paid
                                   ? AppColors.statusPaid.withValues(alpha: 0.2)
-                                  : _invoice.status == InvoiceStatus.partiallyPaid
-                                      ? AppColors.statusPartiallyPaid.withValues(alpha: 0.2)
-                                      : _invoice.status == InvoiceStatus.overdue
-                                          ? AppColors.statusOverdue.withValues(alpha: 0.2)
-                                          : AppColors.primary.withValues(alpha: 0.2),
+                                  : _invoice.status ==
+                                        InvoiceStatus.partiallyPaid
+                                  ? AppColors.statusPartiallyPaid.withValues(
+                                      alpha: 0.2,
+                                    )
+                                  : _invoice.status == InvoiceStatus.overdue
+                                  ? AppColors.statusOverdue.withValues(
+                                      alpha: 0.2,
+                                    )
+                                  : AppColors.primary.withValues(alpha: 0.2),
                               width: 1,
                             ),
                           ),
@@ -1032,11 +1109,12 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                   fontWeight: FontWeight.w700,
                                   color: _invoice.status == InvoiceStatus.paid
                                       ? AppColors.statusPaid
-                                      : _invoice.status == InvoiceStatus.partiallyPaid
-                                          ? AppColors.statusPartiallyPaid
-                                          : _invoice.status == InvoiceStatus.overdue
-                                              ? AppColors.statusOverdue
-                                              : AppColors.primary,
+                                      : _invoice.status ==
+                                            InvoiceStatus.partiallyPaid
+                                      ? AppColors.statusPartiallyPaid
+                                      : _invoice.status == InvoiceStatus.overdue
+                                      ? AppColors.statusOverdue
+                                      : AppColors.primary,
                                 ),
                               ),
                               const SizedBox(width: 4),
@@ -1045,11 +1123,12 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                 size: 16,
                                 color: _invoice.status == InvoiceStatus.paid
                                     ? AppColors.statusPaid
-                                    : _invoice.status == InvoiceStatus.partiallyPaid
-                                        ? AppColors.statusPartiallyPaid
-                                        : _invoice.status == InvoiceStatus.overdue
-                                            ? AppColors.statusOverdue
-                                            : AppColors.primary,
+                                    : _invoice.status ==
+                                          InvoiceStatus.partiallyPaid
+                                    ? AppColors.statusPartiallyPaid
+                                    : _invoice.status == InvoiceStatus.overdue
+                                    ? AppColors.statusOverdue
+                                    : AppColors.primary,
                               ),
                             ],
                           ),
@@ -1078,9 +1157,14 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: _isSent ? AppColors.statusPaidBg : AppColors.slate100,
+                          color: _isSent
+                              ? AppColors.statusPaidBg
+                              : AppColors.slate100,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -1088,14 +1172,17 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: _isSent ? AppColors.statusPaid : AppColors.slate500,
+                            color: _isSent
+                                ? AppColors.statusPaid
+                                : AppColors.slate500,
                           ),
                         ),
                       ),
                     ],
                   ),
 
-                  if (_invoice.status == InvoiceStatus.partiallyPaid || _invoice.paidAmount > 0) ...[
+                  if (_invoice.status == InvoiceStatus.partiallyPaid ||
+                      _invoice.paidAmount > 0) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -1137,7 +1224,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     height: 50,
                     child: ElevatedButton.icon(
                       onPressed: _sendInvoice,
-                      icon: const Icon(Icons.send_rounded, size: 20, color: Colors.white),
+                      icon: const Icon(
+                        Icons.send_rounded,
+                        size: 20,
+                        color: Colors.white,
+                      ),
                       label: const Text(
                         'Send Invoice',
                         style: TextStyle(
