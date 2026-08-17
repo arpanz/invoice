@@ -511,36 +511,43 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                 ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                 : _rasterPages == null || _rasterPages!.isEmpty
                     ? const Center(child: Text('Could not render preview', style: TextStyle(color: Colors.white70)))
-                    : InteractiveViewer(
-                        transformationController: _zoomController,
-                        minScale: 0.8,
-                        maxScale: 3.0,
-                        child: Center(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              children: _rasterPages!.map((pageImg) {
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.4),
-                                        blurRadius: 16,
-                                        offset: const Offset(0, 6),
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          return InteractiveViewer(
+                            transformationController: _zoomController,
+                            constrained: false,
+                            minScale: 0.8,
+                            maxScale: 3.5,
+                            boundaryMargin: const EdgeInsets.all(80),
+                            child: SizedBox(
+                              width: constraints.maxWidth,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: _rasterPages!.map((pageImg) {
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 16),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.4),
+                                            blurRadius: 16,
+                                            offset: const Offset(0, 6),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image(image: pageImg),
-                                  ),
-                                );
-                              }).toList(),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image(image: pageImg),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
           ),
 

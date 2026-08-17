@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
@@ -14,7 +14,8 @@ class InvoiceCustomizerStudioSheet extends StatefulWidget {
   final InvoiceCustomizationConfig initialConfig;
   final InvoiceModel? invoice;
   final BusinessProfile? businessProfile;
-  final Function(InvoiceCustomizationConfig config, bool setAsDefault) onConfigSaved;
+  final Function(InvoiceCustomizationConfig config, bool setAsDefault)
+  onConfigSaved;
   final bool showSetAsDefault;
   final String title;
 
@@ -49,8 +50,14 @@ class InvoiceCustomizerStudioSheet extends StatefulWidget {
         onConfigSaved: (savedConfig, setAsDefault) async {
           if (setAsDefault) {
             final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('default_invoice_customization', savedConfig.toJsonString());
-            await prefs.setString('default_pdf_theme', savedConfig.themeId.value);
+            await prefs.setString(
+              'default_invoice_customization',
+              savedConfig.toJsonString(),
+            );
+            await prefs.setString(
+              'default_pdf_theme',
+              savedConfig.themeId.value,
+            );
           }
           if (ctx.mounted) {
             Navigator.pop(ctx, savedConfig);
@@ -61,10 +68,12 @@ class InvoiceCustomizerStudioSheet extends StatefulWidget {
   }
 
   @override
-  State<InvoiceCustomizerStudioSheet> createState() => _InvoiceCustomizerStudioSheetState();
+  State<InvoiceCustomizerStudioSheet> createState() =>
+      _InvoiceCustomizerStudioSheetState();
 }
 
-class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSheet>
+class _InvoiceCustomizerStudioSheetState
+    extends State<InvoiceCustomizerStudioSheet>
     with SingleTickerProviderStateMixin {
   late InvoiceCustomizationConfig _config;
   late TabController _tabController;
@@ -81,7 +90,9 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
     super.initState();
     _config = widget.initialConfig;
     _tabController = TabController(length: 4, vsync: this);
-    _footerMessageController = TextEditingController(text: _config.customFooterMessage ?? '');
+    _footerMessageController = TextEditingController(
+      text: _config.customFooterMessage ?? '',
+    );
     _renderPreview();
   }
 
@@ -119,7 +130,11 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
         isSamplePreview: widget.invoice == null,
       );
 
-      await for (final page in Printing.raster(pdfBytes, pages: [0], dpi: 110)) {
+      await for (final page in Printing.raster(
+        pdfBytes,
+        pages: [0],
+        dpi: 110,
+      )) {
         final png = await page.toPng();
         if (mounted) {
           setState(() {
@@ -168,52 +183,61 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Live preview updates instantly',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.slate500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      TextButton.icon(
-                        onPressed: () {
-                          _onConfigModified(InvoiceCustomizationConfig.defaultConfig);
-                          _footerMessageController.text = '';
-                        },
-                        icon: const Icon(Icons.refresh_rounded, size: 16, color: AppColors.slate600),
-                        label: const Text(
-                          'Reset',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.slate600,
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                            letterSpacing: -0.3,
                           ),
                         ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Live preview updates instantly',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.slate500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () {
+                      _onConfigModified(
+                        InvoiceCustomizationConfig.defaultConfig,
+                      );
+                      _footerMessageController.text = '';
+                    },
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      size: 16,
+                      color: AppColors.slate600,
+                    ),
+                    label: const Text(
+                      'Reset',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.slate600,
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.slate400,
+                    ),
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
@@ -224,7 +248,7 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
             Container(
               height: 220,
               width: double.infinity,
-              color: const Color(0xFFF1F5F9),
+              color: const Color(0xFFF8FAFC),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -235,21 +259,26 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                       maxScale: 3.5,
                       child: Center(
                         child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          margin: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(4),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.12),
+                                color: Colors.black.withValues(alpha: 0.08),
                                 blurRadius: 10,
-                                offset: const Offset(0, 4),
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          child: AspectRatio(
-                            aspectRatio: 0.707,
-                            child: Image.memory(
-                              _previewImageBytes!,
-                              fit: BoxFit.contain,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: AspectRatio(
+                              aspectRatio: 0.707,
+                              child: Image.memory(
+                                _previewImageBytes!,
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
                         ),
@@ -260,10 +289,19 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                       top: 10,
                       right: 12,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
+                          color: const Color(0xFF1E293B),
                           borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
@@ -289,6 +327,51 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                         ),
                       ),
                     ),
+                  // Quick Look & Zoom button
+                  Positioned(
+                    bottom: 8,
+                    left: 12,
+                    child: GestureDetector(
+                      onTap: () => _openQuickLook(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.cardBorder),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.open_in_full_rounded,
+                              size: 13,
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              'Quick Look',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                   // Reset zoom pill
                   Positioned(
                     bottom: 8,
@@ -298,20 +381,38 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                         _zoomController.value = Matrix4.identity();
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.9),
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.cardBorder),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.fit_screen_rounded, size: 12, color: AppColors.slate600),
+                            Icon(
+                              Icons.fit_screen_rounded,
+                              size: 12,
+                              color: AppColors.slate600,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'Fit',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.slate700),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.slate700,
+                              ),
                             ),
                           ],
                         ),
@@ -334,13 +435,36 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                 indicatorWeight: 3,
                 labelColor: AppColors.primary,
                 unselectedLabelColor: AppColors.slate500,
-                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                labelPadding: EdgeInsets.zero,
+                labelStyle: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                ),
                 tabs: const [
-                  Tab(icon: Icon(Icons.palette_outlined, size: 18), text: 'Style'),
-                  Tab(icon: Icon(Icons.text_fields_rounded, size: 18), text: 'Typography'),
-                  Tab(icon: Icon(Icons.dashboard_customize_outlined, size: 18), text: 'Layout'),
-                  Tab(icon: Icon(Icons.tune_rounded, size: 18), text: 'Sections'),
+                  Tab(
+                    height: 52,
+                    icon: Icon(Icons.palette_outlined, size: 16),
+                    text: 'Style',
+                  ),
+                  Tab(
+                    height: 52,
+                    icon: Icon(Icons.text_fields_rounded, size: 16),
+                    text: 'Typo',
+                  ),
+                  Tab(
+                    height: 52,
+                    icon: Icon(Icons.dashboard_customize_outlined, size: 16),
+                    text: 'Layout',
+                  ),
+                  Tab(
+                    height: 52,
+                    icon: Icon(Icons.tune_rounded, size: 16),
+                    text: 'Sections',
+                  ),
                 ],
               ),
             ),
@@ -368,7 +492,8 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                 children: [
                   if (widget.showSetAsDefault) ...[
                     GestureDetector(
-                      onTap: () => setState(() => _setAsDefault = !_setAsDefault),
+                      onTap: () =>
+                          setState(() => _setAsDefault = !_setAsDefault),
                       behavior: HitTestBehavior.opaque,
                       child: Row(
                         children: [
@@ -377,7 +502,8 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                             width: 22,
                             child: Checkbox(
                               value: _setAsDefault,
-                              onChanged: (val) => setState(() => _setAsDefault = val ?? false),
+                              onChanged: (val) =>
+                                  setState(() => _setAsDefault = val ?? false),
                               activeColor: AppColors.primary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(4),
@@ -469,13 +595,17 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                     color: isSelected ? theme.previewBg : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isSelected ? theme.previewPrimary : AppColors.cardBorder,
+                      color: isSelected
+                          ? theme.previewPrimary
+                          : AppColors.cardBorder,
                       width: isSelected ? 2 : 1,
                     ),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: theme.previewPrimary.withValues(alpha: 0.2),
+                              color: theme.previewPrimary.withValues(
+                                alpha: 0.2,
+                              ),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -510,8 +640,12 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected ? theme.previewPrimary : AppColors.textPrimary,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? theme.previewPrimary
+                              : AppColors.textPrimary,
                           height: 1.1,
                         ),
                       ),
@@ -529,7 +663,8 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
           spacing: 8,
           runSpacing: 8,
           children: ColorPalettePreset.presets.map((preset) {
-            final isMatch = _config.primaryColor.toARGB32() == preset.primary.toARGB32() &&
+            final isMatch =
+                _config.primaryColor.toARGB32() == preset.primary.toARGB32() &&
                 _config.accentColor.toARGB32() == preset.accent.toARGB32();
 
             return GestureDetector(
@@ -543,9 +678,14 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                 );
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
-                  color: isMatch ? preset.primary.withValues(alpha: 0.08) : Colors.white,
+                  color: isMatch
+                      ? preset.primary.withValues(alpha: 0.08)
+                      : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isMatch ? preset.primary : AppColors.cardBorder,
@@ -573,12 +713,18 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      preset.name,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isMatch ? FontWeight.w700 : FontWeight.w500,
-                        color: isMatch ? preset.primary : AppColors.slate700,
+                    Flexible(
+                      child: Text(
+                        preset.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isMatch
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isMatch ? preset.primary : AppColors.slate700,
+                        ),
                       ),
                     ),
                   ],
@@ -604,12 +750,15 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
           final isSelected = _config.fontFamily == family;
 
           return GestureDetector(
-            onTap: () => _onConfigModified(_config.copyWith(fontFamily: family)),
+            onTap: () =>
+                _onConfigModified(_config.copyWith(fontFamily: family)),
             child: Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
+                color: isSelected
+                    ? AppColors.primary.withValues(alpha: 0.05)
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isSelected ? AppColors.primary : AppColors.cardBorder,
@@ -619,7 +768,9 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
               child: Row(
                 children: [
                   Icon(
-                    isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                    isSelected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
                     size: 18,
                     color: isSelected ? AppColors.primary : AppColors.slate400,
                   ),
@@ -633,13 +784,20 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           family.description,
-                          style: const TextStyle(fontSize: 11.5, color: AppColors.slate500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.slate500,
+                          ),
                         ),
                       ],
                     ),
@@ -658,15 +816,23 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
 
             return Expanded(
               child: GestureDetector(
-                onTap: () => _onConfigModified(_config.copyWith(density: density)),
+                onTap: () =>
+                    _onConfigModified(_config.copyWith(density: density)),
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 4),
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary.withValues(alpha: 0.07) : Colors.white,
+                    color: isSelected
+                        ? AppColors.primary.withValues(alpha: 0.07)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isSelected ? AppColors.primary : AppColors.cardBorder,
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.cardBorder,
                       width: isSelected ? 2 : 1,
                     ),
                   ),
@@ -677,18 +843,24 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         density == InvoiceDensity.compact
                             ? '85% Scale'
-                            : (density == InvoiceDensity.regular ? '100% Normal' : '115% Large'),
+                            : (density == InvoiceDensity.regular
+                                  ? '100% Normal'
+                                  : '115% Large'),
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w500,
-                          color: isSelected ? AppColors.primary : AppColors.slate500,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.slate500,
                         ),
                       ),
                     ],
@@ -715,12 +887,15 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
           final isSelected = _config.headerPosition == pos;
 
           return GestureDetector(
-            onTap: () => _onConfigModified(_config.copyWith(headerPosition: pos)),
+            onTap: () =>
+                _onConfigModified(_config.copyWith(headerPosition: pos)),
             child: Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
+                color: isSelected
+                    ? AppColors.primary.withValues(alpha: 0.05)
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isSelected ? AppColors.primary : AppColors.cardBorder,
@@ -733,10 +908,10 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                     pos == HeaderPosition.logoLeftDetailsRight
                         ? Icons.align_horizontal_left_rounded
                         : (pos == HeaderPosition.logoRightDetailsLeft
-                            ? Icons.align_horizontal_right_rounded
-                            : (pos == HeaderPosition.centeredLogo
-                                ? Icons.align_horizontal_center_rounded
-                                : Icons.view_headline_rounded)),
+                              ? Icons.align_horizontal_right_rounded
+                              : (pos == HeaderPosition.centeredLogo
+                                    ? Icons.align_horizontal_center_rounded
+                                    : Icons.view_headline_rounded)),
                     color: isSelected ? AppColors.primary : AppColors.slate600,
                     size: 20,
                   ),
@@ -750,18 +925,29 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w700,
-                            color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
                           ),
                         ),
                         Text(
                           pos.description,
-                          style: const TextStyle(fontSize: 11, color: AppColors.slate500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.slate500,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   if (isSelected)
-                    const Icon(Icons.check_circle_rounded, size: 18, color: AppColors.primary),
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
                 ],
               ),
             ),
@@ -774,12 +960,15 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
           final isSelected = _config.addressLayout == layout;
 
           return GestureDetector(
-            onTap: () => _onConfigModified(_config.copyWith(addressLayout: layout)),
+            onTap: () =>
+                _onConfigModified(_config.copyWith(addressLayout: layout)),
             child: Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
+                color: isSelected
+                    ? AppColors.primary.withValues(alpha: 0.05)
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isSelected ? AppColors.primary : AppColors.cardBorder,
@@ -805,18 +994,29 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w700,
-                            color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
                           ),
                         ),
                         Text(
                           layout.description,
-                          style: const TextStyle(fontSize: 11, color: AppColors.slate500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.slate500,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   if (isSelected)
-                    const Icon(Icons.check_circle_rounded, size: 18, color: AppColors.primary),
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
                 ],
               ),
             ),
@@ -839,25 +1039,29 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
           title: 'Bank Payment Details',
           subtitle: 'Bank name, account number & routing code',
           value: _config.showBankDetails,
-          onChanged: (val) => _onConfigModified(_config.copyWith(showBankDetails: val)),
+          onChanged: (val) =>
+              _onConfigModified(_config.copyWith(showBankDetails: val)),
         ),
         _buildSwitchTile(
           title: 'Digital UPI / Payment ID',
           subtitle: 'UPI ID and fast payment handle',
           value: _config.showUpiDetails,
-          onChanged: (val) => _onConfigModified(_config.copyWith(showUpiDetails: val)),
+          onChanged: (val) =>
+              _onConfigModified(_config.copyWith(showUpiDetails: val)),
         ),
         _buildSwitchTile(
           title: 'Signature & Sign-Off',
           subtitle: 'Authorized signature box in footer',
           value: _config.showSignature,
-          onChanged: (val) => _onConfigModified(_config.copyWith(showSignature: val)),
+          onChanged: (val) =>
+              _onConfigModified(_config.copyWith(showSignature: val)),
         ),
         _buildSwitchTile(
           title: 'Notes & Terms',
           subtitle: 'Customer notes container',
           value: _config.showNotes,
-          onChanged: (val) => _onConfigModified(_config.copyWith(showNotes: val)),
+          onChanged: (val) =>
+              _onConfigModified(_config.copyWith(showNotes: val)),
         ),
         const SizedBox(height: 16),
         _buildSectionTitle('Table Columns'),
@@ -866,13 +1070,15 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
           title: 'Quantity (QTY) Column',
           subtitle: 'Number of units or hours',
           value: _config.showQuantity,
-          onChanged: (val) => _onConfigModified(_config.copyWith(showQuantity: val)),
+          onChanged: (val) =>
+              _onConfigModified(_config.copyWith(showQuantity: val)),
         ),
         _buildSwitchTile(
           title: 'Unit Price Column',
           subtitle: 'Individual item rate',
           value: _config.showUnitPrice,
-          onChanged: (val) => _onConfigModified(_config.copyWith(showUnitPrice: val)),
+          onChanged: (val) =>
+              _onConfigModified(_config.copyWith(showUnitPrice: val)),
         ),
         const SizedBox(height: 16),
         _buildSectionTitle('Custom Footer Closing Message'),
@@ -884,7 +1090,10 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
             hintStyle: const TextStyle(fontSize: 13, color: AppColors.slate400),
             filled: true,
             fillColor: AppColors.slate50,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: AppColors.cardBorder),
@@ -895,7 +1104,10 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 1.5,
+              ),
             ),
           ),
           onChanged: (val) {
@@ -912,13 +1124,16 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: value ? const Color(0xFFF0FDF4) : Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(
+          color: value ? const Color(0xFF86EFAC) : AppColors.cardBorder,
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -937,7 +1152,12 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 11, color: AppColors.slate500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.slate500,
+                  ),
                 ),
               ],
             ),
@@ -953,13 +1173,347 @@ class _InvoiceCustomizerStudioSheetState extends State<InvoiceCustomizerStudioSh
   }
 
   Widget _buildSectionTitle(String text) {
-    return Text(
-      text.toUpperCase(),
-      style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w800,
-        color: AppColors.slate500,
-        letterSpacing: 0.8,
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 14,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: AppColors.slate500,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openQuickLook(BuildContext context) {
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => _FullScreenPreviewOverlay(
+          previewBytes: _previewImageBytes,
+          config: _config,
+          invoice: widget.invoice,
+          businessProfile: widget.businessProfile,
+        ),
+      ),
+    );
+  }
+}
+
+/// Full-screen Quick Look page with high-DPI render and pinch-to-zoom.
+class _FullScreenPreviewOverlay extends StatefulWidget {
+  final Uint8List? previewBytes;
+  final InvoiceCustomizationConfig config;
+  final InvoiceModel? invoice;
+  final BusinessProfile? businessProfile;
+
+  const _FullScreenPreviewOverlay({
+    required this.previewBytes,
+    required this.config,
+    this.invoice,
+    this.businessProfile,
+  });
+
+  @override
+  State<_FullScreenPreviewOverlay> createState() =>
+      _FullScreenPreviewOverlayState();
+}
+
+class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
+  Uint8List? _hiResBytes;
+  bool _isLoading = true;
+  final TransformationController _zoomCtrl = TransformationController();
+  bool _isZoomed = false;
+  TapDownDetails? _doubleTapDetails;
+
+  @override
+  void initState() {
+    super.initState();
+    _hiResBytes = widget.previewBytes;
+    _isLoading = widget.previewBytes == null;
+    _renderHighRes();
+  }
+
+  @override
+  void dispose() {
+    _zoomCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _renderHighRes() async {
+    try {
+      final inv = widget.invoice ?? DummyInvoiceData.sampleInvoice;
+      final profile = widget.businessProfile ?? DummyInvoiceData.sampleProfile;
+
+      final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
+        invoice: inv,
+        businessProfile: profile,
+        isPro: true,
+        customizationConfig: widget.config,
+        isSamplePreview: widget.invoice == null,
+      );
+
+      await for (final page in Printing.raster(
+        pdfBytes,
+        pages: [0],
+        dpi: 300,
+      )) {
+        final png = await page.toPng();
+        if (mounted) {
+          setState(() {
+            _hiResBytes = png;
+            _isLoading = false;
+          });
+        }
+        break;
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _handleDoubleTap() {
+    setState(() {
+      if (_isZoomed) {
+        _zoomCtrl.value = Matrix4.identity();
+        _isZoomed = false;
+      } else {
+        const scale = 2.8;
+        final pos = _doubleTapDetails?.localPosition;
+        if (pos != null) {
+          final x = -pos.dx * (scale - 1);
+          final y = -pos.dy * (scale - 1);
+          _zoomCtrl.value = Matrix4.identity()
+            ..storage[12] = x
+            ..storage[13] = y
+            ..storage[0] = scale
+            ..storage[5] = scale;
+        } else {
+          _zoomCtrl.value = Matrix4.diagonal3Values(scale, scale, 1.0);
+        }
+        _isZoomed = true;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeName = PdfTheme.fromId(widget.config.themeId.value).name;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.textPrimary,
+            size: 19,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Quick Look Preview',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: widget.config.primaryColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  themeName,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.slate500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          if (_isZoomed)
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _zoomCtrl.value = Matrix4.identity();
+                  _isZoomed = false;
+                });
+              },
+              icon: const Icon(
+                Icons.fit_screen_rounded,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              label: const Text(
+                'Fit',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          const SizedBox(width: 8),
+        ],
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.cardBorder),
+        ),
+      ),
+      body: Stack(
+        children: [
+          // High-Res Zoomable Canvas
+          Positioned.fill(
+            child: _hiResBytes != null
+                ? LayoutBuilder(
+                    builder: (context, constraints) {
+                      return GestureDetector(
+                        onDoubleTapDown: (d) => _doubleTapDetails = d,
+                        onDoubleTap: _handleDoubleTap,
+                        child: InteractiveViewer(
+                          transformationController: _zoomCtrl,
+                          constrained: false,
+                          minScale: 1.0,
+                          maxScale: 4.5,
+                          boundaryMargin: const EdgeInsets.all(100),
+                          onInteractionEnd: (_) {
+                            final s = _zoomCtrl.value.getMaxScaleOnAxis();
+                            if ((s > 1.05) != _isZoomed) {
+                              setState(() => _isZoomed = s > 1.05);
+                            }
+                          },
+                          child: SizedBox(
+                            width: constraints.maxWidth,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 20,
+                              ),
+                              child: Center(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.10,
+                                        ),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.memory(
+                                      _hiResBytes!,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                : const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+          ),
+
+          // Bottom floating status pill
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.cardBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.07),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: _isLoading
+                    ? const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 13,
+                            height: 13,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.8,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Rendering High-DPI (300 DPI)...',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.slate600,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        _isZoomed
+                            ? 'Double-tap to reset view'
+                            : 'Pinch or double-tap to zoom in',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.slate600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

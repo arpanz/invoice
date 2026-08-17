@@ -303,7 +303,7 @@ void main() {
       // Verify header and tabs exist
       expect(find.text('Invoice Design Studio'), findsOneWidget);
       expect(find.text('Style'), findsOneWidget);
-      expect(find.text('Typography'), findsOneWidget);
+      expect(find.text('Typo'), findsOneWidget);
       expect(find.text('Layout'), findsOneWidget);
       expect(find.text('Sections'), findsOneWidget);
 
@@ -312,7 +312,7 @@ void main() {
       expect(find.text('COLOR PALETTE PRESETS', skipOffstage: false), findsOneWidget);
 
       // Switch to Typography Tab
-      await tester.tap(find.text('Typography'));
+      await tester.tap(find.text('Typo'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('FONT FAMILY', skipOffstage: false), findsOneWidget);

@@ -668,8 +668,10 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
           final x = -tapPosition.dx * (zoomScale - 1);
           final y = -tapPosition.dy * (zoomScale - 1);
           _zoomController.value = Matrix4.identity()
-            ..translate(x, y)
-            ..scale(zoomScale);
+            ..storage[12] = x
+            ..storage[13] = y
+            ..storage[0] = zoomScale
+            ..storage[5] = zoomScale;
         } else {
           _zoomController.value = Matrix4.diagonal3Values(zoomScale, zoomScale, 1.0);
         }
@@ -756,7 +758,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                     constrained: false,
                                     minScale: 1.0,
                                     maxScale: 4.0,
-                                    boundaryMargin: EdgeInsets.zero,
+                                    boundaryMargin: const EdgeInsets.all(100),
                                     onInteractionEnd: (_) {
                                       final scale = _zoomController.value.getMaxScaleOnAxis();
                                       final zoomed = scale > 1.05;
