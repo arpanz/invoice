@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../../core/ads/ad_manager.dart';
 import '../../core/theme/app_colors.dart';
+import 'widgets/paywall_skyline_header.dart';
 
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
@@ -237,7 +238,6 @@ class _PaywallScreenState extends State<PaywallScreen>
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
@@ -252,7 +252,9 @@ class _PaywallScreenState extends State<PaywallScreen>
                 physics: const BouncingScrollPhysics(),
                 child: Column(
                   children: [
-                    _buildHeader(topPadding),
+                    PaywallSkylineHeader(
+                      onClose: () => Navigator.pop(context),
+                    ),
                     _buildFeaturesList(),
                   ],
                 ),
@@ -262,86 +264,6 @@ class _PaywallScreenState extends State<PaywallScreen>
             // ── Bottom CTA area ──────────────────────────────────────
             _buildBottomCta(bottomPadding),
           ],
-        ),
-      ),
-    );
-  }
-
-  // ── Header ───────────────────────────────────────────────────────────────
-
-  Widget _buildHeader(double topPadding) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1E3A5F),
-            Color(0xFF2563EB),
-          ],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 16, 36),
-          child: Column(
-            children: [
-              // Close button row
-              Align(
-                alignment: Alignment.topRight,
-                child: IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: Icon(
-                    Icons.close_rounded,
-                    color: Colors.white.withValues(alpha: 0.8),
-                    size: 24,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Crown icon
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.workspace_premium_rounded,
-                  color: Color(0xFFFFD700),
-                  size: 38,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Title
-              const Text(
-                'Invoice Maker Pro',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Subtitle
-              Text(
-                'Unlimited invoices, custom branding\n& premium PDF themes.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.80),
-                  height: 1.45,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

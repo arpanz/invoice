@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/core/billing/billing_service.dart';
 import 'package:invoice/core/providers/currency_provider.dart';
 import 'package:invoice/features/paywall/paywall_screen.dart';
+import 'package:invoice/features/paywall/widgets/paywall_skyline_header.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -67,5 +68,31 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.text('Unlock Lifetime Access'), findsOneWidget);
+  });
+
+  testWidgets('PaywallSkylineHeader renders branding and triggers close', (
+    WidgetTester tester,
+  ) async {
+    bool closed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PaywallSkylineHeader(
+            onClose: () => closed = true,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Verify Enterprise badge, Title and Pro icon
+    expect(find.text('ENTERPRISE SUITE'), findsOneWidget);
+    expect(find.text('Invoice Maker Pro'), findsOneWidget);
+    expect(find.byIcon(Icons.workspace_premium_rounded), findsOneWidget);
+
+    // Tap Close Button
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pump();
+    expect(closed, isTrue);
   });
 }
