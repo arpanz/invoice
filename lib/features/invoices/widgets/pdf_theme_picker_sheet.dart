@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -102,8 +103,8 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.88,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
         top: false,
@@ -114,15 +115,15 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
             // Drag handle
             Center(
               child: Container(
-                width: 40,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.slate300,
+                  color: AppColors.hairline,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
             // Header
             Padding(
@@ -130,32 +131,32 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Choose Invoice Style',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.ink,
                             letterSpacing: -0.3,
                           ),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
                           'Tap any template to select',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.slate500,
+                          style: GoogleFonts.inter(
+                            fontSize: 12.5,
+                            color: AppColors.muted,
                           ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    icon: const Icon(Icons.close_rounded, color: AppColors.muted, size: 20),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -182,16 +183,16 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
+                    color: AppColors.surfaceCard,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+                    border: Border.all(color: AppColors.hairline),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: AppColors.primary,
+                          color: AppColors.surfaceDark,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
@@ -201,23 +202,23 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Customize Design & Typography',
-                              style: TextStyle(
+                              style: GoogleFonts.inter(
                                 fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.ink,
                               ),
                             ),
                             Text(
                               'Change font family, sizing scale & element layout',
-                              style: TextStyle(
+                              style: GoogleFonts.inter(
                                 fontSize: 11,
-                                color: AppColors.slate600,
+                                color: AppColors.muted,
                               ),
                             ),
                           ],
@@ -226,42 +227,46 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                       const Icon(
                         Icons.chevron_right_rounded,
                         size: 20,
-                        color: AppColors.primary,
+                        color: AppColors.muted,
                       ),
                     ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            const Divider(height: 1, color: AppColors.cardBorder),
+            const SizedBox(height: 12),
+            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
 
-            // 2-Column Live Preview Only Grid (No text labels)
+            // Grid of live theme mockups
             Expanded(
               child: GridView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                itemCount: PdfTheme.all.length,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.707,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
+                  childAspectRatio: 0.72,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
                 ),
-                itemBuilder: (ctx, index) {
+                itemCount: PdfTheme.all.length,
+                itemBuilder: (context, index) {
                   final theme = PdfTheme.all[index];
-                  final isSelected = _selectedTheme.id == theme.id;
-                  final thumbnailBytes = _thumbnailCache[theme.id];
+                  final isSelected = theme.id == _selectedTheme.id;
+                  final thumbBytes = _thumbnailCache[theme.id];
 
-                  return _buildLiveThemeCard(theme, isSelected, thumbnailBytes);
+                  return _buildLiveThemeCard(theme, isSelected, thumbBytes);
                 },
               ),
             ),
 
-            const Divider(height: 1, color: AppColors.cardBorder),
-
-            // Footer Actions
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+            // Bottom action & default checkbox
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              decoration: const BoxDecoration(
+                color: AppColors.canvas,
+                border: Border(
+                  top: BorderSide(color: AppColors.hairline),
+                ),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -276,8 +281,8 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                       child: Row(
                         children: [
                           SizedBox(
-                            height: 22,
-                            width: 22,
+                            width: 24,
+                            height: 24,
                             child: Checkbox(
                               value: _setAsDefault,
                               onChanged: (val) {
@@ -292,18 +297,18 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Text(
-                            'Set as default style for future invoices',
-                            style: TextStyle(
+                          Text(
+                            'Always use this style as default',
+                            style: GoogleFonts.inter(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
-                              color: AppColors.slate700,
+                              color: AppColors.ink,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                   ],
                   SizedBox(
                     width: double.infinity,
@@ -314,17 +319,17 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppColors.onPrimary,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(8), // rounded.md
                         ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Apply Selected Style',
-                        style: TextStyle(
+                        style: GoogleFonts.inter(
                           fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),

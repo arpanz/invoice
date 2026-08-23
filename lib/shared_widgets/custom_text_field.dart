@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../core/providers/currency_provider.dart';
 import '../core/theme/app_colors.dart';
 
+/// Cal.com Text Input Field (`text-input` & `text-input-focused`)
 class CustomTextField extends StatelessWidget {
   final String? label;
   final String? hint;
@@ -27,6 +29,7 @@ class CustomTextField extends StatelessWidget {
   final EdgeInsetsGeometry? contentPadding;
   final TextCapitalization textCapitalization;
   final VoidCallback? onTap;
+  final double borderRadius;
 
   const CustomTextField({
     super.key,
@@ -52,6 +55,7 @@ class CustomTextField extends StatelessWidget {
     this.contentPadding,
     this.textCapitalization = TextCapitalization.none,
     this.onTap,
+    this.borderRadius = 8.0, // Cal.com rounded.md
   });
 
   @override
@@ -72,42 +76,62 @@ class CustomTextField extends StatelessWidget {
       autofocus: autofocus,
       textCapitalization: textCapitalization,
       onTap: onTap,
-      style: const TextStyle(
+      style: GoogleFonts.inter(
         fontSize: 14,
-        color: AppColors.textPrimary,
-        fontWeight: FontWeight.w600,
+        color: AppColors.ink,
+        fontWeight: FontWeight.w500,
       ),
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: AppColors.muted,
+        ),
         hintText: hint,
+        hintStyle: GoogleFonts.inter(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: AppColors.mutedSoft,
+        ),
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
         prefixText: prefixText,
-        prefixStyle: const TextStyle(
-          color: AppColors.primary,
-          fontWeight: FontWeight.w700,
+        prefixStyle: GoogleFonts.inter(
+          color: AppColors.ink,
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
         ),
         suffixText: suffixText,
-        fillColor: AppColors.surface,
+        suffixStyle: GoogleFonts.inter(
+          color: AppColors.muted,
+          fontWeight: FontWeight.w500,
+          fontSize: 13,
+        ),
+        fillColor: AppColors.canvas,
         filled: true,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.cardBorder),
+          borderRadius: BorderRadius.circular(borderRadius),
+          borderSide: const BorderSide(color: AppColors.hairline, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.cardBorder),
+          borderRadius: BorderRadius.circular(borderRadius),
+          borderSide: const BorderSide(color: AppColors.hairline, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderRadius: BorderRadius.circular(borderRadius),
+          borderSide: const BorderSide(color: AppColors.ink, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.accentRed),
+          borderRadius: BorderRadius.circular(borderRadius),
+          borderSide: const BorderSide(color: AppColors.error, width: 1),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(borderRadius),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
         contentPadding: contentPadding ??
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
     );
   }
@@ -156,3 +180,4 @@ class AmountTextField extends StatelessWidget {
     );
   }
 }
+

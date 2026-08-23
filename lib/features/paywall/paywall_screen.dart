@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../../core/ads/ad_manager.dart';
 import '../../core/theme/app_colors.dart';
@@ -280,11 +281,11 @@ class _PaywallScreenState extends State<PaywallScreen>
           // Section label
           Text(
             'WHAT\'S INCLUDED',
-            style: TextStyle(
+            style: GoogleFonts.inter(
               fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: AppColors.slate400,
-              letterSpacing: 1.0,
+              fontWeight: FontWeight.w600,
+              color: AppColors.muted,
+              letterSpacing: 0.8,
             ),
           ),
           const SizedBox(height: 18),
@@ -292,7 +293,7 @@ class _PaywallScreenState extends State<PaywallScreen>
           _buildFeatureRow(
             Icons.receipt_long_rounded,
             'Unlimited Invoices',
-            'Create and send GST invoices with no limits.',
+            'Create and send invoices with no limits.',
           ),
           _buildFeatureRow(
             Icons.branding_watermark_rounded,
@@ -321,7 +322,7 @@ class _PaywallScreenState extends State<PaywallScreen>
 
   Widget _buildFeatureRow(IconData icon, String title, String subtitle) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -329,10 +330,11 @@ class _PaywallScreenState extends State<PaywallScreen>
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
+              color: AppColors.surfaceCard,
+              borderRadius: BorderRadius.circular(8), // rounded.md
+              border: Border.all(color: AppColors.hairline),
             ),
-            child: Icon(icon, color: AppColors.primary, size: 19),
+            child: Icon(icon, color: AppColors.ink, size: 18),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -341,19 +343,19 @@ class _PaywallScreenState extends State<PaywallScreen>
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: GoogleFonts.inter(
                     fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.ink,
                     letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: GoogleFonts.inter(
                     fontSize: 12.5,
-                    color: AppColors.textSecondary,
+                    color: AppColors.muted,
                     height: 1.3,
                   ),
                 ),
@@ -371,9 +373,9 @@ class _PaywallScreenState extends State<PaywallScreen>
     return Container(
       padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPadding > 0 ? bottomPadding : 16),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.canvas,
         border: Border(
-          top: BorderSide(color: AppColors.cardBorder, width: 1),
+          top: BorderSide(color: AppColors.hairline, width: 1),
         ),
       ),
       child: Column(
@@ -416,24 +418,24 @@ class _PaywallScreenState extends State<PaywallScreen>
           // CTA button
           SizedBox(
             width: double.infinity,
-            height: 52,
+            height: 48,
             child: ElevatedButton(
               onPressed: _available && !_isLoading ? _buyProduct : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: AppColors.slate300,
+                foregroundColor: AppColors.onPrimary,
+                disabledBackgroundColor: AppColors.surfaceCard,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(8), // rounded.md
                 ),
               ),
               child: _isLoading
                   ? const SizedBox(
-                      height: 22,
-                      width: 22,
+                      height: 20,
+                      width: 20,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
+                        strokeWidth: 2,
                         color: Colors.white,
                       ),
                     )
@@ -441,15 +443,14 @@ class _PaywallScreenState extends State<PaywallScreen>
                       _selectedProductId == AdManager.productId
                           ? 'Unlock Lifetime Access'
                           : 'Subscribe for ${_getProduct(_selectedProductId)?.price ?? 'Pro'}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 0.1,
                       ),
                     ),
             ),
           ),
-          const SizedBox(height: 12),
 
           // Footer links
           Row(

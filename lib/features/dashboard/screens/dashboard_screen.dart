@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -138,6 +139,29 @@ class DashboardScreenState extends State<DashboardScreen> {
     return grouped;
   }
 
+  Color _getAvatarColor(String name) {
+    const colors = [
+      AppColors.badgeOrange,
+      AppColors.badgePink,
+      AppColors.badgeViolet,
+      AppColors.badgeEmerald,
+      AppColors.badgeBlue,
+    ];
+    if (name.isEmpty) return colors[0];
+    final hash = name.codeUnits.fold(0, (prev, elem) => prev + elem);
+    return colors[hash % colors.length];
+  }
+
+  String _getInitials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
   Future<void> _openInvoicePreview(InvoiceModel invoice) async {
     final updated = await Navigator.push(
       context,
@@ -179,17 +203,17 @@ class DashboardScreenState extends State<DashboardScreen> {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: AppColors.statusPaid,
+            backgroundColor: AppColors.ink,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             content: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const Icon(Icons.check_circle_rounded, color: AppColors.statusPaid, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '🎉 Invoice ${invoice.invoiceNumber} marked as Paid in Full!',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    'Invoice ${invoice.invoiceNumber} marked as Paid in Full',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
                   ),
                 ),
               ],
@@ -239,52 +263,53 @@ class DashboardScreenState extends State<DashboardScreen> {
   void _showQuickStatusPicker(InvoiceModel invoice) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.canvas,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 42,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(99),
+                  color: AppColors.hairline,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Update Status',
-                        style: TextStyle(
+                        style: GoogleFonts.inter(
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.ink,
+                          letterSpacing: -0.3,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Invoice ${invoice.invoiceNumber}',
-                        style: const TextStyle(
+                        style: GoogleFonts.inter(
                           fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.slate500,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.muted,
                         ),
                       ),
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    icon: const Icon(Icons.close_rounded, color: AppColors.muted, size: 20),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -363,55 +388,55 @@ class DashboardScreenState extends State<DashboardScreen> {
     required VoidCallback onTap,
   }) {
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryMuted : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? AppColors.surfaceCard : AppColors.canvas,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppColors.primaryLight : AppColors.cardBorder,
+            color: isSelected ? AppColors.ink : AppColors.hairline,
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 color: bgColor,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: iconColor, size: 20),
+              child: Icon(icon, color: iconColor, size: 18),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.ink,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: GoogleFonts.inter(
                       fontSize: 12,
-                      color: AppColors.slate500,
+                      color: AppColors.muted,
                     ),
                   ),
                 ],
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22),
+              const Icon(Icons.check_circle_rounded, color: AppColors.ink, size: 20),
           ],
         ),
       ),
@@ -492,17 +517,21 @@ class DashboardScreenState extends State<DashboardScreen> {
     final grouped = _groupByMonth(filtered);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        ),
         leading: Builder(
           builder: (ctx) => IconButton(
             icon: Stack(
               clipBehavior: Clip.none,
               children: [
-                const Icon(Icons.menu_rounded, color: AppColors.textPrimary, size: 24),
+                const Icon(Icons.menu_rounded, color: AppColors.ink, size: 22),
                 if (_hasProfileAlert)
                   Positioned(
                     top: -2,
@@ -511,7 +540,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                       width: 8,
                       height: 8,
                       decoration: const BoxDecoration(
-                        color: AppColors.accentOrange,
+                        color: AppColors.warning,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -535,20 +564,20 @@ class DashboardScreenState extends State<DashboardScreen> {
             ? TextField(
                 controller: _searchCtrl,
                 autofocus: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Search client or invoice #...',
                   border: InputBorder.none,
-                  hintStyle: TextStyle(color: AppColors.slate400, fontSize: 15),
+                  hintStyle: GoogleFonts.inter(color: AppColors.mutedSoft, fontSize: 15),
                 ),
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 16),
+                style: GoogleFonts.inter(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w500),
                 onChanged: (val) => setState(() => _searchQuery = val.trim()),
               )
-            : const Text(
+            : Text(
                 'Invoices',
-                style: TextStyle(
+                style: GoogleFonts.inter(
                   fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -556,8 +585,8 @@ class DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: Icon(
               _isSearching ? Icons.close_rounded : Icons.search_rounded,
-              color: AppColors.textPrimary,
-              size: 22,
+              color: AppColors.ink,
+              size: 20,
             ),
             onPressed: () {
               setState(() {
@@ -582,21 +611,21 @@ class DashboardScreenState extends State<DashboardScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(9999), // pill
+                    border: Border.all(color: const Color(0xFF333333)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.workspace_premium_rounded, size: 14, color: AppColors.proGold),
-                      SizedBox(width: 4),
+                      const Icon(Icons.star_rounded, size: 13, color: Color(0xFFFBBF24)),
+                      const SizedBox(width: 4),
                       Text(
                         'PRO',
-                        style: TextStyle(
+                        style: GoogleFonts.inter(
                           fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFFB45309),
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -621,119 +650,148 @@ class DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Top Summary Cards (Total Paid / Total Unpaid) matching screenshots 4 & 5
-                    Row(
-                      children: [
-                        // Card 1: Total Paid
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.cardBorder),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.02),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
+                    // Cal.com Signature Hero Dark Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceDark,
+                        borderRadius: BorderRadius.circular(16), // rounded.xl
+                        border: Border.all(color: const Color(0xFF242424)),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color.fromRGBO(0, 0, 0, 0.12),
+                            blurRadius: 20,
+                            offset: Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Total Paid',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF888888),
+                                  letterSpacing: 0.8,
                                 ),
-                              ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF222222),
+                                  borderRadius: BorderRadius.circular(9999),
+                                ),
+                                child: Text(
+                                  currencyCode,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFFCCCCCC),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            CurrencyFormatter.format(
+                              _totalPaid,
+                              currencyCode: currencyCode,
+                              currencySymbol: currencySymbol,
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Total Paid',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.slate500,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  CurrencyFormatter.format(
-                                    _totalPaid,
-                                    currencyCode: currencyCode,
-                                    currencySymbol: currencySymbol,
-                                  ),
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    color: AppColors.statusPaid,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                              ],
+                            style: GoogleFonts.inter(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              letterSpacing: -1.0,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Card 2: Total Unpaid
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.cardBorder),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.02),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Total Unpaid',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.slate500,
+                          const SizedBox(height: 16),
+                          const Divider(height: 1, color: Color(0xFF222222)),
+                          const SizedBox(height: 14),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Total Unpaid',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xFF999999),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  CurrencyFormatter.format(
-                                    _totalUnpaid,
-                                    currencyCode: currencyCode,
-                                    currencySymbol: currencySymbol,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    CurrencyFormatter.format(
+                                      _totalUnpaid,
+                                      currencyCode: currencyCode,
+                                      currencySymbol: currencySymbol,
+                                    ),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFFFAFAFA),
+                                    ),
                                   ),
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    color: AppColors.textPrimary,
-                                    letterSpacing: -0.5,
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'Total Documents',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xFF999999),
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${_allInvoices.length} invoices',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFFFAFAFA),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
 
-                    // Filter Chips Row
+                    // Cal.com Nav-Pill-Group Filter Row
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildFilterChip('all', 'All'),
-                          const SizedBox(width: 8),
-                          _buildFilterChip('unpaid', 'Unpaid'),
-                          const SizedBox(width: 8),
-                          _buildFilterChip('partially_paid', 'Partially Paid'),
-                          const SizedBox(width: 8),
-                          _buildFilterChip('overdue', 'Overdue'),
-                          const SizedBox(width: 8),
-                          _buildFilterChip('paid', 'Paid'),
-                        ],
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.canvas,
+                          borderRadius: BorderRadius.circular(9999), // pill container
+                          border: Border.all(color: AppColors.hairline),
+                        ),
+                        child: Row(
+                          children: [
+                            _buildFilterChip('all', 'All'),
+                            _buildFilterChip('unpaid', 'Unpaid'),
+                            _buildFilterChip('partially_paid', 'Partially Paid'),
+                            _buildFilterChip('overdue', 'Overdue'),
+                            _buildFilterChip('paid', 'Paid'),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -741,7 +799,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // Invoices List or Clean Empty State with Balloon
+            // Invoices List or Clean SaaS Empty State
             if (_isLoading)
               const SliverFillRemaining(
                 child: Center(
@@ -755,7 +813,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -765,15 +823,16 @@ class DashboardScreenState extends State<DashboardScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Month Header (e.g. "Aug 2026") matching screenshot 5
+                          // Month Header (e.g. "Aug 2026")
                           Padding(
                             padding: const EdgeInsets.only(top: 14, bottom: 8, left: 4),
                             child: Text(
                               monthKey,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.slate500,
+                              style: GoogleFonts.inter(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.muted,
+                                letterSpacing: 0.2,
                               ),
                             ),
                           ),
@@ -800,29 +859,17 @@ class DashboardScreenState extends State<DashboardScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.cardBorder,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(9999), // pill
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.slate700,
+          style: GoogleFonts.inter(
+            fontSize: 12.5,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? AppColors.onPrimary : AppColors.body,
           ),
         ),
       ),
@@ -839,25 +886,27 @@ class DashboardScreenState extends State<DashboardScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 90,
-              height: 90,
-              decoration: const BoxDecoration(
-                color: AppColors.slate100,
-                shape: BoxShape.circle,
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceCard,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.hairline),
               ),
               child: const Icon(
                 Icons.search_off_rounded,
-                size: 44,
-                color: AppColors.slate400,
+                size: 28,
+                color: AppColors.muted,
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
+            const SizedBox(height: 16),
+            Text(
               'No matching invoices',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
+              style: GoogleFonts.inter(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+                letterSpacing: -0.3,
               ),
             ),
             const SizedBox(height: 6),
@@ -866,7 +915,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   ? 'No invoices match "$_searchQuery"'
                   : 'No invoices with status "$_selectedFilter"',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: AppColors.slate500),
+              style: GoogleFonts.inter(fontSize: 13, color: AppColors.muted),
             ),
             const SizedBox(height: 20),
             OutlinedButton.icon(
@@ -882,10 +931,10 @@ class DashboardScreenState extends State<DashboardScreen> {
               icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
               label: const Text('Reset Filters'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary),
+                foregroundColor: AppColors.ink,
+                side: const BorderSide(color: AppColors.hairline),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
             ),
@@ -899,119 +948,72 @@ class DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 30),
-          // Empty State Icon (Illustration container)
           Container(
-            width: 110,
-            height: 110,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+              color: AppColors.surfaceCard,
+              borderRadius: BorderRadius.circular(16), // rounded.xl
+              border: Border.all(color: AppColors.hairline),
             ),
-            child: Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: 58,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.slate300, width: 1.5),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(width: 32, height: 3, color: AppColors.slate400),
-                        const SizedBox(height: 5),
-                        Container(width: 26, height: 3, color: AppColors.slate300),
-                        const SizedBox(height: 5),
-                        Container(width: 30, height: 3, color: AppColors.slate300),
-                      ],
-                    ),
-                  ),
-                ],
+            child: const Center(
+              child: Icon(
+                Icons.receipt_long_rounded,
+                size: 32,
+                color: AppColors.ink,
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          const Text(
+          const SizedBox(height: 20),
+          Text(
             'No invoices yet',
-            style: TextStyle(
+            style: GoogleFonts.inter(
               fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+              color: AppColors.ink,
+              letterSpacing: -0.4,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Create your first invoice in seconds by tapping below',
+          Text(
+            'Create your first professional invoice in seconds',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.slate500,
+            style: GoogleFonts.inter(
+              fontSize: 13.5,
+              color: AppColors.muted,
             ),
           ),
-          const SizedBox(height: 40),
-
-          // Onboarding Coachmark Balloon pointing down towards + FAB (Screenshot 4)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: const Column(
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.touch_app_rounded, color: Colors.white70, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'Create Your First Invoice',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Tap the + button to get started',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white70,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () async {
+              if (await CreateInvoiceScreen.canCreateNewInvoice(context)) {
+                if (!mounted) return;
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
+                );
+                if (mounted) _loadData();
+              }
+            },
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Create Invoice'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onPrimary,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
-          const SizedBox(height: 80),
         ],
       ),
     );
   }
 
   Widget _buildInvoiceCard(InvoiceModel invoice) {
-    final dateFormatted = DateFormat('dd/MM/yyyy').format(invoice.invoiceDate);
+    final dateFormatted = DateFormat('dd MMM yyyy').format(invoice.invoiceDate);
 
     Color badgeColor;
     Color badgeBg;
@@ -1026,7 +1028,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       case InvoiceStatus.partiallyPaid:
         badgeColor = AppColors.statusPartiallyPaid;
         badgeBg = AppColors.statusPartiallyPaidBg;
-        badgeText = 'Partially Paid';
+        badgeText = 'Partial';
         break;
       case InvoiceStatus.overdue:
         badgeColor = AppColors.statusOverdue;
@@ -1040,30 +1042,47 @@ class DashboardScreenState extends State<DashboardScreen> {
         break;
     }
 
+    final avatarColor = _getAvatarColor(invoice.clientName);
+    final initials = _getInitials(invoice.clientName);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(12), // rounded.lg
+        border: Border.all(color: AppColors.hairline),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           onTap: () => _openInvoicePreview(invoice),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
+                // Circular Pastel Avatar with Initials
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: avatarColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      initials,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
                 // Left: Client Name & Invoice Info
                 Expanded(
                   child: Column(
@@ -1071,20 +1090,20 @@ class DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Text(
                         invoice.clientName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                        style: GoogleFonts.inter(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.ink,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
-                        '${invoice.invoiceNumber} | $dateFormatted',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.slate500,
+                        '${invoice.invoiceNumber} • $dateFormatted',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.muted,
                         ),
                       ),
                     ],
@@ -1102,35 +1121,35 @@ class DashboardScreenState extends State<DashboardScreen> {
                             ? invoice.currency
                             : _currency,
                       ),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.ink,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     GestureDetector(
                       onTap: () => _showQuickStatusPicker(invoice),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: badgeBg,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: badgeColor.withValues(alpha: 0.2)),
+                          borderRadius: BorderRadius.circular(9999), // pill
+                          border: Border.all(color: badgeColor.withValues(alpha: 0.18)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               badgeText,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                              style: GoogleFonts.inter(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
                                 color: badgeColor,
                               ),
                             ),
                             const SizedBox(width: 2),
-                            Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: badgeColor),
+                            Icon(Icons.keyboard_arrow_down_rounded, size: 13, color: badgeColor),
                           ],
                         ),
                       ),
@@ -1138,8 +1157,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
 
+                const SizedBox(width: 4),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded, color: AppColors.slate500, size: 20),
+                  icon: const Icon(Icons.more_vert_rounded, color: AppColors.muted, size: 18),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   onSelected: (action) {
                     if (action == 'preview') _openInvoicePreview(invoice);
                     if (action == 'share') _sharePdf(invoice);
@@ -1186,3 +1208,4 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
+

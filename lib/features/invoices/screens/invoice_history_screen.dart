@@ -481,9 +481,32 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       ifscCode: prefs.getString('biz_ifsc'),
       upiId: prefs.getString('biz_upi'),
       logoPath: prefs.getString('biz_logo_path'),
-      signaturePath: prefs.getString('biz_signature_path'),
+signaturePath: prefs.getString('biz_signature_path'),
       currency: currency,
     );
+  }
+
+  Color _getAvatarColor(String name) {
+    const colors = [
+      AppColors.badgeOrange,
+      AppColors.badgePink,
+      AppColors.badgeViolet,
+      AppColors.badgeEmerald,
+      AppColors.badgeBlue,
+    ];
+    if (name.isEmpty) return colors[0];
+    final hash = name.codeUnits.fold(0, (prev, elem) => prev + elem);
+    return colors[hash % colors.length];
+  }
+
+  String _getInitials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
   }
 
   @override
@@ -500,11 +523,15 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     final grouped = _groupByMonth(visibleInvoices);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        ),
         title: _isSearching
             ? TextField(
                 controller: _searchCtrl,
@@ -512,10 +539,10 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                 decoration: const InputDecoration(
                   hintText: 'Search client, invoice #, items...',
                   border: InputBorder.none,
-                  hintStyle: TextStyle(color: AppColors.slate400, fontSize: 15),
+                  hintStyle: TextStyle(color: AppColors.mutedSoft, fontSize: 15),
                 ),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: AppColors.ink,
                   fontSize: 16,
                 ),
                 onChanged: (val) => setState(() => _searchQuery = val.trim()),
@@ -524,8 +551,8 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                 'History',
                 style: TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -533,8 +560,8 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
           IconButton(
             icon: Icon(
               _isSearching ? Icons.close_rounded : Icons.search_rounded,
-              color: AppColors.textPrimary,
-              size: 22,
+              color: AppColors.ink,
+              size: 20,
             ),
             onPressed: () {
               setState(() {
@@ -562,25 +589,25 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(9999),
+                    border: Border.all(color: const Color(0xFF333333)),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.workspace_premium_rounded,
-                        size: 14,
-                        color: AppColors.proGold,
+                        Icons.star_rounded,
+                        size: 13,
+                        color: Color(0xFFFBBF24),
                       ),
                       SizedBox(width: 4),
                       Text(
                         'PRO',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFFB45309),
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -599,24 +626,28 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            // Filter Chips Bar
+            // Filter Chips Bar (nav-pill style)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildFilterChip('All', 'all'),
-                      const SizedBox(width: 8),
-                      _buildFilterChip('Unpaid', 'unpaid'),
-                      const SizedBox(width: 8),
-                      _buildFilterChip('Partially Paid', 'partially_paid'),
-                      const SizedBox(width: 8),
-                      _buildFilterChip('Overdue', 'overdue'),
-                      const SizedBox(width: 8),
-                      _buildFilterChip('Paid', 'paid'),
-                    ],
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppColors.canvas,
+                      borderRadius: BorderRadius.circular(9999),
+                      border: Border.all(color: AppColors.hairline),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildFilterChip('All', 'all'),
+                        _buildFilterChip('Unpaid', 'unpaid'),
+                        _buildFilterChip('Partially Paid', 'partially_paid'),
+                        _buildFilterChip('Overdue', 'overdue'),
+                        _buildFilterChip('Paid', 'paid'),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -635,7 +666,7 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -663,9 +694,10 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                             child: Text(
                               monthKey,
                               style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.slate500,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.muted,
+                                letterSpacing: 0.2,
                               ),
                             ),
                           ),
@@ -697,29 +729,17 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.cardBorder,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(9999), // pill
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.slate700,
+            fontSize: 12.5,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? AppColors.onPrimary : AppColors.body,
           ),
         ),
       ),
@@ -730,41 +750,42 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     if (_searchQuery.isNotEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 72,
-                height: 72,
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
-                  color: AppColors.slate100,
-                  borderRadius: BorderRadius.circular(24),
+                  color: AppColors.surfaceCard,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.hairline),
                 ),
                 child: const Icon(
                   Icons.search_off_rounded,
-                  size: 36,
-                  color: AppColors.slate400,
+                  size: 28,
+                  color: AppColors.muted,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               Text(
                 'No invoices found for "$_searchQuery"',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
                 ),
               ),
               const SizedBox(height: 6),
               const Text(
                 'Try searching with a different keyword or filter',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppColors.slate500),
+                style: TextStyle(fontSize: 13, color: AppColors.muted),
               ),
               const SizedBox(height: 16),
-              TextButton.icon(
+              OutlinedButton.icon(
                 onPressed: () {
                   setState(() {
                     _searchQuery = '';
@@ -772,8 +793,15 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                     _isSearching = false;
                   });
                 },
-                icon: const Icon(Icons.clear_rounded, size: 18),
+                icon: const Icon(Icons.clear_rounded, size: 16),
                 label: const Text('Clear Search'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.ink,
+                  side: const BorderSide(color: AppColors.hairline),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
             ],
           ),
@@ -795,33 +823,33 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     return Container(
       margin: const EdgeInsets.only(top: 8, bottom: 8),
       decoration: BoxDecoration(
-        gradient: AppColors.proGradient,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppColors.floatingShadow,
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(16), // rounded.xl
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
             Container(
-              width: 50,
-              height: 50,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: AppColors.proGold,
-                borderRadius: BorderRadius.circular(16),
+                color: const Color(0xFF222222),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.lock_rounded,
-                color: Colors.white,
-                size: 26,
+                color: Color(0xFFFBBF24),
+                size: 22,
               ),
             ),
             const SizedBox(height: 12),
             Text(
               '$hiddenCount more invoice${hiddenCount > 1 ? 's' : ''} hidden',
               style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
             ),
@@ -831,30 +859,30 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.white70,
+                color: Color(0xFF999999),
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
+              height: 44,
               child: ElevatedButton(
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const PaywallScreen()),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.proGold,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppColors.ink,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   elevation: 0,
                 ),
                 child: const Text(
                   'Unlock Full History — Go Pro',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -865,7 +893,7 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   }
 
   Widget _buildInvoiceCard(InvoiceModel invoice) {
-    final dateFormatted = DateFormat('dd/MM/yyyy').format(invoice.invoiceDate);
+    final dateFormatted = DateFormat('dd MMM yyyy').format(invoice.invoiceDate);
 
     Color badgeColor;
     Color badgeBg;
@@ -880,7 +908,7 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       case InvoiceStatus.partiallyPaid:
         badgeColor = AppColors.statusPartiallyPaid;
         badgeBg = AppColors.statusPartiallyPaidBg;
-        badgeText = 'Partially Paid';
+        badgeText = 'Partial';
         break;
       case InvoiceStatus.overdue:
         badgeColor = AppColors.statusOverdue;
@@ -894,30 +922,47 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         break;
     }
 
+    final avatarColor = _getAvatarColor(invoice.clientName);
+    final initials = _getInitials(invoice.clientName);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(12), // rounded.lg
+        border: Border.all(color: AppColors.hairline),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           onTap: () => _showInvoicePreview(invoice),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
+                // Avatar circle
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: avatarColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      initials,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
                 // Left: Client Name & Invoice Info
                 Expanded(
                   child: Column(
@@ -926,19 +971,19 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                       Text(
                         invoice.clientName,
                         style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.ink,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
-                        '${invoice.invoiceNumber} | $dateFormatted',
+                        '${invoice.invoiceNumber} • $dateFormatted',
                         style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.slate500,
+                          fontSize: 12,
+                          color: AppColors.muted,
                         ),
                       ),
                     ],
@@ -955,24 +1000,24 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                         currencyCode: invoice.currency,
                       ),
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.ink,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     GestureDetector(
                       onTap: () => _showQuickStatusPicker(invoice),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
-                          vertical: 4,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
                           color: badgeBg,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(9999), // pill
                           border: Border.all(
-                            color: badgeColor.withValues(alpha: 0.2),
+                            color: badgeColor.withValues(alpha: 0.18),
                           ),
                         ),
                         child: Row(
@@ -981,15 +1026,15 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                             Text(
                               badgeText,
                               style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
                                 color: badgeColor,
                               ),
                             ),
                             const SizedBox(width: 2),
                             Icon(
                               Icons.keyboard_arrow_down_rounded,
-                              size: 14,
+                              size: 13,
                               color: badgeColor,
                             ),
                           ],
@@ -999,12 +1044,15 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   ],
                 ),
 
+                const SizedBox(width: 4),
                 PopupMenuButton<String>(
                   icon: const Icon(
                     Icons.more_vert_rounded,
-                    color: AppColors.slate500,
-                    size: 20,
+                    color: AppColors.muted,
+                    size: 18,
                   ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   onSelected: (action) {
                     if (action == 'preview') _showInvoicePreview(invoice);
                     if (action == 'share') _sharePdf(invoice);

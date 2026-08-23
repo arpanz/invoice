@@ -80,7 +80,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       _accountCtrl.text = prefs.getString('${_prefPrefix}account') ?? '';
       _ifscCtrl.text = prefs.getString('${_prefPrefix}ifsc') ?? '';
       _upiCtrl.text = prefs.getString('${_prefPrefix}upi') ?? '';
-      _notesCtrl.text = prefs.getString('${_prefPrefix}notes') ??
+      _notesCtrl.text =
+          prefs.getString('${_prefPrefix}notes') ??
           prefs.getString('default_payment_terms') ??
           '';
       _logoPath = prefs.getString('${_prefPrefix}logo_path');
@@ -158,10 +159,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   Future<void> _pickLogo(ImageSource source) async {
     try {
       final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: source,
-        imageQuality: 85,
-      );
+      final picked = await picker.pickImage(source: source, imageQuality: 85);
       if (picked != null) {
         setState(() => _logoPath = picked.path);
         HapticFeedback.lightImpact();
@@ -212,7 +210,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.slate400,
+                    ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -328,7 +329,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.slate400,
+                    ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -423,7 +427,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w700,
-                      color: isDestructive ? AppColors.accentRed : AppColors.textPrimary,
+                      color: isDestructive
+                          ? AppColors.accentRed
+                          : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -543,8 +549,11 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
-                  : const Icon(Icons.check_rounded,
-                      color: Colors.white, size: 18),
+                  : const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
               label: const Text(
                 'Save',
                 style: TextStyle(
@@ -775,14 +784,15 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 borderRadius: BorderRadius.circular(8),
                 onTap: () => CurrencyPickerSheet.show(context),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.squircleGreen,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color:
-                          AppColors.squircleGreenIcon.withValues(alpha: 0.2),
+                      color: AppColors.squircleGreenIcon.withValues(alpha: 0.2),
                     ),
                   ),
                   child: Row(
@@ -828,8 +838,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                       ),
                       child: Row(
                         children: [
-                          Text(currencyProvider.flag,
-                              style: const TextStyle(fontSize: 18)),
+                          Text(
+                            currencyProvider.flag,
+                            style: const TextStyle(fontSize: 18),
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -937,9 +949,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               offset: const Offset(0, -4),
             ),
           ],
-          border: const Border(
-            top: BorderSide(color: AppColors.cardBorder),
-          ),
+          border: const Border(top: BorderSide(color: AppColors.cardBorder)),
         ),
         child: SafeArea(
           top: false,
@@ -998,8 +1008,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1026,10 +1037,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(13),
                     child: _logoPath != null && File(_logoPath!).existsSync()
-                        ? Image.file(
-                            File(_logoPath!),
-                            fit: BoxFit.contain,
-                          )
+                        ? Image.file(File(_logoPath!), fit: BoxFit.contain)
                         : Center(
                             child: Text(
                               name.isNotEmpty
@@ -1083,8 +1091,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(currencyProvider.flag,
-                                    style: const TextStyle(fontSize: 11)),
+                                Text(
+                                  currencyProvider.flag,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
                                 const SizedBox(width: 3),
                                 Text(
                                   currencyProvider.currencyCode,
@@ -1130,8 +1140,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(6),
-                                  border:
-                                      Border.all(color: AppColors.cardBorder),
+                                  border: Border.all(
+                                    color: AppColors.cardBorder,
+                                  ),
                                 ),
                                 child: Text(
                                   '${currencyProvider.taxIdLabel}: $taxId',
@@ -1154,8 +1165,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                   color: AppColors.statusPaidBg,
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                    color: AppColors.statusPaid
-                                        .withValues(alpha: 0.3),
+                                    color: AppColors.statusPaid.withValues(
+                                      alpha: 0.3,
+                                    ),
                                   ),
                                 ),
                                 child: const Row(
@@ -1327,8 +1339,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                   bankName.isNotEmpty && account.isNotEmpty
                                       ? '$bankName • $account'
                                       : (bankName.isNotEmpty
-                                          ? bankName
-                                          : account),
+                                            ? bankName
+                                            : account),
                                   style: const TextStyle(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w600,
@@ -1375,8 +1387,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
                 // Completeness Progress Bar
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.slate50,
                     borderRadius: BorderRadius.circular(10),

@@ -309,38 +309,68 @@ class EstimateListScreenState extends State<EstimateListScreen> {
     }
   }
 
+  Color _getAvatarColor(String name) {
+    const colors = [
+      AppColors.badgeOrange,
+      AppColors.badgePink,
+      AppColors.badgeViolet,
+      AppColors.badgeEmerald,
+      AppColors.badgeBlue,
+    ];
+    if (name.isEmpty) return colors[0];
+    final hash = name.codeUnits.fold(0, (prev, elem) => prev + elem);
+    return colors[hash % colors.length];
+  }
+
+  String _getInitials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isPro = context.watch<BillingService>().isPro;
     final currencyProvider = context.watch<CurrencyProvider>();
     final currencyCode = currencyProvider.currencyCode;
     final currencySymbol = currencyProvider.currencySymbol;
+    final isPro = context.watch<BillingService>().isPro;
     final filtered = _filteredEstimates;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        ),
         title: _isSearching
             ? TextField(
                 controller: _searchCtrl,
                 autofocus: true,
                 decoration: const InputDecoration(
-                  hintText: 'Search client or estimate #...',
+                  hintText: 'Search estimate or client...',
                   border: InputBorder.none,
-                  hintStyle: TextStyle(color: AppColors.slate400, fontSize: 15),
+                  hintStyle: TextStyle(color: AppColors.mutedSoft, fontSize: 15),
                 ),
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 16),
+                style: const TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 16,
+                ),
                 onChanged: (val) => setState(() => _searchQuery = val.trim()),
               )
             : const Text(
                 'Estimates',
                 style: TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -348,8 +378,8 @@ class EstimateListScreenState extends State<EstimateListScreen> {
           IconButton(
             icon: Icon(
               _isSearching ? Icons.close_rounded : Icons.search_rounded,
-              color: AppColors.textPrimary,
-              size: 22,
+              color: AppColors.ink,
+              size: 20,
             ),
             onPressed: () {
               setState(() {
@@ -374,21 +404,21 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(9999),
+                    border: Border.all(color: const Color(0xFF333333)),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.workspace_premium_rounded, size: 14, color: AppColors.proGold),
+                      Icon(Icons.star_rounded, size: 13, color: Color(0xFFFBBF24)),
                       SizedBox(width: 4),
                       Text(
                         'PRO',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFFB45309),
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -421,23 +451,16 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.cardBorder),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color.fromRGBO(0, 0, 0, 0.02),
-                                  blurRadius: 10,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
+                              color: AppColors.canvas,
+                              borderRadius: BorderRadius.circular(12), // rounded.lg
+                              border: Border.all(color: AppColors.hairline),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
                                   'Estimated',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.slate500),
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.muted),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -448,8 +471,8 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                                   ),
                                   style: const TextStyle(
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.ink,
                                     letterSpacing: -0.5,
                                   ),
                                 ),
@@ -463,23 +486,16 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.cardBorder),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color.fromRGBO(0, 0, 0, 0.02),
-                                  blurRadius: 10,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
+                              color: AppColors.canvas,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.hairline),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
                                   'Pending',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.slate500),
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.muted),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -490,8 +506,8 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                                   ),
                                   style: const TextStyle(
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFFF59E0B),
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.statusOverdue,
                                     letterSpacing: -0.5,
                                   ),
                                 ),
@@ -505,23 +521,16 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.cardBorder),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color.fromRGBO(0, 0, 0, 0.02),
-                                  blurRadius: 10,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
+                              color: AppColors.canvas,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.hairline),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
                                   'Accepted',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.slate500),
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.muted),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -532,8 +541,8 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                                   ),
                                   style: const TextStyle(
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFF10B981),
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.statusPaid,
                                     letterSpacing: -0.5,
                                   ),
                                 ),
@@ -545,21 +554,25 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Filter Chips Row
+                    // Filter Chips Row (nav-pill container)
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildFilterChip('all', 'All'),
-                          const SizedBox(width: 8),
-                          _buildFilterChip('pending', 'Pending'),
-                          const SizedBox(width: 8),
-                          _buildFilterChip('accepted', 'Accepted'),
-                          const SizedBox(width: 8),
-                          _buildFilterChip('converted', 'Converted'),
-                          const SizedBox(width: 8),
-                          _buildFilterChip('declined', 'Declined'),
-                        ],
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.canvas,
+                          borderRadius: BorderRadius.circular(9999),
+                          border: Border.all(color: AppColors.hairline),
+                        ),
+                        child: Row(
+                          children: [
+                            _buildFilterChip('all', 'All'),
+                            _buildFilterChip('pending', 'Pending'),
+                            _buildFilterChip('accepted', 'Accepted'),
+                            _buildFilterChip('converted', 'Converted'),
+                            _buildFilterChip('declined', 'Declined'),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -590,7 +603,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -614,12 +627,14 @@ class EstimateListScreenState extends State<EstimateListScreen> {
               child: FloatingActionButton.extended(
                 heroTag: 'estimate_list_fab',
                 onPressed: _createNewEstimate,
-                icon: const Icon(Icons.add_rounded, color: Colors.white),
+                icon: const Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 18),
                 label: const Text(
                   'New Estimate',
-                  style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+                  style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.onPrimary, fontSize: 13),
                 ),
                 backgroundColor: AppColors.primary,
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
               ),
             ),
     );
@@ -633,21 +648,18 @@ class EstimateListScreenState extends State<EstimateListScreen> {
         setState(() => _selectedFilter = key);
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.cardBorder,
-          ),
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(9999), // pill
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-            color: isSelected ? Colors.white : AppColors.slate600,
+            fontSize: 12.5,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? AppColors.onPrimary : AppColors.body,
           ),
         ),
       ),
@@ -656,45 +668,78 @@ class EstimateListScreenState extends State<EstimateListScreen> {
 
   Widget _buildEstimateCard(EstimateModel estimate) {
     final dateFormat = DateFormat('dd MMM yyyy');
+    final avatarColor = _getAvatarColor(estimate.clientName);
+    final initials = _getInitials(estimate.clientName);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color.fromRGBO(0, 0, 0, 0.02),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(12), // rounded.lg
+        border: Border.all(color: AppColors.hairline),
       ),
       child: Material(
         color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           onTap: () => _openEstimatePreview(estimate),
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
               children: [
-                // Top row: Client Name & Amount
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        estimate.clientName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                // Avatar circle
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: avatarColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      initials,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
                       ),
                     ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Left: Client Name & Estimate Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        estimate.clientName,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.ink,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${estimate.estimateNumber} • ${dateFormat.format(estimate.estimateDate)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Right: Amount + Status Pill + 3-dots Menu
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
                     Text(
                       CurrencyFormatter.format(
                         estimate.grandTotal,
@@ -703,142 +748,107 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                             : _currency,
                       ),
                       style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.textPrimary,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-
-                // Middle row: Estimate #, Date, Expiry
-                Row(
-                  children: [
-                    Text(
-                      estimate.estimateNumber,
-                      style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
+                        color: AppColors.ink,
                       ),
                     ),
-                    const Text(' • ', style: TextStyle(color: AppColors.slate400)),
-                    Text(
-                      dateFormat.format(estimate.estimateDate),
-                      style: const TextStyle(fontSize: 12, color: AppColors.slate500),
-                    ),
-                    if (estimate.expiryDate != null) ...[
-                      const Text(' • ', style: TextStyle(color: AppColors.slate400)),
-                      Text(
-                        'Expires ${dateFormat.format(estimate.expiryDate!)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: estimate.isExpired ? AppColors.accentRed : AppColors.slate500,
-                          fontWeight: estimate.isExpired ? FontWeight.w700 : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Bottom row: Status badge & Actions popup
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+                    const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: estimate.status.backgroundColor,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(9999), // pill
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(estimate.status.icon, size: 12, color: estimate.status.color),
-                          const SizedBox(width: 4),
+                          Icon(estimate.status.icon, size: 10, color: estimate.status.color),
+                          const SizedBox(width: 3),
                           Text(
-                            estimate.status.label.toUpperCase(),
+                            estimate.status.label,
                             style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
                               color: estimate.status.color,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert_rounded, size: 20, color: AppColors.slate500),
-                      onSelected: (val) {
-                        switch (val) {
-                          case 'convert':
-                            _convertToInvoice(estimate);
-                            break;
-                          case 'preview':
-                            _openEstimatePreview(estimate);
-                            break;
-                          case 'share':
-                            _sharePdf(estimate);
-                            break;
-                          case 'accepted':
-                            _quickUpdateStatus(estimate, EstimateStatus.accepted);
-                            break;
-                          case 'declined':
-                            _quickUpdateStatus(estimate, EstimateStatus.declined);
-                            break;
-                          case 'pending':
-                            _quickUpdateStatus(estimate, EstimateStatus.pending);
-                            break;
-                          case 'delete':
-                            _deleteEstimate(estimate);
-                            break;
-                        }
-                      },
-                      itemBuilder: (ctx) => [
-                        if (estimate.canConvert)
-                          AppPopupMenuItem.item(
-                            value: 'convert',
-                            title: 'Convert to Invoice',
-                            icon: Icons.transform_rounded,
-                            iconColor: const Color(0xFF10B981),
-                            iconBgColor: const Color(0xFFDCFCE7),
-                          ),
-                        AppPopupMenuItem.item(
-                          value: 'preview',
-                          title: 'View Details',
-                          icon: Icons.visibility_outlined,
-                        ),
-                        AppPopupMenuItem.item(
-                          value: 'share',
-                          title: 'Share PDF',
-                          icon: Icons.share_outlined,
-                        ),
-                        AppPopupMenuItem.divider(),
-                        AppPopupMenuItem.item(
-                          value: 'accepted',
-                          title: 'Mark Accepted',
-                          icon: Icons.check_circle_outline_rounded,
-                          iconColor: const Color(0xFF10B981),
-                          iconBgColor: const Color(0xFFDCFCE7),
-                        ),
-                        AppPopupMenuItem.item(
-                          value: 'declined',
-                          title: 'Mark Declined',
-                          icon: Icons.cancel_outlined,
-                          iconColor: const Color(0xFFEF4444),
-                          iconBgColor: const Color(0xFFFEE2E2),
-                        ),
-                        AppPopupMenuItem.divider(),
-                        AppPopupMenuItem.item(
-                          value: 'delete',
-                          title: 'Delete Estimate',
-                          icon: Icons.delete_outline_rounded,
-                          isDestructive: true,
-                        ),
-                      ],
+                  ],
+                ),
+
+                const SizedBox(width: 4),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppColors.muted),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onSelected: (val) {
+                    switch (val) {
+                      case 'convert':
+                        _convertToInvoice(estimate);
+                        break;
+                      case 'preview':
+                        _openEstimatePreview(estimate);
+                        break;
+                      case 'share':
+                        _sharePdf(estimate);
+                        break;
+                      case 'accepted':
+                        _quickUpdateStatus(estimate, EstimateStatus.accepted);
+                        break;
+                      case 'declined':
+                        _quickUpdateStatus(estimate, EstimateStatus.declined);
+                        break;
+                      case 'pending':
+                        _quickUpdateStatus(estimate, EstimateStatus.pending);
+                        break;
+                      case 'delete':
+                        _deleteEstimate(estimate);
+                        break;
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    if (estimate.canConvert)
+                      AppPopupMenuItem.item(
+                        value: 'convert',
+                        title: 'Convert to Invoice',
+                        icon: Icons.transform_rounded,
+                        iconColor: AppColors.statusPaid,
+                        iconBgColor: AppColors.statusPaidBg,
+                      ),
+                    AppPopupMenuItem.item(
+                      value: 'preview',
+                      title: 'View Details',
+                      icon: Icons.visibility_outlined,
+                    ),
+                    AppPopupMenuItem.item(
+                      value: 'share',
+                      title: 'Share PDF',
+                      icon: Icons.share_outlined,
+                    ),
+                    AppPopupMenuItem.divider(),
+                    AppPopupMenuItem.item(
+                      value: 'accepted',
+                      title: 'Mark Accepted',
+                      icon: Icons.check_circle_outline_rounded,
+                      iconColor: AppColors.statusPaid,
+                      iconBgColor: AppColors.statusPaidBg,
+                    ),
+                    AppPopupMenuItem.item(
+                      value: 'declined',
+                      title: 'Mark Declined',
+                      icon: Icons.cancel_outlined,
+                      iconColor: AppColors.statusOverdue,
+                      iconBgColor: AppColors.statusOverdueBg,
+                    ),
+                    AppPopupMenuItem.divider(),
+                    AppPopupMenuItem.item(
+                      value: 'delete',
+                      title: 'Delete Estimate',
+                      icon: Icons.delete_outline_rounded,
+                      isDestructive: true,
                     ),
                   ],
                 ),
@@ -850,3 +860,4 @@ class EstimateListScreenState extends State<EstimateListScreen> {
     );
   }
 }
+

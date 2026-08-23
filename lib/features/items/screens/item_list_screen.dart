@@ -161,34 +161,36 @@ class ItemListScreenState extends State<ItemListScreen> {
     final grouped = _groupAlphabetically(filtered);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        ),
         title: _isSearching
             ? TextField(
                 controller: _searchCtrl,
                 autofocus: true,
                 decoration: const InputDecoration(
-                  hintText: 'Search items, categories, HSN...',
+                  hintText: 'Search items, HSN, category...',
                   border: InputBorder.none,
-                  hintStyle:
-                      TextStyle(color: AppColors.slate400, fontSize: 15),
+                  hintStyle: TextStyle(color: AppColors.mutedSoft, fontSize: 15),
                 ),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: AppColors.ink,
                   fontSize: 16,
                 ),
-                onChanged: (val) =>
-                    setState(() => _searchQuery = val.trim()),
+                onChanged: (val) => setState(() => _searchQuery = val.trim()),
               )
             : const Text(
                 'Items',
                 style: TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -196,8 +198,8 @@ class ItemListScreenState extends State<ItemListScreen> {
           IconButton(
             icon: Icon(
               _isSearching ? Icons.close_rounded : Icons.search_rounded,
-              color: AppColors.textPrimary,
-              size: 22,
+              color: AppColors.ink,
+              size: 20,
             ),
             onPressed: () {
               setState(() {
@@ -219,13 +221,13 @@ class ItemListScreenState extends State<ItemListScreen> {
                   width: 32,
                   height: 32,
                   decoration: const BoxDecoration(
-                    color: AppColors.primaryMuted,
+                    color: AppColors.surfaceDark,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.add_rounded,
-                    color: AppColors.primary,
-                    size: 20,
+                    color: Colors.white,
+                    size: 18,
                   ),
                 ),
                 onPressed: () {
@@ -249,18 +251,22 @@ class ItemListScreenState extends State<ItemListScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildFilterChip('All', 'all'),
-                        const SizedBox(width: 8),
-                        ..._categories.map(
-                          (cat) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: _buildFilterChip(cat, cat),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppColors.canvas,
+                        borderRadius: BorderRadius.circular(9999),
+                        border: Border.all(color: AppColors.hairline),
+                      ),
+                      child: Row(
+                        children: [
+                          _buildFilterChip('All', 'all'),
+                          ..._categories.map(
+                            (cat) => _buildFilterChip(cat, cat),
                           ),
-                        ),
-                        _buildFilterChip('Uncategorized', 'uncategorized'),
-                      ],
+                          _buildFilterChip('Uncategorized', 'uncategorized'),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -270,25 +276,25 @@ class ItemListScreenState extends State<ItemListScreen> {
             if (!_isLoading && _items.isNotEmpty)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
                   child: Row(
                     children: [
                       Text(
                         '${filtered.length} item${filtered.length != 1 ? 's' : ''}',
                         style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.slate500,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.muted,
                         ),
                       ),
                       if (_filterCategory != 'all' ||
                           _searchQuery.isNotEmpty) ...[
                         const SizedBox(width: 6),
-                        Text(
+                        const Text(
                           '(filtered)',
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.primary.withValues(alpha: 0.7),
+                            color: AppColors.ink,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -312,7 +318,7 @@ class ItemListScreenState extends State<ItemListScreen> {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 160),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 160),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -332,9 +338,9 @@ class ItemListScreenState extends State<ItemListScreen> {
                             child: Text(
                               groupKey,
                               style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.slate500,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.muted,
                               ),
                             ),
                           ),
@@ -364,12 +370,13 @@ class ItemListScreenState extends State<ItemListScreen> {
             _createItem();
           },
           backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          elevation: 4,
-          icon: const Icon(Icons.add_rounded),
+          foregroundColor: AppColors.onPrimary,
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+          icon: const Icon(Icons.add_rounded, size: 18),
           label: const Text(
             'Add Item',
-            style: TextStyle(fontWeight: FontWeight.w700),
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
         ),
       ),
@@ -385,29 +392,17 @@ class ItemListScreenState extends State<ItemListScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.cardBorder,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(9999), // pill
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.slate700,
+            fontSize: 12.5,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? AppColors.onPrimary : AppColors.body,
           ),
         ),
       ),
@@ -418,41 +413,42 @@ class ItemListScreenState extends State<ItemListScreen> {
     if (_searchQuery.isNotEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 72,
-                height: 72,
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
-                  color: AppColors.slate100,
-                  borderRadius: BorderRadius.circular(24),
+                  color: AppColors.surfaceCard,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.hairline),
                 ),
                 child: const Icon(
                   Icons.search_off_rounded,
-                  size: 36,
-                  color: AppColors.slate400,
+                  size: 28,
+                  color: AppColors.muted,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               Text(
                 'No items found for "$_searchQuery"',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
                 ),
               ),
               const SizedBox(height: 6),
               const Text(
                 'Try a different search term',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppColors.slate500),
+                style: TextStyle(fontSize: 13, color: AppColors.muted),
               ),
               const SizedBox(height: 16),
-              TextButton.icon(
+              OutlinedButton.icon(
                 onPressed: () {
                   setState(() {
                     _searchQuery = '';
@@ -460,8 +456,15 @@ class ItemListScreenState extends State<ItemListScreen> {
                     _isSearching = false;
                   });
                 },
-                icon: const Icon(Icons.clear_rounded, size: 18),
+                icon: const Icon(Icons.clear_rounded, size: 16),
                 label: const Text('Clear Search'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.ink,
+                  side: const BorderSide(color: AppColors.hairline),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
             ],
           ),
@@ -486,51 +489,44 @@ class ItemListScreenState extends State<ItemListScreen> {
     final currencyCode = currencyProvider.selectedCurrency.code;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(12), // rounded.lg
+        border: Border.all(color: AppColors.hairline),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           onTap: () => _editItem(item),
           child: Padding(
             padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
                 // Icon tile
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: item.isTaxable
-                        ? AppColors.squircleGreen
-                        : AppColors.squircleBlue,
-                    borderRadius: BorderRadius.circular(12),
+                        ? AppColors.statusPaidBg
+                        : AppColors.surfaceCard,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     item.isTaxable
                         ? Icons.sell_rounded
                         : Icons.sell_outlined,
                     color: item.isTaxable
-                        ? AppColors.squircleGreenIcon
-                        : AppColors.squircleBlueIcon,
-                    size: 22,
+                        ? AppColors.statusPaid
+                        : AppColors.ink,
+                    size: 18,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
 
                 // Name + details
                 Expanded(
@@ -540,14 +536,14 @@ class ItemListScreenState extends State<ItemListScreen> {
                       Text(
                         item.name,
                         style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.ink,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2),
                       Row(
                         children: [
                           Text(

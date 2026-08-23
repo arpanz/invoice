@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../core/models/currency_model.dart';
 import '../core/providers/currency_provider.dart';
@@ -57,17 +58,17 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.82,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         children: [
           const SizedBox(height: 12),
           Container(
-            width: 40,
+            width: 36,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.slate300,
+              color: AppColors.hairline,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -79,34 +80,34 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.squircleGreen,
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppColors.surfaceCard,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
                     Icons.public_rounded,
-                    color: AppColors.squircleGreenIcon,
-                    size: 20,
+                    color: AppColors.ink,
+                    size: 18,
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Select Country & Currency',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
+                        style: GoogleFonts.inter(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.ink,
                           letterSpacing: -0.3,
                         ),
                       ),
                       Text(
                         'Tax system, payment fields & symbol will adapt',
-                        style: TextStyle(
+                        style: GoogleFonts.inter(
                           fontSize: 12,
-                          color: AppColors.textSecondary,
+                          color: AppColors.muted,
                         ),
                       ),
                     ],
@@ -114,7 +115,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                 ),
                 IconButton(
                   icon:
-                      const Icon(Icons.close_rounded, color: AppColors.slate500),
+                      const Icon(Icons.close_rounded, color: AppColors.muted, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -125,28 +126,33 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
               decoration: BoxDecoration(
-                color: AppColors.slate100,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.cardBorder),
+                color: AppColors.canvas,
+                borderRadius: BorderRadius.circular(8), // rounded.md
+                border: Border.all(color: AppColors.hairline),
               ),
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: _filterCurrencies,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.ink,
+                ),
                 decoration: InputDecoration(
                   hintText: 'Search by country, currency or code...',
-                  hintStyle: const TextStyle(
-                    color: AppColors.textHint,
+                  hintStyle: GoogleFonts.inter(
+                    color: AppColors.mutedSoft,
                     fontSize: 13.5,
                   ),
                   prefixIcon: const Icon(
                     Icons.search_rounded,
-                    color: AppColors.textSecondary,
-                    size: 20,
+                    color: AppColors.muted,
+                    size: 18,
                   ),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear_rounded,
-                              color: AppColors.slate500, size: 18),
+                              color: AppColors.muted, size: 16),
                           onPressed: () {
                             _searchCtrl.clear();
                             _filterCurrencies('');
@@ -154,9 +160,11 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                         )
                       : null,
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 13,
+                    horizontal: 14,
+                    vertical: 12,
                   ),
                 ),
               ),
@@ -174,19 +182,19 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
 
                 return Material(
                   color: isSelected
-                      ? AppColors.primary.withValues(alpha: 0.08)
-                      : Colors.white,
+                      ? AppColors.surfaceCard
+                      : AppColors.canvas,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12), // rounded.lg
                     side: BorderSide(
                       color: isSelected
                           ? AppColors.primary
-                          : AppColors.cardBorder,
+                          : AppColors.hairline,
                       width: isSelected ? 1.5 : 1.0,
                     ),
                   ),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                     onTap: () {
                       if (widget.onCurrencySelected != null) {
                         widget.onCurrencySelected!(currency);
@@ -197,16 +205,16 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                     },
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
+                        horizontal: 14,
                         vertical: 12,
                       ),
                       child: Row(
                         children: [
                           Text(
                             currency.flag,
-                            style: const TextStyle(fontSize: 26),
+                            style: const TextStyle(fontSize: 24),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,15 +225,12 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                                       currency.countryName.isNotEmpty
                                           ? currency.countryName
                                           : currency.name,
-                                      style: TextStyle(
-                                        fontSize: 15,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
                                         fontWeight: isSelected
-                                            ? FontWeight.w800
-                                            : FontWeight.w700,
-                                        color: isSelected
-                                            ? AppColors.primary
-                                            : AppColors.textPrimary,
-                                        letterSpacing: -0.2,
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                        color: AppColors.ink,
                                       ),
                                     ),
                                     const SizedBox(width: 6),
@@ -237,18 +242,17 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                                       decoration: BoxDecoration(
                                         color: isSelected
                                             ? AppColors.primary
-                                                .withValues(alpha: 0.15)
-                                            : AppColors.slate100,
-                                        borderRadius: BorderRadius.circular(6),
+                                            : AppColors.surfaceCard,
+                                        borderRadius: BorderRadius.circular(9999), // pill
                                       ),
                                       child: Text(
                                         currency.code,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w800,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
                                           color: isSelected
-                                              ? AppColors.primary
-                                              : AppColors.slate600,
+                                              ? AppColors.onPrimary
+                                              : AppColors.body,
                                         ),
                                       ),
                                     ),
@@ -257,9 +261,9 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                                 const SizedBox(height: 2),
                                 Text(
                                   '${currency.name} (${currency.symbol}) • ${currency.defaultTax.bankAccountLabel} & ${currency.defaultTax.bankRoutingLabel}',
-                                  style: const TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 11.5,
-                                    color: AppColors.textSecondary,
+                                    color: AppColors.muted,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -269,24 +273,24 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                           ),
                           if (isSelected)
                             Container(
-                              padding: const EdgeInsets.all(4),
+                              padding: const EdgeInsets.all(3),
                               decoration: const BoxDecoration(
                                 color: AppColors.primary,
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
                                 Icons.check_rounded,
-                                size: 14,
+                                size: 12,
                                 color: Colors.white,
                               ),
                             )
                           else
                             Text(
                               currency.symbol,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.slate400,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.mutedSoft,
                               ),
                             ),
                         ],
@@ -302,3 +306,4 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
     );
   }
 }
+

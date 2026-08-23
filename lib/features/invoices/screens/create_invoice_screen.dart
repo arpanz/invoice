@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -1664,18 +1665,22 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         (!hasFinancials && _dismissedTips.contains('financials') && !hasSettings && !_dismissedTips.contains('settings'));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.ink),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           widget.existingInvoice != null ? 'Edit Invoice' : 'Create Invoice',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+          style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.ink, letterSpacing: -0.3),
         ),
         centerTitle: true,
         actions: [
@@ -1688,7 +1693,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               ),
             ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, color: AppColors.textPrimary),
+            icon: const Icon(Icons.more_vert_rounded, color: AppColors.ink, size: 20),
             onSelected: (val) async {
               if (val == 'clear') {
                 setState(() {
@@ -1706,13 +1711,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 value: 'clear',
                 title: 'Clear Items',
                 icon: Icons.clear_all_rounded,
-                iconColor: AppColors.slate600,
+                iconColor: AppColors.muted,
               ),
               AppPopupMenuItem.item(
                 value: 'reset_tips',
                 title: 'Reset Helpful Tips',
                 icon: Icons.lightbulb_outline_rounded,
-                iconColor: AppColors.primary,
+                iconColor: AppColors.ink,
               ),
             ],
           ),
@@ -1739,17 +1744,18 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(6),
+                                    color: AppColors.surfaceCard,
+                                    borderRadius: BorderRadius.circular(9999), // pill
+                                    border: Border.all(color: AppColors.hairline),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     'INVOICE',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.primary,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.ink,
                                       letterSpacing: 0.5,
                                     ),
                                   ),
@@ -1759,15 +1765,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                   _invoiceNumberCtrl.text.isNotEmpty
                                       ? _invoiceNumberCtrl.text
                                       : 'INV00001',
-                                  style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.textPrimary,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.ink,
                                   ),
                                 ),
                               ],
                             ),
-                            const Icon(Icons.edit_outlined, size: 18, color: AppColors.slate400),
+                            const Icon(Icons.edit_outlined, size: 18, color: AppColors.muted),
                           ],
                         ),
                         const SizedBox(height: 10),
@@ -1778,20 +1784,21 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: AppColors.slate100,
+                                  color: AppColors.surfaceSoft,
                                   borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppColors.hairline),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.slate500),
+                                    const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.muted),
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         DateFormat('dd MMM yyyy').format(_invoiceDate),
-                                        style: const TextStyle(
+                                        style: GoogleFonts.inter(
                                           fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.textPrimary,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.ink,
                                         ),
                                       ),
                                     ),
@@ -2468,18 +2475,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         ],
       ),
 
-      // Sticky Bottom Bar with [Preview] and [Save] matching screenshots
+      // Sticky Bottom Bar with [Preview] and [Save] in Cal.com style
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 16,
-              offset: const Offset(0, -4),
-            ),
-          ],
+        decoration: const BoxDecoration(
+          color: AppColors.canvas,
+          border: Border(top: BorderSide(color: AppColors.hairline)),
         ),
         child: SafeArea(
           top: false,
@@ -2487,41 +2488,43 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 50,
+                  height: 48,
                   child: OutlinedButton(
                     onPressed: _handlePreview,
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      side: const BorderSide(color: AppColors.hairline, width: 1.0),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      foregroundColor: AppColors.ink,
+                      elevation: 0,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Preview',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.primary),
+                      style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: SizedBox(
-                  height: 50,
+                  height: 48,
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _handleSaveAndOpenPreview,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.onPrimary,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     child: _isSaving
                         ? const SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: 18,
+                            height: 18,
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                           )
-                        : const Text(
+                        : Text(
                             'Save',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                            style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.onPrimary),
                           ),
                   ),
                 ),
@@ -2551,13 +2554,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         margin: const EdgeInsets.only(top: 14),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: AppColors.surfaceDark,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
+          border: Border.all(color: const Color(0xFF262626)),
+          boxShadow: const [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+              color: Color.fromRGBO(0, 0, 0, 0.12),
+              blurRadius: 12,
+              offset: Offset(0, 4),
             ),
           ],
         ),
@@ -2569,15 +2573,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(6),
+                    color: const Color(0xFF262626),
+                    borderRadius: BorderRadius.circular(9999), // pill
                   ),
                   child: Text(
                     stepLabel,
-                    style: const TextStyle(
+                    style: GoogleFonts.inter(
                       color: Colors.white,
                       fontSize: 10,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       letterSpacing: 0.3,
                     ),
                   ),
@@ -2591,7 +2595,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   behavior: HitTestBehavior.opaque,
                   child: const Padding(
                     padding: EdgeInsets.all(2),
-                    child: Icon(Icons.close_rounded, color: Colors.white60, size: 18),
+                    child: Icon(Icons.close_rounded, color: Color(0xFF888888), size: 16),
                   ),
                 ),
               ],
@@ -2599,12 +2603,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             const SizedBox(height: 6),
             Text(
               title,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
             ),
             const SizedBox(height: 2),
             Text(
               subtitle,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: GoogleFonts.inter(color: const Color(0xFFAAAAAA), fontSize: 12),
             ),
           ],
         ),
@@ -2624,16 +2628,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         width: double.infinity,
         padding: padding,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.cardBorder, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: AppColors.canvas,
+          borderRadius: BorderRadius.circular(12), // rounded.lg
+          border: Border.all(color: AppColors.hairline, width: 1),
         ),
         child: child,
       ),
@@ -2658,21 +2655,21 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.slate100,
+              color: AppColors.surfaceCard,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, size: 18, color: AppColors.slate700),
+            child: Icon(icon, size: 18, color: AppColors.ink),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.ink)),
                 if (subtitle.isNotEmpty)
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 12, color: AppColors.slate500),
+                    style: GoogleFonts.inter(fontSize: 12, color: AppColors.muted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2680,12 +2677,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             ),
           ),
           if (value.isNotEmpty) ...[
-            Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            Text(value, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.ink)),
             const SizedBox(width: 4),
           ],
-          const Icon(Icons.chevron_right_rounded, color: AppColors.slate400, size: 20),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20),
         ],
       ),
     );
   }
 }
+

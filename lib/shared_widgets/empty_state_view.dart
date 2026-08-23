@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../core/theme/app_colors.dart';
 import 'doodle_arrow.dart';
 
+/// Cal.com Minimalist SaaS Empty State View
 class EmptyStateView extends StatefulWidget {
   final IconData icon;
   final String title;
@@ -40,168 +42,131 @@ class _EmptyStateViewState extends State<EmptyStateView> {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Layered Handcrafted Hero Graphic
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                // Ambient Glow
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.accentCyan.withValues(alpha: 0.12),
-                  ),
+            // Cal.com Minimal Product UI Fragment / Document Graphic
+            Container(
+              width: 88,
+              height: 104,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.canvas,
+                borderRadius: BorderRadius.circular(12), // rounded.lg
+                border: Border.all(
+                  color: AppColors.hairline,
+                  width: 1.0,
                 ),
-                // Stacked Back Card
-                Transform.rotate(
-                  angle: -0.08,
-                  child: Container(
-                    width: 80,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: AppColors.slate200,
-                        width: 1.5,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color.fromRGBO(0, 77, 64, 0.06),
-                          blurRadius: 16,
-                          offset: Offset(0, 6),
-                        ),
-                      ],
-                    ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromRGBO(0, 0, 0, 0.04),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
                   ),
-                ),
-                // Main Front Document Card
-                Container(
-                  width: 84,
-                  height: 100,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: AppColors.accentCyan.withValues(alpha: 0.5),
-                      width: 1.5,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromRGBO(0, 77, 64, 0.10),
-                        blurRadius: 24,
-                        offset: Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 16,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryMuted,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.receipt_rounded,
-                              size: 10,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            width: 22,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: AppColors.accentCyan,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
                       Container(
-                        width: 48,
-                        height: 5,
+                        width: 24,
+                        height: 24,
                         decoration: BoxDecoration(
-                          color: AppColors.slate200,
-                          borderRadius: BorderRadius.circular(2),
+                          color: AppColors.surfaceCard,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          widget.icon,
+                          size: 14,
+                          color: AppColors.ink,
                         ),
                       ),
-                      const SizedBox(height: 6),
                       Container(
-                        width: 36,
-                        height: 5,
+                        width: 18,
+                        height: 4,
                         decoration: BoxDecoration(
-                          color: AppColors.slate100,
+                          color: AppColors.hairline,
                           borderRadius: BorderRadius.circular(2),
                         ),
-                      ),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          Container(
-                            width: 20,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              color: AppColors.slate200,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.all(3),
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.check,
-                              size: 8,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 52,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: AppColors.hairline,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: 38,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: AppColors.hairlineSoft,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const Spacer(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: AppColors.hairline,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          size: 10,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
 
-            // High-contrast clean headline
+            // Cal Sans Style Display Title
             Text(
               widget.title,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w900,
-                fontSize: 21,
-                letterSpacing: -0.5,
-                height: 1.25,
+              style: GoogleFonts.inter(
+                color: AppColors.ink,
+                fontWeight: FontWeight.w600,
+                fontSize: 18,
+                letterSpacing: -0.4,
+                height: 1.3,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
 
-            // Uncluttered, graceful subtitle
+            // Body text
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
                 widget.subtitle,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13.5,
+                style: GoogleFonts.inter(
+                  color: AppColors.muted,
+                  fontSize: 14,
                   height: 1.45,
                   fontWeight: FontWeight.w400,
                 ),
@@ -210,52 +175,51 @@ class _EmptyStateViewState extends State<EmptyStateView> {
             ),
 
             if (widget.actionLabel != null && widget.onAction != null) ...[
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: widget.onAction,
-                icon: const Icon(Icons.add, size: 20),
+                icon: const Icon(Icons.add, size: 18),
                 label: Text(
                   widget.actionLabel!,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    letterSpacing: 0.2,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    letterSpacing: 0,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.onPrimary,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 16,
+                    horizontal: 20,
+                    vertical: 13,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(50), // Stadium Pill
+                    borderRadius: BorderRadius.circular(8), // rounded.md
                   ),
-                  elevation: 2,
-                  shadowColor: AppColors.primary.withValues(alpha: 0.3),
+                  elevation: 0,
                 ),
               ),
             ],
 
-            // Guided Tooltip with Close Button & Doodle Arrow pointing downward
+            // Guided Tooltip with Close Button
             if (showTooltip) ...[
-              const SizedBox(height: 36),
+              const SizedBox(height: 28),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(50),
+                  color: AppColors.canvas,
+                  borderRadius: BorderRadius.circular(9999), // pill
                   border: Border.all(
-                    color: AppColors.accentCyan.withValues(alpha: 0.8),
-                    width: 1.5,
+                    color: AppColors.hairline,
+                    width: 1.0,
                   ),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color.fromRGBO(0, 191, 165, 0.15),
-                      blurRadius: 16,
-                      offset: Offset(0, 4),
+                      color: Color.fromRGBO(0, 0, 0, 0.05),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
                     ),
                   ],
                 ),
@@ -265,23 +229,23 @@ class _EmptyStateViewState extends State<EmptyStateView> {
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryMuted,
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppColors.surfaceCard,
+                        shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.description_outlined,
-                        size: 16,
-                        color: AppColors.primary,
+                        Icons.lightbulb_outline_rounded,
+                        size: 14,
+                        color: AppColors.ink,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       widget.guideTooltipText!,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                        letterSpacing: -0.2,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.ink,
+                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -293,14 +257,14 @@ class _EmptyStateViewState extends State<EmptyStateView> {
                       behavior: HitTestBehavior.opaque,
                       child: Container(
                         padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.slate100,
+                          color: AppColors.surfaceCard,
                         ),
                         child: const Icon(
                           Icons.close,
-                          size: 14,
-                          color: AppColors.slate500,
+                          size: 12,
+                          color: AppColors.muted,
                         ),
                       ),
                     ),
@@ -310,8 +274,8 @@ class _EmptyStateViewState extends State<EmptyStateView> {
               if (widget.showDoodleArrow) ...[
                 const SizedBox(height: 6),
                 const DoodleArrow(
-                  width: 48,
-                  height: 48,
+                  width: 44,
+                  height: 44,
                 ),
               ],
             ],
@@ -321,3 +285,4 @@ class _EmptyStateViewState extends State<EmptyStateView> {
     );
   }
 }
+

@@ -246,15 +246,16 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Container(
             height: 66,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(36),
-              border: Border.all(color: AppColors.cardBorder, width: 1),
+              color: AppColors.canvas,
+              borderRadius: BorderRadius.circular(9999), // Cal.com nav-pill-group
+              border: Border.all(color: AppColors.hairline, width: 1),
               boxShadow: const [
                 BoxShadow(
-                  color: Color.fromRGBO(0, 77, 64, 0.08),
-                  blurRadius: 24,
-                  offset: Offset(0, 8),
+                  color: Color.fromRGBO(0, 0, 0, 0.06),
+                  blurRadius: 16,
+                  offset: Offset(0, 4),
                   spreadRadius: 0,
                 ),
               ],
@@ -312,33 +313,33 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryMuted : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? AppColors.surfaceCard : Colors.transparent,
+          borderRadius: BorderRadius.circular(9999), // pill-in-pill
+          border: isSelected
+              ? Border.all(color: AppColors.hairline, width: 1)
+              : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedScale(
-              scale: isSelected ? 1.08 : 1.0,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              child: Icon(
-                isSelected ? activeIcon : icon,
-                color: isSelected ? AppColors.primary : AppColors.slate400,
-                size: 22,
-              ),
+            Icon(
+              isSelected ? activeIcon : icon,
+              color: isSelected ? AppColors.ink : AppColors.muted,
+              size: 20,
             ),
             const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                color: isSelected ? AppColors.primary : AppColors.slate500,
+                fontSize: 10.5,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? AppColors.ink : AppColors.muted,
+                letterSpacing: 0,
               ),
             ),
           ],
@@ -354,16 +355,16 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         _showCreateChoiceSheet();
       },
       child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: AppColors.primary,
+        width: 44,
+        height: 44,
+        decoration: const BoxDecoration(
+          color: AppColors.primary, // signature Cal.com black
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.35),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+              color: Color.fromRGBO(0, 0, 0, 0.18),
+              blurRadius: 8,
+              offset: Offset(0, 3),
             ),
           ],
         ),
@@ -375,25 +376,25 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   void _showCreateChoiceSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.canvas,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 42,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(99),
+                  color: AppColors.hairline,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -401,14 +402,16 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     'Create New Document',
                     style: TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.ink,
+                      letterSpacing: -0.3,
                     ),
                   ),
                   IconButton(
                     icon: const Icon(
                       Icons.close_rounded,
-                      color: AppColors.slate400,
+                      color: AppColors.muted,
+                      size: 20,
                     ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
@@ -417,7 +420,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               const SizedBox(height: 16),
               // Option 1: New Invoice
               InkWell(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 onTap: () async {
                   Navigator.pop(ctx);
                   if (await CreateInvoiceScreen.canCreateNewInvoice(context)) {
@@ -437,23 +440,23 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                    color: AppColors.surfaceCard,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.hairline),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        width: 46,
-                        height: 46,
+                        width: 42,
+                        height: 42,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3B82F6),
-                          borderRadius: BorderRadius.circular(12),
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
                           Icons.receipt_long_rounded,
                           color: Colors.white,
-                          size: 24,
+                          size: 22,
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -464,9 +467,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                             Text(
                               'New Invoice',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.ink,
                               ),
                             ),
                             SizedBox(height: 2),
@@ -474,7 +477,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                               'Bill a client for completed services or items',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: AppColors.slate500,
+                                color: AppColors.muted,
                               ),
                             ),
                           ],
@@ -482,17 +485,17 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       ),
                       const Icon(
                         Icons.chevron_right_rounded,
-                        color: Color(0xFF3B82F6),
+                        color: AppColors.muted,
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               // Option 2: New Estimate
               InkWell(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 onTap: () async {
                   Navigator.pop(ctx);
                   if (await CreateEstimateScreen.canCreateNewEstimate(
@@ -513,23 +516,23 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFECFDF5),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                    color: AppColors.canvas,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.hairline),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        width: 46,
-                        height: 46,
+                        width: 42,
+                        height: 42,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          borderRadius: BorderRadius.circular(12),
+                          color: AppColors.surfaceCard,
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
                           Icons.request_quote_rounded,
-                          color: Colors.white,
-                          size: 24,
+                          color: AppColors.ink,
+                          size: 22,
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -540,9 +543,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                             Text(
                               'New Estimate / Quote',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.ink,
                               ),
                             ),
                             SizedBox(height: 2),
@@ -550,7 +553,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                               'Send a pricing quote or proposal before billing',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: AppColors.slate500,
+                                color: AppColors.muted,
                               ),
                             ),
                           ],
@@ -558,7 +561,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       ),
                       const Icon(
                         Icons.chevron_right_rounded,
-                        color: Color(0xFF10B981),
+                        color: AppColors.muted,
                       ),
                     ],
                   ),
@@ -583,18 +586,18 @@ class _StartupUpdateSheet extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        padding: const EdgeInsets.all(12),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: AppColors.cardBorder),
-            boxShadow: [
+            color: AppColors.canvas,
+            borderRadius: BorderRadius.circular(16), // rounded.xl
+            border: Border.all(color: AppColors.hairline),
+            boxShadow: const [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 28,
-                offset: const Offset(0, 12),
+                color: Color.fromRGBO(0, 0, 0, 0.10),
+                blurRadius: 24,
+                offset: Offset(0, 8),
               ),
             ],
           ),
@@ -607,51 +610,52 @@ class _StartupUpdateSheet extends StatelessWidget {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.slate300,
-                    borderRadius: BorderRadius.circular(99),
+                    color: AppColors.hairline,
+                    borderRadius: BorderRadius.circular(2),
                   ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceCard,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.system_update_alt_rounded,
+                  color: AppColors.ink,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Update available',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'A newer version of Invoice Maker Pro is ready with the latest fixes and improvements.',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.45,
+                  color: AppColors.muted,
                 ),
               ),
               const SizedBox(height: 18),
               Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppColors.statusPaidBg,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.system_update_alt_rounded,
-                  color: AppColors.accent,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Update available',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'A newer version of Invoice Maker Pro is ready with the latest fixes and improvements.',
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.45,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppColors.slate50,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.cardBorder),
+                  color: AppColors.surfaceSoft,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.hairline),
                 ),
                 child: Row(
                   children: [
@@ -659,8 +663,8 @@ class _StartupUpdateSheet extends StatelessWidget {
                       'Available version',
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.muted,
                       ),
                     ),
                     const Spacer(),
@@ -668,27 +672,48 @@ class _StartupUpdateSheet extends StatelessWidget {
                       '#${info.availableVersionCode ?? '-'}',
                       style: const TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.ink,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               Row(
                 children: [
                   Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Later'),
+                    child: SizedBox(
+                      height: 44,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.hairline),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          foregroundColor: AppColors.ink,
+                        ),
+                        child: const Text('Later'),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: onUpdateNow,
-                      child: const Text('Update now'),
+                    child: SizedBox(
+                      height: 44,
+                      child: ElevatedButton(
+                        onPressed: onUpdateNow,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.onPrimary,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Update now'),
+                      ),
                     ),
                   ),
                 ],
@@ -700,3 +725,4 @@ class _StartupUpdateSheet extends StatelessWidget {
     );
   }
 }
+

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../core/theme/app_colors.dart';
 
-/// Helper for constructing beautifully styled Popup Menu Items matching the app's design system.
+/// Helper for constructing beautifully styled Popup Menu Items matching Cal.com design system.
 class AppPopupMenuItem {
   AppPopupMenuItem._();
 
@@ -17,38 +18,38 @@ class AppPopupMenuItem {
     String? subtitle,
   }) {
     final effectiveIconColor = isDestructive
-        ? AppColors.accentRed
-        : (iconColor ?? AppColors.primary);
+        ? AppColors.error
+        : (iconColor ?? AppColors.ink);
     final effectiveTextColor = isDestructive
-        ? AppColors.accentRed
-        : (textColor ?? AppColors.textPrimary);
+        ? AppColors.error
+        : (textColor ?? AppColors.ink);
     final effectiveBgColor = iconBgColor ??
         (isDestructive
-            ? const Color(0xFFFEE2E2)
-            : effectiveIconColor.withValues(alpha: 0.10));
+            ? AppColors.statusOverdueBg
+            : AppColors.surfaceCard);
 
     return PopupMenuItem<T>(
       value: value,
-      height: subtitle != null ? 52 : 44,
+      height: subtitle != null ? 52 : 42,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       child: Row(
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(
               color: effectiveBgColor,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(6), // rounded.sm
             ),
             child: Center(
               child: Icon(
                 icon,
-                size: 17,
+                size: 16,
                 color: effectiveIconColor,
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,9 +57,9 @@ class AppPopupMenuItem {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
+                  style: GoogleFonts.inter(
                     fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: effectiveTextColor,
                   ),
                 ),
@@ -66,10 +67,10 @@ class AppPopupMenuItem {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: GoogleFonts.inter(
                       fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.slate500,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.muted,
                     ),
                   ),
                 ],
@@ -83,6 +84,7 @@ class AppPopupMenuItem {
 
   /// Create a subtle, refined divider between popup menu item groups.
   static PopupMenuEntry<T> divider<T>() {
-    return const PopupMenuDivider(height: 12);
+    return const PopupMenuDivider(height: 8);
   }
 }
+

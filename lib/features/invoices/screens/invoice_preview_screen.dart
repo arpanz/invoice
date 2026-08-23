@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
@@ -808,29 +809,34 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       _invoice.currency,
     );
     final dueDateFormatted = _invoice.dueDate != null
-        ? DateFormat('dd/MM/yyyy').format(_invoice.dueDate!)
-        : DateFormat('dd/MM/yyyy').format(_invoice.invoiceDate);
+        ? DateFormat('dd MMM yyyy').format(_invoice.dueDate!)
+        : DateFormat('dd MMM yyyy').format(_invoice.invoiceDate);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: AppColors.surfaceSoft,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        ),
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            size: 20,
-            color: AppColors.textPrimary,
+            size: 18,
+            color: AppColors.ink,
           ),
           onPressed: () => Navigator.pop(context, true),
         ),
         title: Text(
           _invoice.invoiceNumber,
-          style: const TextStyle(
+          style: GoogleFonts.inter(
             fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+            color: AppColors.ink,
+            letterSpacing: -0.3,
           ),
         ),
         centerTitle: true,
@@ -838,7 +844,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
           IconButton(
             icon: const Icon(
               Icons.palette_outlined,
-              color: AppColors.textPrimary,
+              color: AppColors.ink,
+              size: 20,
             ),
             tooltip: 'PDF Theme',
             onPressed: _openThemePicker,
@@ -848,6 +855,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               icon: const Icon(
                 Icons.workspace_premium_rounded,
                 color: AppColors.proGold,
+                size: 20,
               ),
               onPressed: () => Navigator.push(
                 context,
@@ -857,7 +865,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
           IconButton(
             icon: const Icon(
               Icons.share_outlined,
-              color: AppColors.textPrimary,
+              color: AppColors.ink,
+              size: 20,
             ),
             onPressed: _sendInvoice,
           ),
@@ -871,7 +880,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
             child: Stack(
               children: [
                 Container(
-                  color: const Color(0xFFF1F5F9),
+                  color: AppColors.surfaceSoft,
                   child: _isLoading
                       ? const Center(
                           child: CircularProgressIndicator(
@@ -923,13 +932,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                             borderRadius: BorderRadius.circular(
                                               8,
                                             ),
-                                            boxShadow: [
+                                            boxShadow: const [
                                               BoxShadow(
-                                                color: Colors.black.withValues(
-                                                  alpha: 0.08,
-                                                ),
+                                                color: Color.fromRGBO(0, 0, 0, 0.08),
                                                 blurRadius: 16,
-                                                offset: const Offset(0, 4),
+                                                offset: Offset(0, 4),
                                               ),
                                             ],
                                           ),
@@ -964,13 +971,14 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
+                        color: AppColors.canvas,
+                        borderRadius: BorderRadius.circular(9999), // pill
+                        border: Border.all(color: AppColors.hairline),
+                        boxShadow: const [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
+                            color: Color.fromRGBO(0, 0, 0, 0.06),
                             blurRadius: 8,
-                            offset: const Offset(0, 2),
+                            offset: Offset(0, 2),
                           ),
                         ],
                       ),
@@ -978,27 +986,27 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            width: 10,
-                            height: 10,
+                            width: 8,
+                            height: 8,
                             decoration: BoxDecoration(
                               color: _currentTheme.previewPrimary,
                               shape: BoxShape.circle,
                             ),
                           ),
                           const SizedBox(width: 6),
-                          const Text(
+                          Text(
                             'Style',
-                            style: TextStyle(
+                            style: GoogleFonts.inter(
                               fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.ink,
                             ),
                           ),
                           const SizedBox(width: 2),
                           const Icon(
                             Icons.keyboard_arrow_down_rounded,
-                            size: 16,
-                            color: AppColors.slate500,
+                            size: 14,
+                            color: AppColors.muted,
                           ),
                         ],
                       ),
@@ -1011,13 +1019,14 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                   right: 16,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: AppColors.canvas,
                       shape: BoxShape.circle,
-                      boxShadow: [
+                      border: Border.all(color: AppColors.hairline),
+                      boxShadow: const [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
+                          color: Color.fromRGBO(0, 0, 0, 0.06),
                           blurRadius: 8,
-                          offset: const Offset(0, 2),
+                          offset: Offset(0, 2),
                         ),
                       ],
                     ),
@@ -1026,8 +1035,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                         _isZoomed
                             ? Icons.zoom_out_rounded
                             : Icons.zoom_in_rounded,
-                        color: AppColors.textPrimary,
-                        size: 22,
+                        color: AppColors.ink,
+                        size: 20,
                       ),
                       onPressed: _toggleZoom,
                       tooltip: _isZoomed ? 'Zoom Out' : 'Zoom In',
@@ -1038,21 +1047,22 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
             ),
           ),
 
-          // Bottom Floating Details & Action Panel matching Screenshot 6
+          // Bottom Floating Details & Action Panel
           AnimatedContainer(
             duration: const Duration(milliseconds: 260),
             curve: Curves.easeInOutCubic,
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
+            decoration: const BoxDecoration(
+              color: AppColors.canvas,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(20),
               ),
+              border: Border(top: BorderSide(color: AppColors.hairline)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
+                  color: Color.fromRGBO(0, 0, 0, 0.08),
                   blurRadius: 20,
-                  offset: const Offset(0, -4),
+                  offset: Offset(0, -4),
                 ),
               ],
             ),
@@ -1076,7 +1086,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                           width: 36,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: AppColors.slate300,
+                            color: AppColors.hairline,
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -1096,7 +1106,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             children: [
                               Text(
                                 'Due $dueDateFormatted • ${_invoice.clientName}',
-                                style: const TextStyle(fontSize: 12, color: AppColors.slate500),
+                                style: GoogleFonts.inter(fontSize: 12, color: AppColors.muted),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1107,10 +1117,10 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                   currencyCode: _invoice.currency,
                                   currencySymbol: currencySymbol,
                                 ),
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.textPrimary,
+                                style: GoogleFonts.inter(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.ink,
                                 ),
                               ),
                             ],
@@ -1126,7 +1136,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                               color: AppColors.primary,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                            child: const Icon(Icons.send_rounded, color: Colors.white, size: 16),
                           ),
                         ),
                         IconButton(
@@ -1134,7 +1144,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             HapticFeedback.selectionClick();
                             setState(() => _isBottomPanelCollapsed = false);
                           },
-                          icon: const Icon(Icons.keyboard_arrow_up_rounded, color: AppColors.slate600),
+                          icon: const Icon(Icons.keyboard_arrow_up_rounded, color: AppColors.muted),
                           tooltip: 'Expand details',
                         ),
                       ],
@@ -1146,52 +1156,66 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                       children: [
                         Text(
                           'Due on $dueDateFormatted',
-                          style: const TextStyle(
-                            fontSize: 14,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: AppColors.slate500,
+                            color: AppColors.muted,
                           ),
                         ),
                         GestureDetector(
                           onTap: _showStatusPicker,
                           child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _invoice.status == InvoiceStatus.paid
-                                ? AppColors.statusPaidBg
-                                : _invoice.status == InvoiceStatus.partiallyPaid
-                                ? AppColors.statusPartiallyPaidBg
-                                : _invoice.status == InvoiceStatus.overdue
-                                ? AppColors.statusOverdueBg
-                                : AppColors.primaryMuted,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: _invoice.status == InvoiceStatus.paid
-                                  ? AppColors.statusPaid.withValues(alpha: 0.2)
-                                  : _invoice.status ==
-                                        InvoiceStatus.partiallyPaid
-                                  ? AppColors.statusPartiallyPaid.withValues(
-                                      alpha: 0.2,
-                                    )
-                                  : _invoice.status == InvoiceStatus.overdue
-                                  ? AppColors.statusOverdue.withValues(
-                                      alpha: 0.2,
-                                    )
-                                  : AppColors.primary.withValues(alpha: 0.2),
-                              width: 1,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
                             ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _invoice.status.label,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
+                            decoration: BoxDecoration(
+                              color: _invoice.status == InvoiceStatus.paid
+                                  ? AppColors.statusPaidBg
+                                  : _invoice.status == InvoiceStatus.partiallyPaid
+                                  ? AppColors.statusPartiallyPaidBg
+                                  : _invoice.status == InvoiceStatus.overdue
+                                  ? AppColors.statusOverdueBg
+                                  : AppColors.surfaceCard,
+                              borderRadius: BorderRadius.circular(9999), // pill
+                              border: Border.all(
+                                color: _invoice.status == InvoiceStatus.paid
+                                    ? AppColors.statusPaid.withValues(alpha: 0.2)
+                                    : _invoice.status ==
+                                          InvoiceStatus.partiallyPaid
+                                    ? AppColors.statusPartiallyPaid.withValues(
+                                        alpha: 0.2,
+                                      )
+                                    : _invoice.status == InvoiceStatus.overdue
+                                    ? AppColors.statusOverdue.withValues(
+                                        alpha: 0.2,
+                                      )
+                                    : AppColors.hairline,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _invoice.status.label,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: _invoice.status == InvoiceStatus.paid
+                                        ? AppColors.statusPaid
+                                        : _invoice.status ==
+                                              InvoiceStatus.partiallyPaid
+                                        ? AppColors.statusPartiallyPaid
+                                        : _invoice.status == InvoiceStatus.overdue
+                                        ? AppColors.statusOverdue
+                                        : AppColors.ink,
+                                  ),
+                                ),
+                                const SizedBox(width: 3),
+                                Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 14,
                                   color: _invoice.status == InvoiceStatus.paid
                                       ? AppColors.statusPaid
                                       : _invoice.status ==
@@ -1199,178 +1223,165 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                       ? AppColors.statusPartiallyPaid
                                       : _invoice.status == InvoiceStatus.overdue
                                       ? AppColors.statusOverdue
-                                      : AppColors.primary,
+                                      : AppColors.muted,
                                 ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 16,
-                                color: _invoice.status == InvoiceStatus.paid
-                                    ? AppColors.statusPaid
-                                    : _invoice.status ==
-                                          InvoiceStatus.partiallyPaid
-                                    ? AppColors.statusPartiallyPaid
-                                    : _invoice.status == InvoiceStatus.overdue
-                                    ? AppColors.statusOverdue
-                                    : AppColors.primary,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-
-                  // Row 2: Grand Total + Sent Status Badge
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        CurrencyFormatter.format(
-                          _invoice.grandTotal,
-                          currencyCode: _invoice.currency,
-                          currencySymbol: currencySymbol,
-                        ),
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _isSent
-                              ? AppColors.statusPaidBg
-                              : AppColors.slate100,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          _isSent ? 'Sent' : 'Not sent',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _isSent
-                                ? AppColors.statusPaid
-                                : AppColors.slate500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  if (_invoice.status == InvoiceStatus.partiallyPaid ||
-                      _invoice.paidAmount > 0) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          'Paid: ${CurrencyFormatter.format(_invoice.paidAmount, currencyCode: _invoice.currency, currencySymbol: currencySymbol)}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.statusPaid,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Balance Due: ${CurrencyFormatter.format(_invoice.balanceDue, currencyCode: _invoice.currency, currencySymbol: currencySymbol)}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.statusPartiallyPaid,
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ],
+                    const SizedBox(height: 6),
 
-                  // Row 3: Client Name
-                  Text(
-                    _invoice.clientName,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Row 4: Primary Send Invoice Button (Full Width Blue)
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      onPressed: _sendInvoice,
-                      icon: const Icon(
-                        Icons.send_rounded,
-                        size: 20,
-                        color: Colors.white,
-                      ),
-                      label: const Text(
-                        'Send Invoice',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: 0.2,
+                    // Row 2: Grand Total + Sent Status Badge
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          CurrencyFormatter.format(
+                            _invoice.grandTotal,
+                            currencyCode: _invoice.currency,
+                            currencySymbol: currencySymbol,
+                          ),
+                          style: GoogleFonts.inter(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.ink,
+                            letterSpacing: -0.6,
+                          ),
                         ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _isSent
+                                ? AppColors.statusPaidBg
+                                : AppColors.surfaceCard,
+                            borderRadius: BorderRadius.circular(9999), // pill
+                            border: Border.all(color: AppColors.hairline),
+                          ),
+                          child: Text(
+                            _isSent ? 'Sent' : 'Not sent',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _isSent
+                                  ? AppColors.statusPaid
+                                  : AppColors.muted,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
 
-                  // Row 5: Action Icons (Download, Print, Edit, More)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildActionButton(
-                        icon: Icons.file_download_outlined,
-                        label: 'Download',
-                        onTap: _downloadPdf,
-                      ),
-                      _buildActionButton(
-                        icon: Icons.print_outlined,
-                        label: 'Print',
-                        onTap: _printPdf,
-                      ),
-                      _buildActionButton(
-                        icon: Icons.edit_outlined,
-                        label: 'Edit',
-                        onTap: _editInvoice,
-                      ),
-                      _buildActionButton(
-                        icon: Icons.more_horiz_rounded,
-                        label: 'More',
-                        hasBadge: true,
-                        onTap: _showMoreActions,
+                    if (_invoice.status == InvoiceStatus.partiallyPaid ||
+                        _invoice.paidAmount > 0) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            'Paid: ${CurrencyFormatter.format(_invoice.paidAmount, currencyCode: _invoice.currency, currencySymbol: currencySymbol)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.statusPaid,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Balance Due: ${CurrencyFormatter.format(_invoice.balanceDue, currencyCode: _invoice.currency, currencySymbol: currencySymbol)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.statusPartiallyPaid,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
+
+                    // Row 3: Client Name
+                    const SizedBox(height: 2),
+                    Text(
+                      _invoice.clientName,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Row 4: Primary Send Invoice Button (Cal.com Black CTA)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: _sendInvoice,
+                        icon: const Icon(
+                          Icons.send_rounded,
+                          size: 18,
+                          color: AppColors.onPrimary,
+                        ),
+                        label: Text(
+                          'Send Invoice',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.onPrimary,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.onPrimary,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8), // rounded.md
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Row 5: Action Icons (Download, Print, Edit, More)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildActionButton(
+                          icon: Icons.file_download_outlined,
+                          label: 'Download',
+                          onTap: _downloadPdf,
+                        ),
+                        _buildActionButton(
+                          icon: Icons.print_outlined,
+                          label: 'Print',
+                          onTap: _printPdf,
+                        ),
+                        _buildActionButton(
+                          icon: Icons.edit_outlined,
+                          label: 'Edit',
+                          onTap: _editInvoice,
+                        ),
+                        _buildActionButton(
+                          icon: Icons.more_horiz_rounded,
+                          label: 'More',
+                          hasBadge: true,
+                          onTap: _showMoreActions,
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Widget _buildActionButton({
     required IconData icon,
@@ -1391,13 +1402,14 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: 46,
-                height: 46,
-                decoration: const BoxDecoration(
-                  color: AppColors.slate100,
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceCard,
                   shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.hairline),
                 ),
-                child: Icon(icon, size: 22, color: AppColors.slate700),
+                child: Icon(icon, size: 20, color: AppColors.ink),
               ),
               if (hasBadge)
                 Positioned(
@@ -1407,7 +1419,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     width: 8,
                     height: 8,
                     decoration: const BoxDecoration(
-                      color: AppColors.accentRed,
+                      color: AppColors.error,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -1417,10 +1429,10 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
           const SizedBox(height: 6),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 12,
+            style: GoogleFonts.inter(
+              fontSize: 11.5,
               fontWeight: FontWeight.w500,
-              color: AppColors.slate600,
+              color: AppColors.body,
             ),
           ),
         ],
@@ -1428,3 +1440,4 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     );
   }
 }
+

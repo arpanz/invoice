@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../core/theme/app_colors.dart';
 
 enum AppDialogVariant {
@@ -11,7 +12,7 @@ enum AppDialogVariant {
   info,
 }
 
-/// A modern, cohesive popup dialog matching the app's royal blue & slate design system.
+/// Cal.com Clean SaaS Dialog Modal
 class AppDialog extends StatelessWidget {
   const AppDialog({
     super.key,
@@ -41,18 +42,18 @@ class AppDialog extends StatelessWidget {
   final bool showCancel;
 
   Color get _badgeBg => switch (variant) {
-        AppDialogVariant.danger => const Color(0xFFFEE2E2),
-        AppDialogVariant.primary => AppColors.squircleBlue,
-        AppDialogVariant.warning => AppColors.squircleOrange,
-        AppDialogVariant.success => AppColors.squircleGreen,
+        AppDialogVariant.danger => AppColors.statusOverdueBg,
+        AppDialogVariant.primary => AppColors.surfaceCard,
+        AppDialogVariant.warning => AppColors.statusPendingBg,
+        AppDialogVariant.success => AppColors.statusPaidBg,
         AppDialogVariant.info => AppColors.squircleCyan,
       };
 
   Color get _badgeIconColor => switch (variant) {
-        AppDialogVariant.danger => AppColors.accentRed,
-        AppDialogVariant.primary => AppColors.primary,
-        AppDialogVariant.warning => AppColors.squircleOrangeIcon,
-        AppDialogVariant.success => AppColors.squircleGreenIcon,
+        AppDialogVariant.danger => AppColors.error,
+        AppDialogVariant.primary => AppColors.ink,
+        AppDialogVariant.warning => AppColors.warning,
+        AppDialogVariant.success => AppColors.success,
         AppDialogVariant.info => AppColors.squircleCyanIcon,
       };
 
@@ -65,7 +66,7 @@ class AppDialog extends StatelessWidget {
       };
 
   Color get _confirmBg => isDestructive || variant == AppDialogVariant.danger
-      ? AppColors.accentRed
+      ? AppColors.error
       : AppColors.primary;
 
   @override
@@ -76,48 +77,48 @@ class AppDialog extends StatelessWidget {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.cardBorder, width: 1),
-          boxShadow: [
+          color: AppColors.canvas,
+          borderRadius: BorderRadius.circular(16), // rounded.xl
+          border: Border.all(color: AppColors.hairline, width: 1),
+          boxShadow: const [
             BoxShadow(
-              color: AppColors.slate900.withValues(alpha: 0.14),
-              blurRadius: 32,
-              offset: const Offset(0, 16),
+              color: Color.fromRGBO(0, 0, 0, 0.10),
+              blurRadius: 24,
+              offset: Offset(0, 8),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Icon Badge Header
               Container(
-                width: 52,
-                height: 52,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: _badgeBg,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
                   child: Icon(
                     icon ?? _defaultIcon,
                     color: _badgeIconColor,
-                    size: 26,
+                    size: 22,
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
-              // Title
+              // Title in Cal Sans / Inter 600
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
                   letterSpacing: -0.3,
                 ),
               ),
@@ -127,10 +128,11 @@ class AppDialog extends StatelessWidget {
               if (message.isNotEmpty)
                 Text(
                   message,
-                  style: const TextStyle(
+                  style: GoogleFonts.inter(
                     fontSize: 14,
                     height: 1.45,
-                    color: AppColors.slate600,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.muted,
                   ),
                 ),
 
@@ -140,7 +142,7 @@ class AppDialog extends StatelessWidget {
                 content!,
               ],
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
 
               // Actions
               Row(
@@ -148,22 +150,23 @@ class AppDialog extends StatelessWidget {
                   if (showCancel) ...[
                     Expanded(
                       child: SizedBox(
-                        height: 46,
+                        height: 44,
                         child: OutlinedButton(
                           onPressed: onCancel ?? () => Navigator.pop(context, false),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.cardBorder, width: 1.2),
+                            side: const BorderSide(color: AppColors.hairline, width: 1.0),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(8), // rounded.md
                             ),
-                            foregroundColor: AppColors.slate700,
+                            foregroundColor: AppColors.ink,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
+                            elevation: 0,
                           ),
                           child: Text(
                             cancelLabel,
-                            style: const TextStyle(
+                            style: GoogleFonts.inter(
                               fontSize: 14,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -173,23 +176,23 @@ class AppDialog extends StatelessWidget {
                   ],
                   Expanded(
                     child: SizedBox(
-                      height: 46,
+                      height: 44,
                       child: ElevatedButton(
                         onPressed: onConfirm ?? () => Navigator.pop(context, true),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _confirmBg,
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.onPrimary,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8), // rounded.md
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
                         child: Text(
                           confirmLabel,
-                          style: const TextStyle(
+                          style: GoogleFonts.inter(
                             fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -223,8 +226,8 @@ class AppDialog extends StatelessWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Dismiss Dialog',
-      barrierColor: AppColors.slate900.withValues(alpha: 0.45),
-      transitionDuration: const Duration(milliseconds: 200),
+      barrierColor: const Color.fromRGBO(0, 0, 0, 0.45),
+      transitionDuration: const Duration(milliseconds: 180),
       pageBuilder: (ctx, anim1, anim2) => AppDialog(
         title: title,
         message: message,
@@ -239,7 +242,7 @@ class AppDialog extends StatelessWidget {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 3 * curved.value, sigmaY: 3 * curved.value),
           child: ScaleTransition(
-            scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
             child: FadeTransition(
               opacity: curved,
               child: child,
@@ -304,8 +307,8 @@ class AppDialog extends StatelessWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Dismiss Partial Payment',
-      barrierColor: AppColors.slate900.withValues(alpha: 0.45),
-      transitionDuration: const Duration(milliseconds: 200),
+      barrierColor: const Color.fromRGBO(0, 0, 0, 0.45),
+      transitionDuration: const Duration(milliseconds: 180),
       pageBuilder: (ctx, anim1, anim2) {
         final ctrl = TextEditingController(
           text: defaultAmount > 0
@@ -323,19 +326,19 @@ class AppDialog extends StatelessWidget {
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 400),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.cardBorder, width: 1),
-                  boxShadow: [
+                  color: AppColors.canvas,
+                  borderRadius: BorderRadius.circular(16), // rounded.xl
+                  border: Border.all(color: AppColors.hairline, width: 1),
+                  boxShadow: const [
                     BoxShadow(
-                      color: AppColors.slate900.withValues(alpha: 0.14),
-                      blurRadius: 32,
-                      offset: const Offset(0, 16),
+                      color: Color.fromRGBO(0, 0, 0, 0.10),
+                      blurRadius: 24,
+                      offset: Offset(0, 8),
                     ),
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+                  padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,17 +348,17 @@ class AppDialog extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Container(
-                            width: 50,
-                            height: 50,
+                            width: 44,
+                            height: 44,
                             decoration: BoxDecoration(
-                              color: AppColors.squircleOrange,
-                              borderRadius: BorderRadius.circular(16),
+                              color: AppColors.surfaceCard,
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Center(
                               child: Icon(
                                 Icons.payments_outlined,
-                                color: AppColors.squircleOrangeIcon,
-                                size: 24,
+                                color: AppColors.ink,
+                                size: 22,
                               ),
                             ),
                           ),
@@ -364,21 +367,22 @@ class AppDialog extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Record Payment',
-                                  style: TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.ink,
+                                    letterSpacing: -0.3,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   documentNumber,
-                                  style: const TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.slate500,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.muted,
                                   ),
                                 ),
                               ],
@@ -393,27 +397,27 @@ class AppDialog extends StatelessWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: AppColors.slate50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.cardBorder),
+                          color: AppColors.surfaceSoft,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.hairline),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Invoice Total',
-                              style: TextStyle(
+                              style: GoogleFonts.inter(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: AppColors.textSecondary,
+                                color: AppColors.muted,
                               ),
                             ),
                             Text(
                               '$currencySymbol${grandTotal.toStringAsFixed(2)}',
-                              style: const TextStyle(
+                              style: GoogleFonts.inter(
                                 fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.ink,
                               ),
                             ),
                           ],
@@ -421,7 +425,7 @@ class AppDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
 
-                      // Quick Percentage Chips
+                      // Quick Percentage Chips (nav-pill style)
                       if (grandTotal > 0) ...[
                         Row(
                           children: [0.25, 0.50, 0.75, 1.0].map((pct) {
@@ -433,7 +437,7 @@ class AppDialog extends StatelessWidget {
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 3),
                                 child: InkWell(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(9999),
                                   onTap: () {
                                     setDialogState(() {
                                       ctrl.text = targetAmount
@@ -448,20 +452,20 @@ class AppDialog extends StatelessWidget {
                                     decoration: BoxDecoration(
                                       color: isSel
                                           ? AppColors.primary
-                                          : AppColors.slate100,
-                                      borderRadius: BorderRadius.circular(10),
+                                          : AppColors.surfaceCard,
+                                      borderRadius: BorderRadius.circular(9999), // pill
                                       border: Border.all(
                                         color: isSel
                                             ? AppColors.primary
-                                            : Colors.transparent,
+                                            : AppColors.hairline,
                                       ),
                                     ),
                                     child: Text(
                                       label,
-                                      style: TextStyle(
+                                      style: GoogleFonts.inter(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: isSel ? Colors.white : AppColors.slate700,
+                                        fontWeight: FontWeight.w600,
+                                        color: isSel ? AppColors.onPrimary : AppColors.body,
                                       ),
                                     ),
                                   ),
@@ -482,59 +486,59 @@ class AppDialog extends StatelessWidget {
                           FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
                         ],
                         onChanged: (_) => setDialogState(() {}),
-                        style: const TextStyle(
+                        style: GoogleFonts.inter(
                           fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.ink,
                         ),
                         decoration: InputDecoration(
                           labelText: 'Amount Paid',
                           prefixText: '$currencySymbol ',
-                          prefixStyle: const TextStyle(
+                          prefixStyle: GoogleFonts.inter(
                             fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.ink,
                           ),
                           hintText: '0.00',
                           filled: true,
-                          fillColor: AppColors.slate50,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          fillColor: AppColors.canvas,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: AppColors.cardBorder),
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: AppColors.hairline),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: AppColors.cardBorder),
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: AppColors.hairline),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: AppColors.ink, width: 1.5),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 20),
 
                       // Action Buttons
                       Row(
                         children: [
                           Expanded(
                             child: SizedBox(
-                              height: 46,
+                              height: 44,
                               child: OutlinedButton(
                                 onPressed: () => Navigator.pop(ctx),
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: AppColors.cardBorder, width: 1.2),
+                                  side: const BorderSide(color: AppColors.hairline, width: 1.0),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  foregroundColor: AppColors.slate700,
+                                  foregroundColor: AppColors.ink,
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Cancel',
-                                  style: TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
@@ -543,7 +547,7 @@ class AppDialog extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: SizedBox(
-                              height: 46,
+                              height: 44,
                               child: ElevatedButton(
                                 onPressed: () {
                                   final amount = double.tryParse(ctrl.text.trim()) ?? 0.0;
@@ -551,17 +555,17 @@ class AppDialog extends StatelessWidget {
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
+                                  foregroundColor: AppColors.onPrimary,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Save Payment',
-                                  style: TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
@@ -582,7 +586,7 @@ class AppDialog extends StatelessWidget {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 3 * curved.value, sigmaY: 3 * curved.value),
           child: ScaleTransition(
-            scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
             child: FadeTransition(
               opacity: curved,
               child: child,
@@ -593,3 +597,4 @@ class AppDialog extends StatelessWidget {
     );
   }
 }
+

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/billing/billing_service.dart';
@@ -253,6 +254,29 @@ class _ClientListScreenState extends State<ClientListScreen> {
     }
   }
 
+  Color _getAvatarColor(String name) {
+    const colors = [
+      AppColors.badgeOrange,
+      AppColors.badgePink,
+      AppColors.badgeViolet,
+      AppColors.badgeEmerald,
+      AppColors.badgeBlue,
+    ];
+    if (name.isEmpty) return colors[0];
+    final hash = name.codeUnits.fold(0, (prev, elem) => prev + elem);
+    return colors[hash % colors.length];
+  }
+
+  String _getInitials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredClients;
@@ -260,18 +284,26 @@ class _ClientListScreenState extends State<ClientListScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.canvas,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(color: Colors.white),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        ),
+        leading: widget.selectionMode
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.ink),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: Text(
           widget.selectionMode ? 'Select Client' : 'Clients',
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
             fontSize: 20,
             letterSpacing: -0.4,
-            color: Colors.white,
+            color: AppColors.ink,
           ),
         ),
       ),
@@ -280,22 +312,31 @@ class _ClientListScreenState extends State<ClientListScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Container(
+              height: 42,
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(50),
-                border: Border.all(color: AppColors.cardBorder),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color.fromRGBO(0, 0, 0, 0.02),
-                    blurRadius: 10,
-                    offset: Offset(0, 2),
+                color: AppColors.canvas,
+                borderRadius: BorderRadius.circular(8), // rounded.md
+                border: Border.all(color: AppColors.hairline),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.search_rounded, color: AppColors.muted, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search clients...',
+                        hintStyle: GoogleFonts.inter(color: AppColors.mutedSoft, fontSize: 14),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      style: GoogleFonts.inter(color: AppColors.ink, fontSize: 14),
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                    ),
                   ),
                 ],
-              ),
-              child: CustomTextField(
-                hint: 'Search clients...',
-                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
-                onChanged: (v) => setState(() => _searchQuery = v),
               ),
             ),
           ),
@@ -322,7 +363,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
                         itemCount: filtered.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
                         itemBuilder: (_, index) => StaggeredEntrance(
                           index: index,
                           child: _buildClientCard(filtered[index]),
@@ -338,23 +379,22 @@ class _ClientListScreenState extends State<ClientListScreen> {
               child: FloatingActionButton.extended(
                 heroTag: 'client_list_fab',
                 onPressed: () => _showAddEditDialog(),
-                icon: const Icon(Icons.person_add_rounded, color: Colors.white),
-                label: const Text(
+                icon: const Icon(Icons.person_add_rounded, color: AppColors.onPrimary, size: 18),
+                label: Text(
                   'Add Client',
-                  style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.onPrimary, fontSize: 13),
                 ),
                 backgroundColor: AppColors.primary,
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
               ),
             ),
     );
   }
 
   Widget _buildClientCard(ClientModel client) {
-    final initials = client.name
-        .split(' ')
-        .take(2)
-        .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
-        .join();
+    final avatarColor = _getAvatarColor(client.name);
+    final initials = _getInitials(client.name);
 
     return GestureDetector(
       onTap: widget.selectionMode
@@ -362,102 +402,110 @@ class _ClientListScreenState extends State<ClientListScreen> {
           : () => _showClientDetailSheet(client),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.cardBorder),
-          boxShadow: AppColors.cardShadow,
+          color: AppColors.canvas,
+          borderRadius: BorderRadius.circular(12), // rounded.lg
+          border: Border.all(color: AppColors.hairline),
         ),
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 6,
-          ),
-          leading: CircleAvatar(
-            radius: 22,
-            backgroundColor: AppColors.primaryMuted,
-            child: Text(
-              initials.isEmpty ? 'CL' : initials,
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 4,
+            ),
+            leading: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: avatarColor,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  initials,
+                  style: GoogleFonts.inter(
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ),
-          ),
-          title: Text(
-            client.name,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.textPrimary),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (client.email != null) ...[
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    const Icon(Icons.email_outlined, size: 13, color: AppColors.slate400),
-                    const SizedBox(width: 4),
-                    Text(
-                      client.email!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
+            title: Text(
+              client.name,
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14.5, color: AppColors.ink),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (client.email != null && client.email!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      const Icon(Icons.email_outlined, size: 12, color: AppColors.muted),
+                      const SizedBox(width: 4),
+                      Text(
+                        client.email!,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.muted,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-              if (client.phone != null) ...[
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    const Icon(Icons.phone_outlined, size: 13, color: AppColors.slate400),
-                    const SizedBox(width: 4),
-                    Text(
-                      client.phone!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
+                    ],
+                  ),
+                ],
+                if (client.phone != null && client.phone!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      const Icon(Icons.phone_outlined, size: 12, color: AppColors.muted),
+                      const SizedBox(width: 4),
+                      Text(
+                        client.phone!,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.muted,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ],
-            ],
-          ),
-          trailing: widget.selectionMode
-              ? const Icon(Icons.chevron_right_rounded, color: AppColors.primary)
-              : PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded, color: AppColors.slate400),
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      _showAddEditDialog(client: client);
-                    }
-                    if (value == 'delete') _deleteClient(client);
-                  },
-                  itemBuilder: (_) => [
-                    AppPopupMenuItem.item(
-                      value: 'edit',
-                      title: 'Edit Client',
-                      icon: Icons.edit_outlined,
-                    ),
-                    AppPopupMenuItem.divider(),
-                    AppPopupMenuItem.item(
-                      value: 'delete',
-                      title: 'Delete Client',
-                      icon: Icons.delete_outline_rounded,
-                      isDestructive: true,
-                    ),
-                  ],
-                ),
+            ),
+            trailing: widget.selectionMode
+                ? const Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20)
+                : PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert_rounded, color: AppColors.muted, size: 18),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _showAddEditDialog(client: client);
+                      }
+                      if (value == 'delete') _deleteClient(client);
+                    },
+                    itemBuilder: (_) => [
+                      AppPopupMenuItem.item(
+                        value: 'edit',
+                        title: 'Edit Client',
+                        icon: Icons.edit_outlined,
+                      ),
+                      AppPopupMenuItem.divider(),
+                      AppPopupMenuItem.item(
+                        value: 'delete',
+                        title: 'Delete Client',
+                        icon: Icons.delete_outline_rounded,
+                        isDestructive: true,
+                      ),
+                    ],
+                  ),
           ),
         ),
       ),
     );
   }
+
 
   Future<void> _showClientDetailSheet(ClientModel client) async {
     HapticFeedback.lightImpact();
