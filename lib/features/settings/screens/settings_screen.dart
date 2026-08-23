@@ -1,9 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/app/app_review_service.dart';
 import '../../../core/billing/billing_service.dart';
+import '../../../core/database/db_provider.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -122,6 +128,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 MaterialPageRoute(
                   builder: (_) => const InvoiceHistoryScreen(),
                 ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 20),
+
+          _buildSectionHeader('Data & Backup'),
+          _buildCardGroup([
+            _buildGroupedTile(
+              icon: Icons.cloud_download_rounded,
+              iconBg: AppColors.squircleTeal,
+              iconColor: AppColors.squircleTealIcon,
+              title: 'Export Workspace Backup',
+              subtitle: 'Save complete JSON backup of invoices & data',
+              onTap: _exportBackupJson,
+              trailing: const Icon(
+                Icons.share_outlined,
+                size: 18,
+                color: AppColors.primary,
               ),
             ),
           ]),
@@ -780,6 +804,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _exportBackupJson() async {
+    try {
+      HapticFeedback.mediumImpact();
+      final invoices = await DbProvider.query(DbProvider.tableInvoices);
+      final lineItems = await DbProvider.query(DbProvider.tableLineItems);
+      final clients = await DbProvider.query(DbProvider.tableClients);
+      final estimates = await DbProvider.query(DbProvider.tableEstimates);
+      final items = await DbProvider.query(DbProvider.tableSavedItems);
+
+      final data = {
+        'app': 'Invoice Maker Pro',
+        'version': 1,
+        'exported_at': DateTime.now().toIso8601String(),
+        'invoices': invoices,
+        'line_items': lineItems,
+        'clients': clients,
+        'estimates': estimates,
+        'saved_items': items,
+      };
+
+      final jsonString = const JsonEncoder.withIndent('  ').convert(data);
+      final tempDir = await getTemporaryDirectory();
+      final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+      final file = File('${tempDir.path}/invoice_maker_pro_backup_$dateStr.json');
+      await file.writeAsString(jsonString);
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: 'Invoice Maker Pro Data Backup ($dateStr)',
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to export backup: $e')),
+        );
+      }
+    }
   }
 
   void _showStatusSnackBar(String message) {

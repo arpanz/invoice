@@ -27,8 +27,13 @@ import '../../items/screens/item_picker_sheet.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   final InvoiceModel? existingInvoice;
+  final ClientModel? prefilledClient;
 
-  const CreateInvoiceScreen({super.key, this.existingInvoice});
+  const CreateInvoiceScreen({
+    super.key,
+    this.existingInvoice,
+    this.prefilledClient,
+  });
 
   static Future<bool> canCreateNewInvoice(BuildContext context) async {
     final isPro = context.read<BillingService>().isPro;
@@ -204,6 +209,16 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           _useIGST = true;
           _igstCtrl.text = defaultTax.toStringAsFixed(1).replaceAll('.0', '');
         }
+      }
+
+      if (widget.prefilledClient != null) {
+        final c = widget.prefilledClient!;
+        _selectedClient = c;
+        _clientNameCtrl.text = c.name;
+        _clientEmailCtrl.text = c.email ?? '';
+        _clientPhoneCtrl.text = c.phone ?? '';
+        _clientAddressCtrl.text = c.address ?? '';
+        _clientGstinCtrl.text = c.gstin ?? '';
       }
     }
 
@@ -875,6 +890,38 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           controller: qtyCtrl,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           onChanged: (_) => setSheetState(() {}),
+                          suffixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                icon: const Icon(Icons.remove_circle_outline_rounded, size: 18, color: AppColors.slate400),
+                                onPressed: () {
+                                  final current = double.tryParse(qtyCtrl.text) ?? 1;
+                                  if (current > 1) {
+                                    final next = current - 1;
+                                    qtyCtrl.text = next.toString().replaceAll(RegExp(r'\.0$'), '');
+                                    setSheetState(() {});
+                                  }
+                                },
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                icon: const Icon(Icons.add_circle_outline_rounded, size: 18, color: AppColors.primary),
+                                onPressed: () {
+                                  final current = double.tryParse(qtyCtrl.text) ?? 1;
+                                  final next = current + 1;
+                                  qtyCtrl.text = next.toString().replaceAll(RegExp(r'\.0$'), '');
+                                  setSheetState(() {});
+                                },
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -2085,35 +2132,55 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           ..._items.asMap().entries.map((entry) {
                             final idx = entry.key;
                             final item = entry.value;
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(item.description, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                                        Text(
-                                          '${item.quantity.toString().replaceAll(".0", "")} x ${CurrencyFormatter.format(item.unitPrice, currencySymbol: _currencySymbol)}',
-                                          style: const TextStyle(fontSize: 12, color: AppColors.slate500),
-                                        ),
-                                      ],
+                            return Dismissible(
+                              key: ValueKey('line_item_${item.id}_$idx'),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 16),
+                                decoration: BoxDecoration(
+                                  color: AppColors.statusOverdueBg,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.delete_outline_rounded, color: AppColors.accentRed, size: 20),
+                              ),
+                              onDismissed: (_) {
+                                HapticFeedback.mediumImpact();
+                                setState(() => _items.removeAt(idx));
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(item.description, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                          Text(
+                                            '${item.quantity.toString().replaceAll(".0", "")} x ${CurrencyFormatter.format(item.unitPrice, currencySymbol: _currencySymbol)}',
+                                            style: const TextStyle(fontSize: 12, color: AppColors.slate500),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    CurrencyFormatter.format(item.total, currencySymbol: _currencySymbol),
-                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.slate500),
-                                    onPressed: () => _showAddItemSheet(editIndex: idx),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.accentRed),
-                                    onPressed: () => setState(() => _items.removeAt(idx)),
-                                  ),
-                                ],
+                                    Text(
+                                      CurrencyFormatter.format(item.total, currencySymbol: _currencySymbol),
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.slate500),
+                                      onPressed: () => _showAddItemSheet(editIndex: idx),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.accentRed),
+                                      onPressed: () {
+                                        HapticFeedback.lightImpact();
+                                        setState(() => _items.removeAt(idx));
+                                      },
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           }),

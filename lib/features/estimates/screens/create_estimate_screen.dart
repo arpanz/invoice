@@ -116,8 +116,8 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    final prefs = await SharedPreferences.getInstance();
     final currencyProvider = context.read<CurrencyProvider>();
+    final prefs = await SharedPreferences.getInstance();
 
     _bizName = prefs.getString('biz_name') ?? 'My Business';
 

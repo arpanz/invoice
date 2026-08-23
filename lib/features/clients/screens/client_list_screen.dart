@@ -7,9 +7,14 @@ import '../../../core/database/db_provider.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_animations.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/empty_state_view.dart';
 import '../../../shared_widgets/primary_button.dart';
+import '../../invoices/models/invoice_model.dart';
+import '../../invoices/models/line_item_model.dart';
+import '../../invoices/screens/create_invoice_screen.dart';
+import '../../invoices/screens/invoice_preview_screen.dart';
 import '../../paywall/paywall_screen.dart';
 import '../models/client_model.dart';
 import '../../../shared_widgets/app_dialog.dart';
@@ -352,7 +357,9 @@ class _ClientListScreenState extends State<ClientListScreen> {
         .join();
 
     return GestureDetector(
-      onTap: widget.selectionMode ? () => Navigator.pop(context, client) : null,
+      onTap: widget.selectionMode
+          ? () => Navigator.pop(context, client)
+          : () => _showClientDetailSheet(client),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -448,6 +455,352 @@ class _ClientListScreenState extends State<ClientListScreen> {
                 ),
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _showClientDetailSheet(ClientModel client) async {
+    HapticFeedback.lightImpact();
+    // Query invoices for this client
+    final invRows = await DbProvider.query(
+      DbProvider.tableInvoices,
+      where: 'client_name = ? OR (client_email IS NOT NULL AND client_email = ?)',
+      whereArgs: [client.name, client.email ?? ''],
+      orderBy: 'invoice_date DESC',
+    );
+
+    double totalInvoiced = 0.0;
+    double totalPaid = 0.0;
+    double totalDue = 0.0;
+    final List<InvoiceModel> clientInvoices = [];
+
+    for (final row in invRows) {
+      final invoiceId = row['id'] as String;
+      final itemRows = await DbProvider.query(
+        DbProvider.tableLineItems,
+        where: 'invoice_id = ?',
+        whereArgs: [invoiceId],
+      );
+      final items = itemRows.map(LineItemModel.fromMap).toList();
+      final inv = InvoiceModel.fromMap(row, items: items);
+      clientInvoices.add(inv);
+
+      totalInvoiced += inv.grandTotal;
+      if (inv.status == InvoiceStatus.paid) {
+        totalPaid += inv.grandTotal;
+      } else if (inv.status == InvoiceStatus.partiallyPaid) {
+        totalPaid += inv.paidAmount;
+        totalDue += inv.balanceDue;
+      } else {
+        totalDue += inv.grandTotal;
+      }
+    }
+
+    if (!mounted) return;
+    final currencyProvider = context.read<CurrencyProvider>();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDetailState) {
+          final initials = client.name
+              .split(' ')
+              .take(2)
+              .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
+              .join();
+
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 12),
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.slate300,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: AppColors.primaryMuted,
+                        child: Text(
+                          initials.isEmpty ? 'CL' : initials,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              client.name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            if (client.email != null && client.email!.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                client.email!,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.slate500,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                        tooltip: 'Edit Client',
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await _showAddEditDialog(client: client);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // KPI Revenue Cards
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryMuted,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Total Invoiced', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                              const SizedBox(height: 4),
+                              Text(
+                                CurrencyFormatter.format(
+                                  totalInvoiced,
+                                  currencyCode: currencyProvider.currencyCode,
+                                ),
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.statusPaidBg,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.statusPaid.withValues(alpha: 0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Paid', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.statusPaid)),
+                              const SizedBox(height: 4),
+                              Text(
+                                CurrencyFormatter.format(
+                                  totalPaid,
+                                  currencyCode: currencyProvider.currencyCode,
+                                ),
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.statusPaid),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: totalDue > 0 ? AppColors.statusUnpaidBg : AppColors.slate100,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: (totalDue > 0 ? AppColors.statusUnpaid : AppColors.slate300).withValues(alpha: 0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Due Balance',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: totalDue > 0 ? AppColors.statusUnpaid : AppColors.slate500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                CurrencyFormatter.format(
+                                  totalDue,
+                                  currencyCode: currencyProvider.currencyCode,
+                                ),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: totalDue > 0 ? AppColors.statusUnpaid : AppColors.slate700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Invoices (${clientInvoices.length})',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CreateInvoiceScreen(
+                                prefilledClient: client,
+                              ),
+                            ),
+                          ).then((_) => _loadClients());
+                        },
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: const Text('New Invoice', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: clientInvoices.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.receipt_long_outlined, size: 40, color: AppColors.slate300),
+                                SizedBox(height: 8),
+                                Text('No invoices created for this client yet', style: TextStyle(color: AppColors.slate500, fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          itemCount: clientInvoices.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          itemBuilder: (ctx, idx) {
+                            final inv = clientInvoices[idx];
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => InvoicePreviewScreen(invoice: inv),
+                                  ),
+                                ).then((_) => _loadClients());
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.slate50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.cardBorder),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            inv.invoiceNumber,
+                                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.textPrimary),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            inv.status.label,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: inv.status == InvoiceStatus.paid
+                                                  ? AppColors.statusPaid
+                                                  : inv.status == InvoiceStatus.overdue
+                                                      ? AppColors.statusOverdue
+                                                      : AppColors.statusUnpaid,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      CurrencyFormatter.format(
+                                        inv.grandTotal,
+                                        currencyCode: inv.currency.isNotEmpty
+                                            ? inv.currency
+                                            : currencyProvider.currencyCode,
+                                      ),
+                                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.textPrimary),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.slate400),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

@@ -40,6 +40,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   double _totalPaid = 0.0;
   double _totalUnpaid = 0.0;
   String _currency = 'INR';
+  bool _hasProfileAlert = false;
 
   @override
   void initState() {
@@ -60,6 +61,10 @@ class DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoading = true);
     final currencyProvider = context.read<CurrencyProvider>();
     _currency = currencyProvider.currencyCode;
+
+    final prefs = await SharedPreferences.getInstance();
+    final bizName = prefs.getString('biz_name');
+    final hasIncompleteProfile = bizName == null || bizName.trim().isEmpty || bizName == 'My Business';
 
     final rows = await DbProvider.query(
       DbProvider.tableInvoices,
@@ -97,6 +102,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         _allInvoices = loaded;
         _totalPaid = paidSum;
         _totalUnpaid = unpaidSum;
+        _hasProfileAlert = hasIncompleteProfile;
         _isLoading = false;
       });
     }
@@ -167,6 +173,31 @@ class DashboardScreenState extends State<DashboardScreen> {
       'id = ?',
       [invoice.id],
     );
+    if (status == InvoiceStatus.paid) {
+      HapticFeedback.mediumImpact();
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.statusPaid,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '🎉 Invoice ${invoice.invoiceNumber} marked as Paid in Full!',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
     await _loadData();
   }
 
@@ -422,9 +453,11 @@ class DashboardScreenState extends State<DashboardScreen> {
         invoice.invoiceNumber,
       );
 
-      await Share.shareXFiles(
-        [XFile(path)],
-        text: 'Invoice ${invoice.invoiceNumber} for ${invoice.clientName}',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(path)],
+          text: 'Invoice ${invoice.invoiceNumber} for ${invoice.clientName}',
+        ),
       );
     } catch (e) {
       if (mounted) {
@@ -470,20 +503,22 @@ class DashboardScreenState extends State<DashboardScreen> {
               clipBehavior: Clip.none,
               children: [
                 const Icon(Icons.menu_rounded, color: AppColors.textPrimary, size: 24),
-                Positioned(
-                  top: -2,
-                  right: -2,
-                  child: Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
-                      color: AppColors.accentRed,
-                      shape: BoxShape.circle,
+                if (_hasProfileAlert)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.accentOrange,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
+            tooltip: _hasProfileAlert ? 'Profile incomplete' : 'Settings',
             onPressed: () async {
               HapticFeedback.lightImpact();
               await Navigator.push(
@@ -795,6 +830,70 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildEmptyState() {
+    final hasExistingInvoices = _allInvoices.isNotEmpty;
+
+    if (hasExistingInvoices) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 90,
+              height: 90,
+              decoration: const BoxDecoration(
+                color: AppColors.slate100,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.search_off_rounded,
+                size: 44,
+                color: AppColors.slate400,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'No matching invoices',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'No invoices match "$_searchQuery"'
+                  : 'No invoices with status "$_selectedFilter"',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, color: AppColors.slate500),
+            ),
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                setState(() {
+                  _selectedFilter = 'all';
+                  _searchQuery = '';
+                  _isSearching = false;
+                  _searchCtrl.clear();
+                });
+              },
+              icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
+              label: const Text('Reset Filters'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -845,10 +944,10 @@ class DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 24),
           const Text(
-            'No invoices found',
+            'No invoices yet',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
             ),
           ),

@@ -431,9 +431,12 @@ class InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         pdfBytes,
         invoice.invoiceNumber,
       );
-      await Share.shareXFiles([
-        XFile(path),
-      ], text: 'Invoice ${invoice.invoiceNumber} for ${invoice.clientName}');
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(path)],
+          text: 'Invoice ${invoice.invoiceNumber} for ${invoice.clientName}',
+        ),
+      );
       await AppReviewService.instance.registerSignificantAction();
     } catch (e) {
       if (mounted) {

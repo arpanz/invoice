@@ -130,6 +130,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
 
   Future<void> _openThemePicker() async {
     final profile = await _getBusinessProfile();
+    if (!mounted) return;
     final updated = await InvoiceCustomizerStudioSheet.show(
       context,
       initialConfig: _customConfig,
@@ -156,9 +157,11 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
         _pdfBytes!,
         _estimate.estimateNumber,
       );
-      await Share.shareXFiles(
-        [XFile(path)],
-        text: 'Estimate ${_estimate.estimateNumber} for ${_estimate.clientName}',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(path)],
+          text: 'Estimate ${_estimate.estimateNumber} for ${_estimate.clientName}',
+        ),
       );
     } catch (e) {
       if (mounted) {
@@ -406,6 +409,16 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
         'id = ?',
         [updatedEstimate.id],
       );
+
+      final prefs = await SharedPreferences.getInstance();
+      final estimateCustomization = prefs.getString('estimate_customization_${_estimate.id}');
+      if (estimateCustomization != null) {
+        await prefs.setString('invoice_customization_$newInvoiceId', estimateCustomization);
+      }
+      final estimateTheme = prefs.getString('estimate_theme_${_estimate.id}');
+      if (estimateTheme != null) {
+        await prefs.setString('invoice_theme_$newInvoiceId', estimateTheme);
+      }
 
       setState(() => _estimate = updatedEstimate);
 

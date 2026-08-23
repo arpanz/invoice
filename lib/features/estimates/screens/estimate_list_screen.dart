@@ -207,6 +207,16 @@ class EstimateListScreenState extends State<EstimateListScreen> {
         [estimate.id],
       );
 
+      final prefs = await SharedPreferences.getInstance();
+      final estimateCustomization = prefs.getString('estimate_customization_${estimate.id}');
+      if (estimateCustomization != null) {
+        await prefs.setString('invoice_customization_$newInvoiceId', estimateCustomization);
+      }
+      final estimateTheme = prefs.getString('estimate_theme_${estimate.id}');
+      if (estimateTheme != null) {
+        await prefs.setString('invoice_theme_$newInvoiceId', estimateTheme);
+      }
+
       await _loadData();
 
       if (!mounted) return;
@@ -271,9 +281,11 @@ class EstimateListScreenState extends State<EstimateListScreen> {
         estimate.estimateNumber,
       );
 
-      await Share.shareXFiles(
-        [XFile(path)],
-        text: 'Estimate ${estimate.estimateNumber} for ${estimate.clientName}',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(path)],
+          text: 'Estimate ${estimate.estimateNumber} for ${estimate.clientName}',
+        ),
       );
     } catch (e) {
       if (mounted) {

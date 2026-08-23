@@ -313,7 +313,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primaryMuted : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
@@ -321,10 +322,15 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              color: isSelected ? AppColors.primary : AppColors.slate400,
-              size: 22,
+            AnimatedScale(
+              scale: isSelected ? 1.08 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              child: Icon(
+                isSelected ? activeIcon : icon,
+                color: isSelected ? AppColors.primary : AppColors.slate400,
+                size: 22,
+              ),
             ),
             const SizedBox(height: 2),
             Text(

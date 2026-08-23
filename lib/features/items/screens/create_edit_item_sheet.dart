@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/providers/currency_provider.dart';
@@ -347,6 +348,45 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                       if (val != null) setState(() => _selectedUnit = val);
                     },
                   ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Quick Unit Preset Chips
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: ['pcs', 'hrs', 'days', 'kg', 'box', 'unit', 'sqft'].map((u) {
+                    final isSel = _selectedUnit == u;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: InkWell(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() => _selectedUnit = u);
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: isSel ? AppColors.primary : AppColors.slate100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSel ? AppColors.primary : AppColors.cardBorder,
+                            ),
+                          ),
+                          child: Text(
+                            u,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                              color: isSel ? Colors.white : AppColors.slate700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
               const SizedBox(height: 14),

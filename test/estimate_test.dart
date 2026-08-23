@@ -244,7 +244,7 @@ void main() {
       expect(find.text('Invoices'), findsWidgets);
       expect(find.text('Estimates'), findsOneWidget);
       expect(find.text('Clients'), findsOneWidget);
-      expect(find.text('History'), findsOneWidget);
+      expect(find.text('Items'), findsOneWidget);
       expect(find.byIcon(Icons.add_rounded), findsOneWidget);
 
       // Tap on Estimates tab

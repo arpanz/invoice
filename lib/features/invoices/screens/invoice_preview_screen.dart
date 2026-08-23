@@ -42,6 +42,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   PdfTheme _currentTheme = PdfTheme.defaultTheme;
   InvoiceCustomizationConfig _customConfig =
       InvoiceCustomizationConfig.defaultConfig;
+  bool _isBottomPanelCollapsed = false;
 
   @override
   void initState() {
@@ -118,6 +119,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
 
   Future<void> _openThemePicker() async {
     final profile = await _getBusinessProfile();
+    if (!mounted) return;
     final updated = await InvoiceCustomizerStudioSheet.show(
       context,
       initialConfig: _customConfig,
@@ -438,9 +440,12 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         _pdfBytes!,
         _invoice.invoiceNumber,
       );
-      await Share.shareXFiles([
-        XFile(path),
-      ], text: 'Invoice ${_invoice.invoiceNumber} for ${_invoice.clientName}');
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(path)],
+          text: 'Invoice ${_invoice.invoiceNumber} for ${_invoice.clientName}',
+        ),
+      );
       await _markSentStatus(true);
       await AppReviewService.instance.registerSignificantAction();
     } catch (e) {
@@ -1034,8 +1039,10 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
           ),
 
           // Bottom Floating Details & Action Panel matching Screenshot 6
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeInOutCubic,
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.vertical(
@@ -1055,21 +1062,99 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Row 1: Due Date + Status Dropdown Pill
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Due on $dueDateFormatted',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.slate500,
+                  // Collapse / Expand Handle
+                  Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _isBottomPanelCollapsed = !_isBottomPanelCollapsed);
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 24),
+                        child: Container(
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.slate300,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
-                      GestureDetector(
-                        onTap: _showStatusPicker,
-                        child: Container(
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  if (_isBottomPanelCollapsed) ...[
+                    // Compact collapsed single-row bar
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Due $dueDateFormatted • ${_invoice.clientName}',
+                                style: const TextStyle(fontSize: 12, color: AppColors.slate500),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                CurrencyFormatter.format(
+                                  _invoice.grandTotal,
+                                  currencyCode: _invoice.currency,
+                                  currencySymbol: currencySymbol,
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: _sendInvoice,
+                          tooltip: 'Send Invoice',
+                          icon: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _isBottomPanelCollapsed = false);
+                          },
+                          icon: const Icon(Icons.keyboard_arrow_up_rounded, color: AppColors.slate600),
+                          tooltip: 'Expand details',
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    // Row 1: Due Date + Status Dropdown Pill
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Due on $dueDateFormatted',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.slate500,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _showStatusPicker,
+                          child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 6,
@@ -1278,13 +1363,14 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     ],
                   ),
                 ],
-              ),
+              ],
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildActionButton({
     required IconData icon,
