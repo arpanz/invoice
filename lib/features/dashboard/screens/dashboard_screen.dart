@@ -10,6 +10,7 @@ import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/pdf_helper.dart';
 import '../../invoices/models/invoice_model.dart';
@@ -655,14 +656,18 @@ class DashboardScreenState extends State<DashboardScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceDark,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF161616), Color(0xFF0C0C0C)],
+                        ),
                         borderRadius: BorderRadius.circular(16), // rounded.xl
-                        border: Border.all(color: const Color(0xFF242424)),
+                        border: Border.all(color: const Color(0xFF2A2A2A), width: 1),
                         boxShadow: const [
                           BoxShadow(
-                            color: Color.fromRGBO(0, 0, 0, 0.12),
-                            blurRadius: 20,
-                            offset: Offset(0, 8),
+                            color: Color.fromRGBO(0, 0, 0, 0.18),
+                            blurRadius: 24,
+                            offset: Offset(0, 10),
                           ),
                         ],
                       ),
@@ -672,25 +677,39 @@ class DashboardScreenState extends State<DashboardScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Total Paid',
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF888888),
-                                  letterSpacing: 0.8,
-                                ),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF10B981),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Total Paid',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF999999),
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
+                                ],
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF222222),
                                   borderRadius: BorderRadius.circular(9999),
+                                  border: Border.all(color: const Color(0xFF333333)),
                                 ),
                                 child: Text(
                                   currencyCode,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 11,
+                                  style: AppTypography.monoCode(
+                                    fontSize: 10.5,
                                     fontWeight: FontWeight.w600,
                                     color: const Color(0xFFCCCCCC),
                                   ),
@@ -698,22 +717,22 @@ class DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           Text(
                             CurrencyFormatter.format(
                               _totalPaid,
                               currencyCode: currencyCode,
                               currencySymbol: currencySymbol,
                             ),
-                            style: GoogleFonts.inter(
-                              fontSize: 30,
+                            style: AppTypography.money(
+                              fontSize: 32,
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
-                              letterSpacing: -1.0,
+                              letterSpacing: -1.2,
                             ),
                           ),
                           const SizedBox(height: 16),
-                          const Divider(height: 1, color: Color(0xFF222222)),
+                          const Divider(height: 1, color: Color(0xFF242424)),
                           const SizedBox(height: 14),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -724,22 +743,22 @@ class DashboardScreenState extends State<DashboardScreen> {
                                   Text(
                                     'Total Unpaid',
                                     style: GoogleFonts.inter(
-                                      fontSize: 12,
+                                      fontSize: 11.5,
                                       fontWeight: FontWeight.w400,
-                                      color: const Color(0xFF999999),
+                                      color: const Color(0xFF888888),
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 3),
                                   Text(
                                     CurrencyFormatter.format(
                                       _totalUnpaid,
                                       currencyCode: currencyCode,
                                       currencySymbol: currencySymbol,
                                     ),
-                                    style: GoogleFonts.inter(
+                                    style: AppTypography.money(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: const Color(0xFFFAFAFA),
+                                      color: const Color(0xFFF3F4F6),
                                     ),
                                   ),
                                 ],
@@ -750,18 +769,18 @@ class DashboardScreenState extends State<DashboardScreen> {
                                   Text(
                                     'Total Documents',
                                     style: GoogleFonts.inter(
-                                      fontSize: 12,
+                                      fontSize: 11.5,
                                       fontWeight: FontWeight.w400,
-                                      color: const Color(0xFF999999),
+                                      color: const Color(0xFF888888),
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 3),
                                   Text(
                                     '${_allInvoices.length} invoices',
-                                    style: GoogleFonts.inter(
+                                    style: AppTypography.money(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
-                                      color: const Color(0xFFFAFAFA),
+                                      color: const Color(0xFFF3F4F6),
                                     ),
                                   ),
                                 ],

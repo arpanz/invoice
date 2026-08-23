@@ -6,6 +6,43 @@ import 'app_colors.dart';
 class AppTypography {
   AppTypography._();
 
+  /// Tabular font feature for millimeter-precision aligned financial figures
+  static const List<FontFeature> tabularFigures = [
+    FontFeature.tabularFigures(),
+  ];
+
+  /// Precision financial money text style
+  static TextStyle money({
+    double fontSize = 16,
+    FontWeight fontWeight = FontWeight.w600,
+    Color color = AppColors.ink,
+    double letterSpacing = -0.5,
+  }) {
+    return GoogleFonts.inter(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
+      fontFeatures: tabularFigures,
+    );
+  }
+
+  /// Clean JetBrains Monospace badge for invoice / estimate numbers & codes
+  static TextStyle monoCode({
+    double fontSize = 12,
+    FontWeight fontWeight = FontWeight.w500,
+    Color color = AppColors.muted,
+    double letterSpacing = -0.2,
+  }) {
+    return GoogleFonts.jetBrainsMono(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
+      fontFeatures: tabularFigures,
+    );
+  }
+
   static TextTheme get textTheme => GoogleFonts.interTextTheme(
         TextTheme(
           // Display XL - Cal Sans style display head
@@ -15,6 +52,7 @@ class AppTypography {
             color: AppColors.ink,
             letterSpacing: -1.2,
             height: 1.1,
+            fontFeatures: tabularFigures,
           ),
           // Display LG - Section heads
           displayMedium: GoogleFonts.inter(
@@ -23,6 +61,7 @@ class AppTypography {
             color: AppColors.ink,
             letterSpacing: -0.9,
             height: 1.15,
+            fontFeatures: tabularFigures,
           ),
           // Display SM - Card titles & prominent stats
           displaySmall: GoogleFonts.inter(
@@ -31,6 +70,7 @@ class AppTypography {
             color: AppColors.ink,
             letterSpacing: -0.6,
             height: 1.2,
+            fontFeatures: tabularFigures,
           ),
           // Headline Large - Card group titles
           headlineLarge: GoogleFonts.inter(
@@ -39,6 +79,7 @@ class AppTypography {
             color: AppColors.ink,
             letterSpacing: -0.4,
             height: 1.3,
+            fontFeatures: tabularFigures,
           ),
           headlineMedium: GoogleFonts.inter(
             fontSize: 18,
@@ -46,6 +87,7 @@ class AppTypography {
             color: AppColors.ink,
             letterSpacing: -0.2,
             height: 1.35,
+            fontFeatures: tabularFigures,
           ),
           headlineSmall: GoogleFonts.inter(
             fontSize: 16,
@@ -53,6 +95,7 @@ class AppTypography {
             color: AppColors.ink,
             letterSpacing: 0,
             height: 1.4,
+            fontFeatures: tabularFigures,
           ),
           titleLarge: GoogleFonts.inter(
             fontSize: 16,

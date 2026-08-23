@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../shared_widgets/currency_picker_sheet.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/primary_button.dart';
@@ -518,50 +520,48 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.canvas,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.ink),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Business Profile',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 19,
-            letterSpacing: -0.4,
-            color: Colors.white,
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            letterSpacing: -0.3,
+            color: AppColors.ink,
           ),
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: TextButton.icon(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton(
               onPressed: _isSaving ? null : _saveProfile,
-              icon: _isSaving
+              child: _isSaving
                   ? const SizedBox(
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.ink),
                       ),
                     )
-                  : const Icon(
-                      Icons.check_rounded,
-                      color: Colors.white,
-                      size: 18,
+                  : Text(
+                      'Save',
+                      style: GoogleFonts.inter(
+                        color: AppColors.ink,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
                     ),
-              label: const Text(
-                'Save',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                ),
-              ),
             ),
           ),
         ],
@@ -583,8 +583,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
             _buildSectionHeader(
               title: 'Branding & Identity',
               icon: Icons.auto_awesome_rounded,
-              iconColor: AppColors.squirclePurpleIcon,
-              iconBg: AppColors.squirclePurple,
+              iconColor: AppColors.badgeViolet,
+              iconBg: AppColors.badgeViolet.withValues(alpha: 0.12),
             ),
             _buildCardGroup([
               Padding(
@@ -941,15 +941,15 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       bottomSheet: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.canvas,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 16,
               offset: const Offset(0, -4),
             ),
           ],
-          border: const Border(top: BorderSide(color: AppColors.cardBorder)),
+          border: const Border(top: BorderSide(color: AppColors.hairline)),
         ),
         child: SafeArea(
           top: false,
@@ -964,7 +964,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     );
   }
 
-  // 1. Live Hero Preview Card
+  // 1. Live Hero Preview Card (Cal.com Executive Identity Card)
   Widget _buildLivePreviewCard({
     required CurrencyProvider currencyProvider,
     required double strength,
@@ -983,12 +983,12 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder),
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(16), // rounded.xl
+        border: Border.all(color: AppColors.hairline),
         boxShadow: const [
           BoxShadow(
-            color: Color.fromRGBO(15, 23, 42, 0.05),
+            color: Color.fromRGBO(0, 0, 0, 0.04),
             blurRadius: 16,
             offset: Offset(0, 4),
           ),
@@ -998,44 +998,26 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
         children: [
           // Card Header Banner
           Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withValues(alpha: 0.08),
-                  AppColors.primaryLight.withValues(alpha: 0.03),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: AppColors.surfaceSoft,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+              border: Border(bottom: BorderSide(color: AppColors.hairline)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Avatar / Logo
+                // Avatar / Logo Box
                 Container(
-                  width: 58,
-                  height: 58,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: AppColors.primaryLight.withValues(alpha: 0.3),
-                      width: 1.5,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromRGBO(37, 99, 235, 0.12),
-                        blurRadius: 10,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
+                    color: AppColors.canvas,
+                    borderRadius: BorderRadius.circular(12), // rounded.lg
+                    border: Border.all(color: AppColors.hairline),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(13),
+                    borderRadius: BorderRadius.circular(11),
                     child: _logoPath != null && File(_logoPath!).existsSync()
                         ? Image.file(File(_logoPath!), fit: BoxFit.contain)
                         : Center(
@@ -1043,10 +1025,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               name.isNotEmpty
                                   ? name.substring(0, 1).toUpperCase()
                                   : 'B',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.primary,
+                              style: GoogleFonts.inter(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.ink,
                               ),
                             ),
                           ),
@@ -1064,12 +1046,12 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           Expanded(
                             child: Text(
                               name.isNotEmpty ? name : 'Your Business Name',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                                 color: name.isNotEmpty
-                                    ? AppColors.textPrimary
-                                    : AppColors.slate400,
+                                    ? AppColors.ink
+                                    : AppColors.mutedSoft,
                                 letterSpacing: -0.3,
                               ),
                               maxLines: 1,
@@ -1080,13 +1062,13 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           // Currency Country Flag Pill
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
+                              horizontal: 7,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppColors.cardBorder),
+                              color: AppColors.canvas,
+                              borderRadius: BorderRadius.circular(9999),
+                              border: Border.all(color: AppColors.hairline),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1095,13 +1077,13 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                   currencyProvider.flag,
                                   style: const TextStyle(fontSize: 11),
                                 ),
-                                const SizedBox(width: 3),
+                                const SizedBox(width: 4),
                                 Text(
                                   currencyProvider.currencyCode,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.slate700,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.ink,
                                   ),
                                 ),
                               ],
@@ -1109,16 +1091,16 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         tagline.isNotEmpty
                             ? tagline
                             : 'Set your business identity',
-                        style: TextStyle(
+                        style: GoogleFonts.inter(
                           fontSize: 12,
                           color: tagline.isNotEmpty
-                              ? AppColors.textSecondary
-                              : AppColors.slate400,
+                              ? AppColors.muted
+                              : AppColors.mutedSoft,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1126,7 +1108,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                       if (taxId.isNotEmpty ||
                           (_signaturePath != null &&
                               File(_signaturePath!).existsSync())) ...[
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Wrap(
                           spacing: 6,
                           runSpacing: 4,
@@ -1138,19 +1120,16 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: AppColors.cardBorder,
-                                  ),
+                                  color: AppColors.canvas,
+                                  borderRadius: BorderRadius.circular(9999),
+                                  border: Border.all(color: AppColors.hairline),
                                 ),
                                 child: Text(
                                   '${currencyProvider.taxIdLabel}: $taxId',
-                                  style: const TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.slate700,
-                                    letterSpacing: 0.2,
+                                  style: AppTypography.monoCode(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.ink,
                                   ),
                                 ),
                               ),
@@ -1158,33 +1137,29 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                 File(_signaturePath!).existsSync())
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
+                                  horizontal: 8,
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.statusPaidBg,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: AppColors.statusPaid.withValues(
-                                      alpha: 0.3,
-                                    ),
-                                  ),
+                                  color: const Color(0xFFECFDF5),
+                                  borderRadius: BorderRadius.circular(9999),
+                                  border: Border.all(color: const Color(0xFFA7F3D0)),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.verified_rounded,
                                       size: 11,
-                                      color: AppColors.statusPaid,
+                                      color: Color(0xFF059669),
                                     ),
-                                    SizedBox(width: 3),
+                                    const SizedBox(width: 3),
                                     Text(
                                       'Signed',
-                                      style: TextStyle(
+                                      style: GoogleFonts.inter(
                                         fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.statusPaid,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF059669),
                                       ),
                                     ),
                                   ],
@@ -1202,7 +1177,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
           // Contact & Bank Details Sub-Bar
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
             child: Column(
               children: [
                 if (email.isNotEmpty || phone.isNotEmpty) ...[
@@ -1215,15 +1190,15 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               const Icon(
                                 Icons.mail_outline_rounded,
                                 size: 14,
-                                color: AppColors.slate400,
+                                color: AppColors.muted,
                               ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   email,
-                                  style: const TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 11.5,
-                                    color: AppColors.textSecondary,
+                                    color: AppColors.body,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -1240,15 +1215,15 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               const Icon(
                                 Icons.phone_outlined,
                                 size: 14,
-                                color: AppColors.slate400,
+                                color: AppColors.muted,
                               ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   phone,
-                                  style: const TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 11.5,
-                                    color: AppColors.textSecondary,
+                                    color: AppColors.body,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -1272,15 +1247,15 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               const Icon(
                                 Icons.location_on_outlined,
                                 size: 14,
-                                color: AppColors.slate400,
+                                color: AppColors.muted,
                               ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   address,
-                                  style: const TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 11.5,
-                                    color: AppColors.textSecondary,
+                                    color: AppColors.body,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -1297,15 +1272,15 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               const Icon(
                                 Icons.language_rounded,
                                 size: 14,
-                                color: AppColors.slate400,
+                                color: AppColors.muted,
                               ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   website,
-                                  style: const TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 11.5,
-                                    color: AppColors.textSecondary,
+                                    color: AppColors.body,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -1331,7 +1306,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               const Icon(
                                 Icons.account_balance_outlined,
                                 size: 14,
-                                color: AppColors.slate400,
+                                color: AppColors.muted,
                               ),
                               const SizedBox(width: 6),
                               Expanded(
@@ -1341,10 +1316,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                       : (bankName.isNotEmpty
                                             ? bankName
                                             : account),
-                                  style: const TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.slate700,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.ink,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -1361,16 +1336,16 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               const Icon(
                                 Icons.qr_code_rounded,
                                 size: 14,
-                                color: AppColors.slate400,
+                                color: AppColors.muted,
                               ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   '${currencyProvider.digitalPaymentLabel}: $upi',
-                                  style: const TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.slate700,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.ink,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -1388,13 +1363,13 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 // Completeness Progress Bar
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
+                    horizontal: 12,
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.slate50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.cardBorder),
+                    color: AppColors.surfaceSoft,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.hairline),
                   ),
                   child: Row(
                     children: [
@@ -1405,37 +1380,37 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
+                                Text(
                                   'Profile Readiness',
-                                  style: TextStyle(
+                                  style: GoogleFonts.inter(
                                     fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.slate600,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.muted,
                                   ),
                                 ),
                                 Text(
                                   '$percentage%',
-                                  style: TextStyle(
+                                  style: AppTypography.monoCode(
                                     fontSize: 11,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w700,
                                     color: percentage >= 80
-                                        ? AppColors.statusPaid
-                                        : AppColors.primary,
+                                        ? const Color(0xFF10B981)
+                                        : AppColors.ink,
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 6),
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(9999),
                               child: LinearProgressIndicator(
                                 value: strength,
-                                minHeight: 5,
-                                backgroundColor: AppColors.slate200,
+                                minHeight: 4,
+                                backgroundColor: AppColors.hairline,
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   percentage >= 80
-                                      ? AppColors.statusPaid
-                                      : AppColors.primary,
+                                      ? const Color(0xFF10B981)
+                                      : AppColors.ink,
                                 ),
                               ),
                             ),
@@ -1468,30 +1443,28 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: GoogleFonts.inter(
             fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+            color: AppColors.ink,
           ),
         ),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: onTap,
           child: Container(
-            height: 110,
+            height: 100,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: AppColors.slate50,
-              borderRadius: BorderRadius.circular(14),
+              color: AppColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(12), // rounded.lg
               border: Border.all(
-                color: hasImage
-                    ? AppColors.primary.withValues(alpha: 0.3)
-                    : AppColors.cardBorder,
+                color: hasImage ? AppColors.ink : AppColors.hairline,
                 width: hasImage ? 1.5 : 1.0,
               ),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(13),
+              borderRadius: BorderRadius.circular(11),
               child: hasImage
                   ? Stack(
                       children: [
@@ -1510,19 +1483,14 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: AppColors.canvas,
                               shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 4,
-                                ),
-                              ],
+                              border: Border.all(color: AppColors.hairline),
                             ),
                             child: const Icon(
                               Icons.edit_rounded,
-                              size: 14,
-                              color: AppColors.primary,
+                              size: 13,
+                              color: AppColors.ink,
                             ),
                           ),
                         ),
@@ -1532,21 +1500,21 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(7),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.canvas,
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.cardBorder),
+                            border: Border.all(color: AppColors.hairline),
                           ),
-                          child: Icon(icon, size: 22, color: AppColors.primary),
+                          child: Icon(icon, size: 20, color: AppColors.ink),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           subtitle,
-                          style: const TextStyle(
+                          style: GoogleFonts.inter(
                             fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.slate600,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.muted,
                           ),
                         ),
                       ],
@@ -1571,21 +1539,21 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
               color: iconBg,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
             ),
-            child: Icon(icon, size: 16, color: iconColor),
+            child: Icon(icon, size: 14, color: iconColor),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
                 letterSpacing: -0.2,
               ),
             ),
@@ -1600,19 +1568,12 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   Widget _buildCardGroup(List<Widget> children) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color.fromRGBO(15, 23, 42, 0.02),
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
-        ],
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(12), // rounded.lg
+        border: Border.all(color: AppColors.hairline),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: children,

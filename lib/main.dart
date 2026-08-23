@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:in_app_update/in_app_update.dart';
@@ -244,51 +245,60 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Container(
-            height: 66,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.canvas,
-              borderRadius: BorderRadius.circular(9999), // Cal.com nav-pill-group
-              border: Border.all(color: AppColors.hairline, width: 1),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color.fromRGBO(0, 0, 0, 0.06),
-                  blurRadius: 16,
-                  offset: Offset(0, 4),
-                  spreadRadius: 0,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(9999), // Cal.com nav-pill-group
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                height: 66,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.canvas.withValues(alpha: 0.90),
+                  borderRadius: BorderRadius.circular(9999),
+                  border: Border.all(
+                    color: AppColors.hairline.withValues(alpha: 0.85),
+                    width: 1,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color.fromRGBO(0, 0, 0, 0.08),
+                      blurRadius: 20,
+                      offset: Offset(0, 6),
+                      spreadRadius: 0,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  index: 0,
-                  icon: Icons.receipt_long_outlined,
-                  activeIcon: Icons.receipt_long_rounded,
-                  label: 'Invoices',
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(
+                      index: 0,
+                      icon: Icons.receipt_long_outlined,
+                      activeIcon: Icons.receipt_long_rounded,
+                      label: 'Invoices',
+                    ),
+                    _buildNavItem(
+                      index: 1,
+                      icon: Icons.request_quote_outlined,
+                      activeIcon: Icons.request_quote_rounded,
+                      label: 'Estimates',
+                    ),
+                    _buildCenterActionButton(),
+                    _buildNavItem(
+                      index: 2,
+                      icon: Icons.people_outline_rounded,
+                      activeIcon: Icons.people_rounded,
+                      label: 'Clients',
+                    ),
+                    _buildNavItem(
+                      index: 3,
+                      icon: Icons.inventory_2_outlined,
+                      activeIcon: Icons.inventory_2_rounded,
+                      label: 'Items',
+                    ),
+                  ],
                 ),
-                _buildNavItem(
-                  index: 1,
-                  icon: Icons.request_quote_outlined,
-                  activeIcon: Icons.request_quote_rounded,
-                  label: 'Estimates',
-                ),
-                _buildCenterActionButton(),
-                _buildNavItem(
-                  index: 2,
-                  icon: Icons.people_outline_rounded,
-                  activeIcon: Icons.people_rounded,
-                  label: 'Clients',
-                ),
-                _buildNavItem(
-                  index: 3,
-                  icon: Icons.inventory_2_outlined,
-                  activeIcon: Icons.inventory_2_rounded,
-                  label: 'Items',
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -725,4 +735,3 @@ class _StartupUpdateSheet extends StatelessWidget {
     );
   }
 }
-
