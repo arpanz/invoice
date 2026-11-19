@@ -54,6 +54,10 @@ extension PdfThemeIdExtension on PdfThemeId {
   }
 
   static PdfThemeId fromString(String? val) {
+    // Estimates once stored the Dart enum name (e.g. "emeraldExecutive").
+    for (final id in PdfThemeId.values) {
+      if (id.name == val) return id;
+    }
     switch (val) {
       case 'modern_minimal':
       case 'modern':

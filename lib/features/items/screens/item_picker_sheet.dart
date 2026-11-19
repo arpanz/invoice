@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/number_text.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -18,21 +19,24 @@ class ItemPickerSheet extends StatefulWidget {
   /// The invoice/estimate ID to attach line items to.
   final String invoiceId;
 
-  const ItemPickerSheet({super.key, required this.invoiceId});
+  /// The document's currency, used to show prices. Defaults to the app's.
+  final String? currencyCode;
+
+  const ItemPickerSheet({super.key, required this.invoiceId, this.currencyCode});
 
   /// Opens the picker and returns selected line items, or null if dismissed.
   static Future<List<LineItemModel>?> show(
     BuildContext context, {
     required String invoiceId,
+    String? currencyCode,
   }) {
     return showModalBottomSheet<List<LineItemModel>>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (_) => ItemPickerSheet(invoiceId: invoiceId),
+      builder: (_) => ItemPickerSheet(invoiceId: invoiceId, currencyCode: currencyCode),
     );
   }
 
@@ -60,7 +64,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
   }
 
   Future<void> _loadItems() async {
-    final items = await ItemService.getAllItems(orderBy: 'name ASC');
+    final items = await ItemService.getAllItems(orderBy: 'name COLLATE NOCASE ASC');
     if (mounted) {
       setState(() {
         _allItems = items;
@@ -80,31 +84,39 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
     }).toList();
   }
 
+  /// A saved item as an invoice line, keeping its own price, discount, tax
+  /// rate, HSN/SAC code and unit. A non-taxable item is exempt (rate 0); a
+  /// taxable item with no rate of its own uses the document's rate.
   LineItemModel _toLineItem(SavedItemModel item) {
-    final effectivePrice = item.discountedUnitPrice;
-    final total = item.defaultQuantity * effectivePrice;
-    return LineItemModel(
+    final double? taxRate = !item.isTaxable ? 0 : (item.taxRate > 0 ? item.taxRate : null);
+    return LineItemModel.create(
       id: const Uuid().v4(),
       invoiceId: widget.invoiceId,
       description: item.name,
-      quantity: item.defaultQuantity,
-      unitPrice: effectivePrice,
-      total: total,
+      quantity: item.defaultQuantity > 0 ? item.defaultQuantity : 1,
+      unitPrice: item.unitPrice,
+      discountRate: item.discountRate,
+      taxRate: taxRate,
+      hsnSac: (item.hsnCode?.trim().isEmpty ?? true) ? null : item.hsnCode!.trim(),
+      unit: item.unit.trim().isEmpty ? null : item.unit.trim(),
     );
   }
 
   void _confirmSelection() {
-    final selected = _allItems
-        .where((item) => _selectedIds.contains(item.id))
-        .map(_toLineItem)
-        .toList();
+    // In the order the items were tapped.
+    final byId = {for (final item in _allItems) item.id: item};
+    final selected = [
+      for (final id in _selectedIds)
+        if (byId[id] != null) _toLineItem(byId[id]!),
+    ];
     Navigator.pop(context, selected);
   }
 
   @override
   Widget build(BuildContext context) {
     final currencyProvider = context.watch<CurrencyProvider>();
-    final currencyCode = currencyProvider.selectedCurrency.code;
+    // Prices show in the document's currency, not the app default.
+    final currencyCode = widget.currencyCode ?? currencyProvider.selectedCurrency.code;
     final filtered = _filteredItems;
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
 
@@ -125,7 +137,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(99),
+                  borderRadius: BorderRadius.circular(9999),
                 ),
               ),
             ),
@@ -140,18 +152,18 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Pick from Catalog',
                       style: TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                       ),
                     ),
                     if (_selectedIds.isNotEmpty)
                       Text(
                         '${_selectedIds.length} selected',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primary,
@@ -178,13 +190,13 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                       label: const Text(
                         'New',
                         style: TextStyle(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.close_rounded,
                         color: AppColors.slate400,
                       ),
@@ -202,12 +214,12 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
             child: Container(
               decoration: BoxDecoration(
                 color: AppColors.slate50,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.cardBorder),
               ),
               child: TextField(
                 controller: _searchCtrl,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Search items...',
                   border: InputBorder.none,
                   prefixIcon: Icon(Icons.search_rounded,
@@ -217,7 +229,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   color: AppColors.textPrimary,
                 ),
@@ -230,7 +242,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
           // Items list
           Flexible(
             child: _isLoading
-                ? const Center(
+                ? Center(
                     child: Padding(
                       padding: EdgeInsets.all(40),
                       child: CircularProgressIndicator(
@@ -253,8 +265,8 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? AppColors.primaryMuted
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(14),
+                                  : AppColors.canvas,
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: isSelected
                                     ? AppColors.primaryLight
@@ -264,9 +276,9 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                             ),
                             child: Material(
                               color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(12),
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(12),
                                 onTap: () {
                                   HapticFeedback.lightImpact();
                                   setState(() {
@@ -304,9 +316,9 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                                           ),
                                         ),
                                         child: isSelected
-                                            ? const Icon(
+                                            ? Icon(
                                                 Icons.check_rounded,
-                                                color: Colors.white,
+                                                color: AppColors.onPrimary,
                                                 size: 18,
                                               )
                                             : null,
@@ -323,7 +335,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                                               item.name,
                                               style: TextStyle(
                                                 fontSize: 14.5,
-                                                fontWeight: FontWeight.w700,
+                                                fontWeight: FontWeight.w600,
                                                 color: isSelected
                                                     ? AppColors.primary
                                                     : AppColors.textPrimary,
@@ -360,16 +372,16 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                                                       item.discountedUnitPrice,
                                                       currencyCode: currencyCode,
                                                     ),
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       fontSize: 13,
-                                                      fontWeight: FontWeight.w700,
-                                                      color: Color(0xFFD97706),
+                                                      fontWeight: FontWeight.w600,
+                                                      color: AppColors.statusPartiallyPaid,
                                                     ),
                                                   ),
                                                 ],
                                                 Text(
-                                                  ' × ${item.defaultQuantity.toString().replaceAll('.0', '')} ${item.unit}',
-                                                  style: const TextStyle(
+                                                  ' × ${NumberText.trim(item.defaultQuantity)} ${item.unit}',
+                                                  style: TextStyle(
                                                     fontSize: 12,
                                                     color:
                                                         AppColors.slate500,
@@ -380,15 +392,15 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                                                   Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                                     decoration: BoxDecoration(
-                                                      color: const Color(0xFFFEF3C7),
+                                                      color: AppColors.statusPartiallyPaidBg,
                                                       borderRadius: BorderRadius.circular(4),
                                                     ),
                                                     child: Text(
-                                                      '-${item.discountRate.toString().replaceAll('.0', '')}%',
-                                                      style: const TextStyle(
+                                                      '-${NumberText.trim(item.discountRate)}%',
+                                                      style: TextStyle(
                                                         fontSize: 10,
-                                                        fontWeight: FontWeight.w800,
-                                                        color: Color(0xFFB45309),
+                                                        fontWeight: FontWeight.w600,
+                                                        color: AppColors.statusPartiallyPaid,
                                                       ),
                                                     ),
                                                   ),
@@ -402,10 +414,10 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                                                       borderRadius: BorderRadius.circular(4),
                                                     ),
                                                     child: Text(
-                                                      '+${item.taxRate.toString().replaceAll('.0', '')}% Tax',
-                                                      style: const TextStyle(
+                                                      '+${NumberText.trim(item.taxRate)}% Tax',
+                                                      style: TextStyle(
                                                         fontSize: 10,
-                                                        fontWeight: FontWeight.w700,
+                                                        fontWeight: FontWeight.w600,
                                                         color: AppColors.squircleGreenIcon,
                                                       ),
                                                     ),
@@ -426,7 +438,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                                         ),
                                         style: TextStyle(
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w800,
+                                          fontWeight: FontWeight.w600,
                                           color: isSelected
                                               ? AppColors.primary
                                               : AppColors.textPrimary,
@@ -447,7 +459,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.canvas,
                 border: Border(
                   top: BorderSide(color: AppColors.cardBorder),
                 ),
@@ -461,7 +473,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                     onPressed: _confirmSelection,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.onPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -472,7 +484,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                       'Add ${_selectedIds.length} Item${_selectedIds.length > 1 ? 's' : ''}',
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -498,7 +510,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                 color: AppColors.slate100,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.inventory_2_outlined,
                 size: 32,
                 color: AppColors.slate400,
@@ -510,14 +522,14 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                   ? 'No items match "$_searchQuery"'
                   : 'No saved items yet',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Create items in your catalog to quickly add them here',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: AppColors.slate500),

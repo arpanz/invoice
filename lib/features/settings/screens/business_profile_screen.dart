@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../core/utils/image_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,6 +12,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../shared_widgets/currency_picker_sheet.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/primary_button.dart';
+import '../../../shared_widgets/app_dialog.dart';
 import '../widgets/signature_pad_sheet.dart';
 
 class BusinessProfileScreen extends StatefulWidget {
@@ -42,6 +44,50 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
 
+  /// What was last loaded or saved, to tell whether Back loses edits.
+  String _savedSnapshot = '';
+
+  String get _snapshot => [
+    for (final c in [
+      _nameCtrl,
+      _taglineCtrl,
+      _addressCtrl,
+      _phoneCtrl,
+      _emailCtrl,
+      _websiteCtrl,
+      _gstinCtrl,
+      _bankNameCtrl,
+      _accountCtrl,
+      _ifscCtrl,
+      _upiCtrl,
+      _notesCtrl,
+    ])
+      c.text.trim(),
+    _logoPath ?? '',
+    _signaturePath ?? '',
+  ].join('\u0000');
+
+  bool get _hasUnsavedChanges => !_isLoading && _snapshot != _savedSnapshot;
+
+  Future<void> _confirmLeave(bool didPop) async {
+    if (didPop) return;
+    if (_hasUnsavedChanges) {
+      final discard = await AppDialog.showConfirmation(
+        context: context,
+        title: 'Discard changes?',
+        message:
+            'You have unsaved changes to your business profile. Leave without saving them?',
+        variant: AppDialogVariant.danger,
+        icon: Icons.warning_amber_rounded,
+        confirmLabel: 'Discard',
+        cancelLabel: 'Keep editing',
+        isDestructive: true,
+      );
+      if (discard != true) return;
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
   static const String _prefPrefix = 'biz_';
 
   @override
@@ -60,6 +106,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     _accountCtrl.addListener(_onFieldChanged);
     _ifscCtrl.addListener(_onFieldChanged);
     _upiCtrl.addListener(_onFieldChanged);
+    _notesCtrl.addListener(_onFieldChanged);
   }
 
   void _onFieldChanged() {
@@ -90,13 +137,14 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       _signaturePath = prefs.getString('${_prefPrefix}signature_path');
       _isLoading = false;
     });
+    _savedSnapshot = _snapshot;
   }
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) {
       HapticFeedback.vibrate();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Please fill all required fields'),
           backgroundColor: AppColors.accentRed,
           behavior: SnackBarBehavior.floating,
@@ -134,6 +182,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       await prefs.remove('${_prefPrefix}signature_path');
     }
 
+    _savedSnapshot = _snapshot;
     if (!mounted) return;
     setState(() => _isSaving = false);
 
@@ -151,7 +200,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
         ),
         backgroundColor: AppColors.statusPaid,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
 
@@ -163,14 +212,17 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       final picker = ImagePicker();
       final picked = await picker.pickImage(source: source, imageQuality: 85);
       if (picked != null) {
-        setState(() => _logoPath = picked.path);
+        final kept = await ImageStore.keep(picked.path, 'logo');
+        if (!mounted) return;
+        setState(() => _logoPath = kept);
         HapticFeedback.lightImpact();
       }
     } catch (e) {
+      debugPrint('Settings action failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not load image: $e'),
+            content: const Text('Could not open that image. Try another one.'),
             backgroundColor: AppColors.accentRed,
           ),
         );
@@ -181,9 +233,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   void _showLogoOptions() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -196,23 +247,23 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(99),
+                  borderRadius: BorderRadius.circular(9999),
                 ),
               ),
               const SizedBox(height: 18),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Business Logo',
                     style: TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       color: AppColors.slate400,
                     ),
@@ -249,7 +300,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 _buildMediaOptionCard(
                   icon: Icons.delete_outline_rounded,
                   iconColor: AppColors.accentRed,
-                  bgColor: const Color(0xFFFEE2E2),
+                  bgColor: AppColors.statusOverdueBg,
                   title: 'Remove Logo',
                   subtitle: 'Clear current logo image',
                   isDestructive: true,
@@ -282,14 +333,19 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
         imageQuality: 85,
       );
       if (picked != null) {
-        setState(() => _signaturePath = picked.path);
+        final kept = await ImageStore.keep(picked.path, 'signature');
+        if (!mounted) return;
+        setState(() => _signaturePath = kept);
         HapticFeedback.lightImpact();
       }
     } catch (e) {
+      debugPrint('Settings action failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not load signature: $e'),
+            content: const Text(
+              'Could not open that signature image. Try another one.',
+            ),
             backgroundColor: AppColors.accentRed,
           ),
         );
@@ -300,9 +356,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   void _showSignatureOptions() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -315,23 +370,23 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(99),
+                  borderRadius: BorderRadius.circular(9999),
                 ),
               ),
               const SizedBox(height: 18),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Authorized Signature',
                     style: TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       color: AppColors.slate400,
                     ),
@@ -368,7 +423,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 _buildMediaOptionCard(
                   icon: Icons.delete_outline_rounded,
                   iconColor: AppColors.accentRed,
-                  bgColor: const Color(0xFFFEE2E2),
+                  bgColor: AppColors.statusOverdueBg,
                   title: 'Remove Signature',
                   subtitle: 'Clear current signature',
                   isDestructive: true,
@@ -428,7 +483,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                     title,
                     style: TextStyle(
                       fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: isDestructive
                           ? AppColors.accentRed
                           : AppColors.textPrimary,
@@ -437,7 +492,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.slate500,
                     ),
@@ -506,7 +561,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     final digitalPaymentHint = currencyProvider.digitalPaymentHint;
 
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.background,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.primary),
@@ -515,449 +570,457 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     }
 
     final strength = _calculateProfileStrength();
-    final percentage = (strength * 100).toInt();
+    final percentage = (strength * 100).round();
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.canvas,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.ink),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Business Profile',
-          style: GoogleFonts.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
-            letterSpacing: -0.3,
-            color: AppColors.ink,
+    return PopScope(
+      canPop: !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, _) => _confirmLeave(didPop),
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.canvas,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          bottom: PreferredSize(
+            preferredSize: Size.fromHeight(1),
+            child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
           ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: TextButton(
-              onPressed: _isSaving ? null : _saveProfile,
-              child: _isSaving
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.ink),
-                      ),
-                    )
-                  : Text(
-                      'Save',
-                      style: GoogleFonts.inter(
-                        color: AppColors.ink,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
-                    ),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: AppColors.ink),
+            onPressed: () => Navigator.maybePop(context),
+          ),
+          title: Text(
+            'Business Profile',
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w600,
+              fontSize: 18,
+              letterSpacing: -0.3,
+              color: AppColors.ink,
             ),
           ),
-        ],
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
-          children: [
-            // 1. Live Hero Business Card Preview
-            _buildLivePreviewCard(
-              currencyProvider: currencyProvider,
-              strength: strength,
-              percentage: percentage,
-            ),
-            const SizedBox(height: 20),
-
-            // 2. Branding & Media Section (Logo + Signature)
-            _buildSectionHeader(
-              title: 'Branding & Identity',
-              icon: Icons.auto_awesome_rounded,
-              iconColor: AppColors.badgeViolet,
-              iconBg: AppColors.badgeViolet.withValues(alpha: 0.12),
-            ),
-            _buildCardGroup([
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Business Logo Box
-                        Expanded(
-                          child: _buildMediaTile(
-                            label: 'Company Logo',
-                            subtitle: _logoPath != null
-                                ? 'Tap to change'
-                                : 'Upload logo',
-                            icon: Icons.add_photo_alternate_outlined,
-                            imagePath: _logoPath,
-                            onTap: _showLogoOptions,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: TextButton(
+                onPressed: _isSaving ? null : _saveProfile,
+                child: _isSaving
+                    ? SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.ink,
                           ),
                         ),
-                        const SizedBox(width: 14),
-                        // Signature Box
-                        Expanded(
-                          child: _buildMediaTile(
-                            label: 'Authorized Signature',
-                            subtitle: _signaturePath != null
-                                ? 'Tap to change'
-                                : 'Draw or upload',
-                            icon: Icons.draw_outlined,
-                            imagePath: _signaturePath,
-                            onTap: _showSignatureOptions,
-                          ),
+                      )
+                    : Text(
+                        'Save',
+                        style: GoogleFonts.inter(
+                          color: AppColors.ink,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    CustomTextField(
-                      label: 'Business / Company Name *',
-                      hint: 'e.g. Acme Innovations LLC',
-                      controller: _nameCtrl,
-                      textCapitalization: TextCapitalization.words,
-                      prefixIcon: const Icon(
-                        Icons.storefront_rounded,
-                        color: AppColors.primary,
-                        size: 20,
                       ),
-                      validator: (v) => v == null || v.trim().isEmpty
-                          ? 'Business name is required'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    CustomTextField(
-                      label: 'Tagline or Industry (Optional)',
-                      hint: 'e.g. Creative Studio & Digital Agency',
-                      controller: _taglineCtrl,
-                      textCapitalization: TextCapitalization.sentences,
-                      prefixIcon: const Icon(
-                        Icons.badge_outlined,
-                        color: AppColors.slate500,
-                        size: 20,
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ]),
-            const SizedBox(height: 20),
-
-            // 3. Contact & Location Section
-            _buildSectionHeader(
-              title: 'Contact & Location',
-              icon: Icons.contact_mail_rounded,
-              iconColor: AppColors.squircleCyanIcon,
-              iconBg: AppColors.squircleCyan,
             ),
-            _buildCardGroup([
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    CustomTextField(
-                      label: 'Business Email',
-                      hint: 'contact@mycompany.com',
-                      controller: _emailCtrl,
-                      keyboardType: TextInputType.emailAddress,
-                      prefixIcon: const Icon(
-                        Icons.mail_outline_rounded,
-                        color: AppColors.slate500,
-                        size: 20,
+          ],
+        ),
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
+            children: [
+              // 1. Live Hero Business Card Preview
+              _buildLivePreviewCard(
+                currencyProvider: currencyProvider,
+                strength: strength,
+                percentage: percentage,
+              ),
+              const SizedBox(height: 20),
+
+              // 2. Branding & Media Section (Logo + Signature)
+              _buildSectionHeader(
+                title: 'Branding & Identity',
+                icon: Icons.auto_awesome_rounded,
+                iconColor: AppColors.badgeViolet,
+                iconBg: AppColors.badgeViolet.withValues(alpha: 0.12),
+              ),
+              _buildCardGroup([
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Business Logo Box
+                          Expanded(
+                            child: _buildMediaTile(
+                              label: 'Company Logo',
+                              subtitle: _logoPath != null
+                                  ? 'Tap to change'
+                                  : 'Upload logo',
+                              icon: Icons.add_photo_alternate_outlined,
+                              imagePath: _logoPath,
+                              onTap: _showLogoOptions,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          // Signature Box
+                          Expanded(
+                            child: _buildMediaTile(
+                              label: 'Authorized Signature',
+                              subtitle: _signaturePath != null
+                                  ? 'Tap to change'
+                                  : 'Draw or upload',
+                              icon: Icons.draw_outlined,
+                              imagePath: _signaturePath,
+                              onTap: _showSignatureOptions,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    CustomTextField(
-                      label: 'Phone Number',
-                      hint: '+1 (555) 019-2834',
-                      controller: _phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      prefixIcon: const Icon(
-                        Icons.phone_outlined,
-                        color: AppColors.slate500,
-                        size: 20,
+                      const SizedBox(height: 18),
+                      CustomTextField(
+                        label: 'Business / Company Name *',
+                        hint: 'e.g. Acme Innovations LLC',
+                        controller: _nameCtrl,
+                        textCapitalization: TextCapitalization.words,
+                        prefixIcon: Icon(
+                          Icons.storefront_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'Business name is required'
+                            : null,
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    CustomTextField(
-                      label: 'Website / Portfolio',
-                      hint: 'https://mycompany.com',
-                      controller: _websiteCtrl,
-                      keyboardType: TextInputType.url,
-                      prefixIcon: const Icon(
-                        Icons.language_rounded,
-                        color: AppColors.slate500,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    CustomTextField(
-                      label: 'Registered Business Address',
-                      hint: 'Suite 400, 100 Main Street, City, State, ZIP',
-                      controller: _addressCtrl,
-                      maxLines: 3,
-                      textCapitalization: TextCapitalization.sentences,
-                      prefixIcon: const Padding(
-                        padding: EdgeInsets.only(bottom: 36),
-                        child: Icon(
-                          Icons.location_on_outlined,
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        label: 'Tagline or Industry (Optional)',
+                        hint: 'e.g. Creative Studio & Digital Agency',
+                        controller: _taglineCtrl,
+                        textCapitalization: TextCapitalization.sentences,
+                        prefixIcon: Icon(
+                          Icons.badge_outlined,
                           color: AppColors.slate500,
                           size: 20,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ]),
-            const SizedBox(height: 20),
+              ]),
+              const SizedBox(height: 20),
 
-            // 4. Tax & Legal Section
-            _buildSectionHeader(
-              title: 'Tax & Legal Registration',
-              icon: Icons.gavel_rounded,
-              iconColor: AppColors.squircleOrangeIcon,
-              iconBg: AppColors.squircleOrange,
-            ),
-            _buildCardGroup([
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CustomTextField(
-                      label: taxIdLabel,
-                      hint: taxIdHint,
-                      controller: _gstinCtrl,
-                      textCapitalization: TextCapitalization.characters,
-                      prefixIcon: const Icon(
-                        Icons.receipt_long_rounded,
-                        color: AppColors.slate500,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.info_outline_rounded,
-                          size: 14,
-                          color: AppColors.slate400,
+              // 3. Contact & Location Section
+              _buildSectionHeader(
+                title: 'Contact & Location',
+                icon: Icons.contact_mail_rounded,
+                iconColor: AppColors.squircleCyanIcon,
+                iconBg: AppColors.squircleCyan,
+              ),
+              _buildCardGroup([
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      CustomTextField(
+                        label: 'Business Email',
+                        hint: 'contact@mycompany.com',
+                        controller: _emailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        prefixIcon: Icon(
+                          Icons.mail_outline_rounded,
+                          color: AppColors.slate500,
+                          size: 20,
                         ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'This $taxIdLabel will be displayed on all generated PDFs and estimates for ${currencyProvider.countryName}.',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textSecondary,
-                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        label: 'Phone Number',
+                        hint: '+1 (555) 019-2834',
+                        controller: _phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        prefixIcon: Icon(
+                          Icons.phone_outlined,
+                          color: AppColors.slate500,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        label: 'Website / Portfolio',
+                        hint: 'https://mycompany.com',
+                        controller: _websiteCtrl,
+                        keyboardType: TextInputType.url,
+                        prefixIcon: Icon(
+                          Icons.language_rounded,
+                          color: AppColors.slate500,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        label: 'Registered Business Address',
+                        hint: 'Suite 400, 100 Main Street, City, State, ZIP',
+                        controller: _addressCtrl,
+                        maxLines: 3,
+                        textCapitalization: TextCapitalization.sentences,
+                        prefixIcon: Padding(
+                          padding: EdgeInsets.only(bottom: 36),
+                          child: Icon(
+                            Icons.location_on_outlined,
+                            color: AppColors.slate500,
+                            size: 20,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ]),
-            const SizedBox(height: 20),
-
-            // 5. Bank & Payment Methods Section
-            _buildSectionHeader(
-              title: 'Bank & Payment Details',
-              icon: Icons.account_balance_rounded,
-              iconColor: AppColors.squircleGreenIcon,
-              iconBg: AppColors.squircleGreen,
-              trailing: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () => CurrencyPickerSheet.show(context),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.squircleGreen,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppColors.squircleGreenIcon.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        currencyProvider.flag,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${currencyProvider.currencyCode} (${currencyProvider.countryName})',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.squircleGreenIcon,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      const Icon(
-                        Icons.arrow_drop_down_rounded,
-                        size: 16,
-                        color: AppColors.squircleGreenIcon,
                       ),
                     ],
                   ),
                 ),
+              ]),
+              const SizedBox(height: 20),
+
+              // 4. Tax & Legal Section
+              _buildSectionHeader(
+                title: 'Tax & Legal Registration',
+                icon: Icons.gavel_rounded,
+                iconColor: AppColors.squircleOrangeIcon,
+                iconBg: AppColors.squircleOrange,
               ),
-            ),
-            _buildCardGroup([
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Country specific banner
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.slate50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.cardBorder),
+              _buildCardGroup([
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CustomTextField(
+                        label: taxIdLabel,
+                        hint: taxIdHint,
+                        controller: _gstinCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        prefixIcon: Icon(
+                          Icons.receipt_long_rounded,
+                          color: AppColors.slate500,
+                          size: 20,
+                        ),
                       ),
-                      child: Row(
+                      const SizedBox(height: 8),
+                      Row(
                         children: [
-                          Text(
-                            currencyProvider.flag,
-                            style: const TextStyle(fontSize: 18),
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 14,
+                            color: AppColors.slate400,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              'Payment fields & routing format match ${currencyProvider.countryName} (${currencyProvider.currencyCode}) standards.',
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.slate600,
+                              'This $taxIdLabel will be displayed on all generated PDFs and estimates for ${currencyProvider.countryName}.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
                               ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 14),
+                    ],
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 20),
 
-                    // Bank Name
-                    CustomTextField(
-                      label: 'Bank Name',
-                      hint: bankNameHint,
-                      controller: _bankNameCtrl,
-                      textCapitalization: TextCapitalization.words,
-                      prefixIcon: const Icon(
-                        Icons.account_balance_outlined,
-                        color: AppColors.slate500,
-                        size: 20,
+              // 5. Bank & Payment Methods Section
+              _buildSectionHeader(
+                title: 'Bank & Payment Details',
+                icon: Icons.account_balance_rounded,
+                iconColor: AppColors.squircleGreenIcon,
+                iconBg: AppColors.squircleGreen,
+                trailing: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => CurrencyPickerSheet.show(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.squircleGreen,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.squircleGreenIcon.withValues(
+                          alpha: 0.2,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-
-                    // Account Number (localized label & hint)
-                    CustomTextField(
-                      label: bankAccountLabel,
-                      hint: bankAccountHint,
-                      controller: _accountCtrl,
-                      keyboardType: TextInputType.text,
-                      prefixIcon: const Icon(
-                        Icons.numbers_rounded,
-                        color: AppColors.slate500,
-                        size: 20,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          currencyProvider.flag,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${currencyProvider.currencyCode} (${currencyProvider.countryName})',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.squircleGreenIcon,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.arrow_drop_down_rounded,
+                          size: 16,
+                          color: AppColors.squircleGreenIcon,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-
-                    // Routing / IFSC / Sort code / Transit / BSB (localized label & hint)
-                    CustomTextField(
-                      label: bankRoutingLabel,
-                      hint: bankRoutingHint,
-                      controller: _ifscCtrl,
-                      textCapitalization: TextCapitalization.characters,
-                      prefixIcon: const Icon(
-                        Icons.pin_outlined,
-                        color: AppColors.slate500,
-                        size: 20,
+                  ),
+                ),
+              ),
+              _buildCardGroup([
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Country specific banner
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.slate50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              currencyProvider.flag,
+                              style: const TextStyle(fontSize: 18),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Payment fields & routing format match ${currencyProvider.countryName} (${currencyProvider.currencyCode}) standards.',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.slate600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 14),
 
-                    // Digital Payment / UPI (localized label & hint)
-                    CustomTextField(
-                      label: '$digitalPaymentLabel (Optional)',
-                      hint: digitalPaymentHint,
-                      controller: _upiCtrl,
-                      keyboardType: TextInputType.text,
-                      prefixIcon: const Icon(
-                        Icons.qr_code_rounded,
-                        color: AppColors.slate500,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Default Payment Terms & Notes
-                    CustomTextField(
-                      label: 'Default Payment Notes & Terms',
-                      hint:
-                          'e.g. Net 15. Payment is due within 15 days of invoice date.',
-                      controller: _notesCtrl,
-                      maxLines: 2,
-                      textCapitalization: TextCapitalization.sentences,
-                      prefixIcon: const Padding(
-                        padding: EdgeInsets.only(bottom: 24),
-                        child: Icon(
-                          Icons.assignment_outlined,
+                      // Bank Name
+                      CustomTextField(
+                        label: 'Bank Name',
+                        hint: bankNameHint,
+                        controller: _bankNameCtrl,
+                        textCapitalization: TextCapitalization.words,
+                        prefixIcon: Icon(
+                          Icons.account_balance_outlined,
                           color: AppColors.slate500,
                           size: 20,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+
+                      // Account Number (localized label & hint)
+                      CustomTextField(
+                        label: bankAccountLabel,
+                        hint: bankAccountHint,
+                        controller: _accountCtrl,
+                        keyboardType: TextInputType.text,
+                        prefixIcon: Icon(
+                          Icons.numbers_rounded,
+                          color: AppColors.slate500,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Routing / IFSC / Sort code / Transit / BSB (localized label & hint)
+                      CustomTextField(
+                        label: bankRoutingLabel,
+                        hint: bankRoutingHint,
+                        controller: _ifscCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        prefixIcon: Icon(
+                          Icons.pin_outlined,
+                          color: AppColors.slate500,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Digital Payment / UPI (localized label & hint)
+                      CustomTextField(
+                        label: '$digitalPaymentLabel (Optional)',
+                        hint: digitalPaymentHint,
+                        controller: _upiCtrl,
+                        keyboardType: TextInputType.text,
+                        prefixIcon: Icon(
+                          Icons.qr_code_rounded,
+                          color: AppColors.slate500,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Default Payment Terms & Notes
+                      CustomTextField(
+                        label: 'Default Payment Notes & Terms',
+                        hint:
+                            'e.g. Net 15. Payment is due within 15 days of invoice date.',
+                        controller: _notesCtrl,
+                        maxLines: 2,
+                        textCapitalization: TextCapitalization.sentences,
+                        prefixIcon: Padding(
+                          padding: EdgeInsets.only(bottom: 24),
+                          child: Icon(
+                            Icons.assignment_outlined,
+                            color: AppColors.slate500,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ]),
+            ],
+          ),
+        ),
+        bottomSheet: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          decoration: BoxDecoration(
+            color: AppColors.canvas,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
               ),
-            ]),
-          ],
-        ),
-      ),
-      bottomSheet: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        decoration: BoxDecoration(
-          color: AppColors.canvas,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 16,
-              offset: const Offset(0, -4),
+            ],
+            border: Border(top: BorderSide(color: AppColors.hairline)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: PrimaryButton(
+              label: 'Save Business Profile',
+              isLoading: _isSaving,
+              icon: Icons.check_circle_outline_rounded,
+              onPressed: _saveProfile,
             ),
-          ],
-          border: const Border(top: BorderSide(color: AppColors.hairline)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: PrimaryButton(
-            label: 'Save Business Profile',
-            isLoading: _isSaving,
-            icon: Icons.check_circle_outline_rounded,
-            onPressed: _saveProfile,
           ),
         ),
       ),
@@ -999,9 +1062,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
           // Card Header Banner
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.surfaceSoft,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: AppColors.hairline)),
             ),
             child: Row(
@@ -1012,12 +1075,12 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: AppColors.canvas,
+                    color: _logoPath != null ? Colors.white : AppColors.canvas, // paper
                     borderRadius: BorderRadius.circular(12), // rounded.lg
                     border: Border.all(color: AppColors.hairline),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(11),
+                    borderRadius: BorderRadius.circular(12),
                     child: _logoPath != null && File(_logoPath!).existsSync()
                         ? Image.file(File(_logoPath!), fit: BoxFit.contain)
                         : Center(
@@ -1027,7 +1090,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                   : 'B',
                               style: GoogleFonts.inter(
                                 fontSize: 22,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w600,
                                 color: AppColors.ink,
                               ),
                             ),
@@ -1141,17 +1204,19 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFECFDF5),
+                                  color: AppColors.statusPaidBg,
                                   borderRadius: BorderRadius.circular(9999),
-                                  border: Border.all(color: const Color(0xFFA7F3D0)),
+                                  border: Border.all(
+                                    color: AppColors.statusPaid.withValues(alpha: 0.35),
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.verified_rounded,
                                       size: 11,
-                                      color: Color(0xFF059669),
+                                      color: AppColors.statusPaid,
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
@@ -1159,7 +1224,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                       style: GoogleFonts.inter(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF059669),
+                                        color: AppColors.statusPaid,
                                       ),
                                     ),
                                   ],
@@ -1187,7 +1252,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         Expanded(
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.mail_outline_rounded,
                                 size: 14,
                                 color: AppColors.muted,
@@ -1212,7 +1277,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         Expanded(
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.phone_outlined,
                                 size: 14,
                                 color: AppColors.muted,
@@ -1244,7 +1309,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         Expanded(
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.location_on_outlined,
                                 size: 14,
                                 color: AppColors.muted,
@@ -1269,7 +1334,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         Expanded(
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.language_rounded,
                                 size: 14,
                                 color: AppColors.muted,
@@ -1303,7 +1368,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         Expanded(
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.account_balance_outlined,
                                 size: 14,
                                 color: AppColors.muted,
@@ -1333,7 +1398,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         Expanded(
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.qr_code_rounded,
                                 size: 14,
                                 color: AppColors.muted,
@@ -1392,9 +1457,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                   '$percentage%',
                                   style: AppTypography.monoCode(
                                     fontSize: 11,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w600,
                                     color: percentage >= 80
-                                        ? const Color(0xFF10B981)
+                                        ? AppColors.statusPaid
                                         : AppColors.ink,
                                   ),
                                 ),
@@ -1409,7 +1474,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                 backgroundColor: AppColors.hairline,
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   percentage >= 80
-                                      ? const Color(0xFF10B981)
+                                      ? AppColors.statusPaid
                                       : AppColors.ink,
                                 ),
                               ),
@@ -1456,7 +1521,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
             height: 100,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: AppColors.surfaceSoft,
+              // A logo or signature is shown on paper, as it prints, so dark
+              // ink stays visible in dark mode.
+              color: hasImage ? Colors.white : AppColors.surfaceSoft,
               borderRadius: BorderRadius.circular(12), // rounded.lg
               border: Border.all(
                 color: hasImage ? AppColors.ink : AppColors.hairline,
@@ -1464,7 +1531,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               ),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(12),
               child: hasImage
                   ? Stack(
                       children: [
@@ -1487,7 +1554,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               shape: BoxShape.circle,
                               border: Border.all(color: AppColors.hairline),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.edit_rounded,
                               size: 13,
                               color: AppColors.ink,

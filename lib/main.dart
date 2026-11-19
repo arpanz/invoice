@@ -1,10 +1,12 @@
 import 'dart:ui';
+import 'core/utils/image_store.dart';
+import 'core/utils/pdf_script_fonts.dart';
+import 'features/invoices/services/invoice_render_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'core/ads/ad_manager.dart';
 import 'core/app/app_review_service.dart';
 import 'core/app/app_update_service.dart';
 import 'core/billing/billing_service.dart';
@@ -12,6 +14,7 @@ import 'core/database/db_provider.dart';
 import 'core/providers/currency_provider.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_typography.dart';
+import 'core/theme/theme_controller.dart';
 import 'features/clients/screens/client_list_screen.dart';
 import 'features/dashboard/screens/dashboard_screen.dart';
 import 'features/estimates/screens/create_estimate_screen.dart';
@@ -29,23 +32,23 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Set status bar style
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ),
-  );
+  // Light/dark choice, applied before the first frame.
+  final themeController = ThemeController();
+  await themeController.load();
+  SystemChrome.setSystemUIOverlayStyle(ThemeController.overlayStyle);
 
   // Initialize database
   await DbProvider.database;
 
   // Remove legacy screenshot/demo seed data if present.
   await _cleanupLegacyMockData();
+  // After the demo cleanup, so demo rows are never stamped.
+  await ImageStore.migrateProfileImages();
+  await InvoiceRenderService.runOneTimeMigrations();
+  // Downloaded PDF fonts (e.g. Devanagari, Tamil) are kept between runs.
+  await PdfScriptFonts.useDiskCache();
 
-  // Initialize ads and billing
-  await AdManager.instance.initialize();
-
+  // Initialize billing (the single source of Pro entitlement)
   final billingService = BillingService();
   await billingService.initialize();
 
@@ -54,13 +57,23 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
         ChangeNotifierProvider<BillingService>.value(value: billingService),
+        ChangeNotifierProvider<ThemeController>.value(value: themeController),
       ],
       child: const InvoiceMakerProApp(),
     ),
   );
 }
 
+/// Removes demo/screenshot seed data left by early builds.
+///
+/// Runs once per install. Profile fields are cleared only when the whole
+/// profile still matches one of the demo profiles, so a real user whose bank
+/// happens to be named like a demo value (e.g. "State Bank of India") keeps it.
 Future<void> _cleanupLegacyMockData() async {
+  const doneKey = 'legacy_mock_cleanup_v2_done';
+  final prefs = await SharedPreferences.getInstance();
+  if (prefs.getBool(doneKey) ?? false) return;
+
   final db = await DbProvider.database;
 
   const demoClientIds = ['demo-client-1', 'demo-client-2', 'demo-client-3'];
@@ -72,55 +85,96 @@ Future<void> _cleanupLegacyMockData() async {
     'demo-invoice-5',
   ];
 
-  await db.transaction((txn) async {
-    await txn.delete(
-      DbProvider.tableLineItems,
-      where: "id LIKE 'demo-li-%' OR invoice_id IN (?, ?, ?, ?, ?)",
-      whereArgs: demoInvoiceIds,
-    );
+  try {
+    await db.transaction((txn) async {
+      // Real documents may point at a demo client; detach them first so the
+      // delete never violates a foreign key.
+      for (final table in [
+        DbProvider.tableInvoices,
+        DbProvider.tableEstimates,
+      ]) {
+        await txn.update(
+          table,
+          {'client_id': null},
+          where: 'client_id IN (?, ?, ?)',
+          whereArgs: demoClientIds,
+        );
+      }
 
-    await txn.delete(
-      DbProvider.tableInvoices,
-      where: 'id IN (?, ?, ?, ?, ?)',
-      whereArgs: demoInvoiceIds,
-    );
+      await txn.delete(
+        DbProvider.tableLineItems,
+        where: "id LIKE 'demo-li-%' OR invoice_id IN (?, ?, ?, ?, ?)",
+        whereArgs: demoInvoiceIds,
+      );
 
-    await txn.delete(
-      DbProvider.tableClients,
-      where: 'id IN (?, ?, ?)',
-      whereArgs: demoClientIds,
-    );
-  });
+      await txn.delete(
+        DbProvider.tableInvoices,
+        where: 'id IN (?, ?, ?, ?, ?)',
+        whereArgs: demoInvoiceIds,
+      );
 
-  // Only clear profile fields if they still match known mock values.
-  final prefs = await SharedPreferences.getInstance();
-  const mockValuesByKey = {
-    'biz_name': ['Northstar Design Studio', 'Blue Pine Studio'],
-    'biz_address': [
-      '245 Market Street, San Francisco, CA 94105',
-      '22 Park Street, Kolkata, West Bengal 700016',
-    ],
-    'biz_phone': ['+1 (415) 555-0139', '+91 98765 43210'],
-    'biz_email': [
-      'accounts@northstardesign.com',
-      'accounts@bluepinestudio.com',
-    ],
-    'biz_bank_name': ['Chase Bank', 'State Bank of India'],
-    'biz_account': ['7894561230', '123456789012'],
-    'biz_ifsc': ['021000021', 'SBIN0000456'],
-  };
+      await txn.delete(
+        DbProvider.tableClients,
+        where: 'id IN (?, ?, ?)',
+        whereArgs: demoClientIds,
+      );
+    });
+  } catch (e) {
+    // Never block startup on a cleanup; it will be retried next launch.
+    debugPrint('Legacy demo cleanup failed: $e');
+    return;
+  }
 
-  for (final entry in mockValuesByKey.entries) {
-    final current = prefs.getString(entry.key);
-    if (current != null && entry.value.contains(current)) {
-      await prefs.remove(entry.key);
+  // Clear profile fields only when the profile is still one of the demo
+  // profiles: the business name must match, and every other field present
+  // must match the same demo profile.
+  const demoProfiles = <Map<String, String>>[
+    {
+      'biz_name': 'Northstar Design Studio',
+      'biz_address': '245 Market Street, San Francisco, CA 94105',
+      'biz_phone': '+1 (415) 555-0139',
+      'biz_email': 'accounts@northstardesign.com',
+      'biz_bank_name': 'Chase Bank',
+      'biz_account': '7894561230',
+      'biz_ifsc': '021000021',
+    },
+    {
+      'biz_name': 'Blue Pine Studio',
+      'biz_address': '22 Park Street, Kolkata, West Bengal 700016',
+      'biz_phone': '+91 98765 43210',
+      'biz_email': 'accounts@bluepinestudio.com',
+      'biz_bank_name': 'State Bank of India',
+      'biz_account': '123456789012',
+      'biz_ifsc': 'SBIN0000456',
+      'biz_gstin': '19ABCDE1234F1Z5',
+    },
+  ];
+
+  for (final demo in demoProfiles) {
+    if (isDemoProfile(demo, prefs.getString)) {
+      for (final key in demo.keys) {
+        await prefs.remove(key);
+      }
+      break;
     }
   }
 
-  final gstin = prefs.getString('biz_gstin');
-  if (gstin == '19ABCDE1234F1Z5') {
-    await prefs.remove('biz_gstin');
+  await prefs.setBool(doneKey, true);
+}
+
+/// True when the stored profile is exactly a demo profile: the business name
+/// matches and no stored field differs from the demo's value.
+@visibleForTesting
+bool isDemoProfile(
+  Map<String, String> demo,
+  String? Function(String key) read,
+) {
+  if (read('biz_name') != demo['biz_name']) return false;
+  for (final entry in demo.entries) {
+    final current = read(entry.key);
+    if (current != null && current != entry.value) return false;
   }
+  return true;
 }
 
 class InvoiceMakerProApp extends StatelessWidget {
@@ -128,10 +182,19 @@ class InvoiceMakerProApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuilds when the theme changes; AppColors already reflects it.
+    context.watch<ThemeController?>();
+    final overlay = ThemeController.overlayStyle;
     return MaterialApp(
       title: 'Invoice Maker Pro',
       debugShowCheckedModeBanner: false,
-      theme: AppTypography.lightTheme,
+      theme: AppTypography.theme,
+      // Colours switch instantly, so the theme must not tween.
+      themeAnimationDuration: Duration.zero,
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: overlay,
+        child: child!,
+      ),
       home: const AppStartup(),
       routes: {'/home': (context) => const MainNavigationShell()},
     );
@@ -148,7 +211,7 @@ class AppStartup extends StatelessWidget {
       builder: (context, currencyProvider, child) {
         // Show loading while checking preferences
         if (currencyProvider.isLoading) {
-          return const Scaffold(
+          return Scaffold(
             backgroundColor: AppColors.background,
             body: Center(child: CircularProgressIndicator()),
           );
@@ -179,11 +242,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   final _dashboardKey = GlobalKey<DashboardScreenState>();
   final _estimatesKey = GlobalKey<EstimateListScreenState>();
   final _itemsKey = GlobalKey<ItemListScreenState>();
+  final _clientsKey = GlobalKey<ClientListScreenState>();
 
   List<Widget> get _screens => [
     DashboardScreen(key: _dashboardKey),
     EstimateListScreen(key: _estimatesKey),
-    const ClientListScreen(),
+    ClientListScreen(key: _clientsKey),
     ItemListScreen(key: _itemsKey),
   ];
 
@@ -191,6 +255,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (OnboardingScreen.openCreateInvoiceOnStart) {
+        OnboardingScreen.openCreateInvoiceOnStart = false;
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
+        );
+        _dashboardKey.currentState?.reload();
+        if (!mounted) return;
+      }
       await AppReviewService.instance.registerLaunch();
       if (!mounted) return;
       await _maybePromptForAppUpdate();
@@ -202,6 +274,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     if (!mounted || result.status != AppUpdateAvailability.available) return;
 
     final info = result.info!;
+    // Ask about the same update at most once every three days.
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'update_prompt_shown_${info.availableVersionCode ?? 'unknown'}';
+    final lastShown = prefs.getInt(key);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (lastShown != null && now - lastShown < const Duration(days: 3).inMilliseconds) return;
+    await prefs.setInt(key, now);
+    if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -319,6 +399,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         setState(() => _currentIndex = index);
         if (index == 0) _dashboardKey.currentState?.reload();
         if (index == 1) _estimatesKey.currentState?.reload();
+        if (index == 2) _clientsKey.currentState?.reload();
         if (index == 3) _itemsKey.currentState?.reload();
       },
       behavior: HitTestBehavior.opaque,
@@ -367,7 +448,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       child: Container(
         width: 44,
         height: 44,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.primary, // signature Cal.com black
           shape: BoxShape.circle,
           boxShadow: [
@@ -378,7 +459,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             ),
           ],
         ),
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+        child: Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 28),
       ),
     );
   }
@@ -386,9 +467,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   void _showCreateChoiceSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.canvas,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -408,7 +488,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Create New Document',
                     style: TextStyle(
                       fontSize: 18,
@@ -418,7 +498,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       color: AppColors.muted,
                       size: 20,
@@ -463,14 +543,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.receipt_long_rounded,
-                          color: Colors.white,
+                          color: AppColors.onPrimary,
                           size: 22,
                         ),
                       ),
                       const SizedBox(width: 14),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -493,7 +573,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                           ],
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right_rounded,
                         color: AppColors.muted,
                       ),
@@ -539,14 +619,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                           color: AppColors.surfaceCard,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.request_quote_rounded,
                           color: AppColors.ink,
                           size: 22,
                         ),
                       ),
                       const SizedBox(width: 14),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -569,7 +649,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                           ],
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right_rounded,
                         color: AppColors.muted,
                       ),
@@ -631,16 +711,16 @@ class _StartupUpdateSheet extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   color: AppColors.surfaceCard,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.system_update_alt_rounded,
                   color: AppColors.ink,
                   size: 22,
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
+              Text(
                 'Update available',
                 style: TextStyle(
                   fontSize: 18,
@@ -650,7 +730,7 @@ class _StartupUpdateSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'A newer version of Invoice Maker Pro is ready with the latest fixes and improvements.',
                 style: TextStyle(
                   fontSize: 13.5,
@@ -659,36 +739,6 @@ class _StartupUpdateSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSoft,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.hairline),
-                ),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Available version',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '#${info.availableVersionCode ?? '-'}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 18),
               Row(
                 children: [
@@ -698,7 +748,7 @@ class _StartupUpdateSheet extends StatelessWidget {
                       child: OutlinedButton(
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.hairline),
+                          side: BorderSide(color: AppColors.hairline),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),

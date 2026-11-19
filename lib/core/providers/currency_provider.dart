@@ -86,7 +86,13 @@ class CurrencyProvider extends ChangeNotifier {
   Future<void> setCurrency(Currency currency) async {
     // Ensure we have the full static definition with rich tax properties
     final full = SupportedCurrencies.getByCode(currency.code) ?? currency;
+    final changed = full.code != _selectedCurrency.code;
     _selectedCurrency = full;
+    // A custom rate belongs to the old country's tax system; drop it when the
+    // currency (and so the tax system) changes.
+    if (changed && _customTaxRate != null) {
+      await clearCustomTaxRate();
+    }
     notifyListeners();
 
     try {

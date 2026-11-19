@@ -66,6 +66,9 @@ class InvoiceModel {
   final double cgstRate;
   final double igstRate;
   final double taxAmount;
+
+  /// Shipping or delivery charge, included in [grandTotal].
+  final double shipping;
   final double grandTotal;
   final double paidAmount;
   final InvoiceStatus status;
@@ -75,11 +78,39 @@ class InvoiceModel {
   final DateTime updatedAt;
   final List<LineItemModel> lineItems;
 
+  /// JSON of the business profile as it was when this invoice was last saved
+  /// from the editor. Rendering uses it so later profile edits never rewrite
+  /// past invoices. Null for invoices saved before this existed.
+  final String? issuerSnapshot;
+
+  /// When the invoice was marked as sent; null if not sent.
+  final DateTime? sentAt;
+
   /// True when the invoice is unpaid or partially paid and the due date has passed.
-  bool get isOverdue =>
-      (status == InvoiceStatus.unpaid || status == InvoiceStatus.partiallyPaid) &&
-      dueDate != null &&
-      dueDate!.isBefore(DateTime.now());
+  /// Overdue is derived, never stored: there is a balance and the due date
+  /// (end of that day) has passed. A status manually set to overdue counts
+  /// too while there is a balance.
+  bool get isOverdue {
+    if (status == InvoiceStatus.paid || balanceDue <= 0.009) return false;
+    if (status == InvoiceStatus.overdue) return true;
+    if (dueDate == null) return false;
+    final endOfDue = DateTime(dueDate!.year, dueDate!.month, dueDate!.day).add(const Duration(days: 1));
+    return DateTime.now().isAfter(endOfDue);
+  }
+
+  /// The status to show: [InvoiceStatus.overdue] when [isOverdue], else the
+  /// stored status.
+  InvoiceStatus get effectiveStatus => isOverdue ? InvoiceStatus.overdue : status;
+
+  /// The payment status that matches [paid] against [total]. Overdue is
+  /// never stored; it is derived when shown (see [isOverdue]).
+  static InvoiceStatus paymentStatusFor(double paid, double total) {
+    // Paid once the total is covered (also when the total is 0 but money
+    // was received, e.g. after the invoice was edited down).
+    if (paid >= total - 0.005 && (total > 0.005 || paid > 0.005)) return InvoiceStatus.paid;
+    if (paid > 0.005) return InvoiceStatus.partiallyPaid;
+    return InvoiceStatus.unpaid;
+  }
 
   /// Remaining balance to be paid.
   double get balanceDue => (grandTotal - paidAmount).clamp(0, double.infinity);
@@ -103,6 +134,7 @@ class InvoiceModel {
     this.cgstRate = 0,
     this.igstRate = 0,
     this.taxAmount = 0,
+    this.shipping = 0,
     required this.grandTotal,
     this.paidAmount = 0,
     this.status = InvoiceStatus.unpaid,
@@ -111,6 +143,8 @@ class InvoiceModel {
     required this.createdAt,
     required this.updatedAt,
     this.lineItems = const [],
+    this.issuerSnapshot,
+    this.sentAt,
   });
 
   factory InvoiceModel.fromMap(
@@ -151,6 +185,7 @@ class InvoiceModel {
       cgstRate: (map['cgst_rate'] as num? ?? 0).toDouble(),
       igstRate: (map['igst_rate'] as num? ?? 0).toDouble(),
       taxAmount: (map['tax_amount'] as num? ?? 0).toDouble(),
+      shipping: (map['shipping'] as num? ?? 0).toDouble(),
       grandTotal: grandTotal,
       paidAmount: paidAmount,
       status: status,
@@ -159,6 +194,10 @@ class InvoiceModel {
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int),
       lineItems: items ?? [],
+      issuerSnapshot: map['issuer_snapshot'] as String?,
+      sentAt: map['sent_at'] == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(map['sent_at'] as int),
     );
   }
 
@@ -182,6 +221,7 @@ class InvoiceModel {
       'cgst_rate': cgstRate,
       'igst_rate': igstRate,
       'tax_amount': taxAmount,
+      'shipping': shipping,
       'grand_total': grandTotal,
       'paid_amount': paidAmount,
       'status': status.value,
@@ -189,6 +229,8 @@ class InvoiceModel {
       'currency': currency,
       'created_at': createdAt.millisecondsSinceEpoch,
       'updated_at': updatedAt.millisecondsSinceEpoch,
+      'issuer_snapshot': issuerSnapshot,
+      'sent_at': sentAt?.millisecondsSinceEpoch,
     };
   }
 
@@ -233,6 +275,7 @@ class InvoiceModel {
     double? cgstRate,
     double? igstRate,
     double? taxAmount,
+    double? shipping,
     double? grandTotal,
     double? paidAmount,
     InvoiceStatus? status,
@@ -241,18 +284,24 @@ class InvoiceModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     List<LineItemModel>? lineItems,
+    String? issuerSnapshot,
+    DateTime? sentAt,
+    bool clearSentAt = false,
+    bool clearDueDate = false,
+    bool clearNotes = false,
+    bool clearClientId = false,
   }) {
     return InvoiceModel(
       id: id ?? this.id,
       invoiceNumber: invoiceNumber ?? this.invoiceNumber,
-      clientId: clientId ?? this.clientId,
+      clientId: clearClientId ? null : (clientId ?? this.clientId),
       clientName: clientName ?? this.clientName,
       clientEmail: clientEmail ?? this.clientEmail,
       clientPhone: clientPhone ?? this.clientPhone,
       clientAddress: clientAddress ?? this.clientAddress,
       clientGstin: clientGstin ?? this.clientGstin,
       invoiceDate: invoiceDate ?? this.invoiceDate,
-      dueDate: dueDate ?? this.dueDate,
+      dueDate: clearDueDate ? null : (dueDate ?? this.dueDate),
       subtotal: subtotal ?? this.subtotal,
       discountType: discountType ?? this.discountType,
       discountValue: discountValue ?? this.discountValue,
@@ -261,14 +310,17 @@ class InvoiceModel {
       cgstRate: cgstRate ?? this.cgstRate,
       igstRate: igstRate ?? this.igstRate,
       taxAmount: taxAmount ?? this.taxAmount,
+      shipping: shipping ?? this.shipping,
       grandTotal: grandTotal ?? this.grandTotal,
       paidAmount: paidAmount ?? this.paidAmount,
       status: status ?? this.status,
-      notes: notes ?? this.notes,
+      notes: clearNotes ? null : (notes ?? this.notes),
       currency: currency ?? this.currency,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lineItems: lineItems ?? this.lineItems,
+      issuerSnapshot: issuerSnapshot ?? this.issuerSnapshot,
+      sentAt: clearSentAt ? null : (sentAt ?? this.sentAt),
     );
   }
 

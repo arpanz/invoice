@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/image_store.dart';
+import '../../../core/utils/document_totals.dart';
+import '../../../core/utils/number_text.dart';
+import '../../../core/utils/payment_terms.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/billing/billing_service.dart';
+import '../../../core/billing/free_limits.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -16,11 +21,15 @@ import '../../../shared_widgets/custom_text_field.dart';
 import '../../clients/models/client_model.dart';
 import '../../clients/screens/client_list_screen.dart';
 import '../../paywall/paywall_screen.dart';
+import '../models/invoice_customization_config.dart';
 import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
 import '../models/pdf_theme.dart';
 import '../widgets/pdf_theme_picker_sheet.dart';
 import 'invoice_preview_screen.dart';
+import '../services/invoice_actions.dart';
+import '../services/invoice_render_service.dart';
+import '../widgets/payments_sheet.dart';
 import '../../../shared_widgets/app_dialog.dart';
 import '../../../shared_widgets/app_popup_menu.dart';
 import '../../../shared_widgets/currency_picker_sheet.dart';
@@ -36,22 +45,8 @@ class CreateInvoiceScreen extends StatefulWidget {
     this.prefilledClient,
   });
 
-  static Future<bool> canCreateNewInvoice(BuildContext context) async {
-    final isPro = context.read<BillingService>().isPro;
-    if (isPro) return true;
-
-    final count = await DbProvider.countInvoicesThisMonth();
-    if (count >= 10) {
-      if (context.mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const PaywallScreen()),
-        );
-      }
-      return false;
-    }
-    return true;
-  }
+  /// Kept for existing callers; see [FreeLimits.canCreateInvoice].
+  static Future<bool> canCreateNewInvoice(BuildContext context) => FreeLimits.canCreateInvoice(context);
 
   @override
   State<CreateInvoiceScreen> createState() => _CreateInvoiceScreenState();
@@ -74,6 +69,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
   // Client (Bill To)
   ClientModel? _selectedClient;
+
+  /// True once the user removes the invoice's original client, so the saved
+  /// invoice no longer links to it.
+  bool _clientDetached = false;
   final _clientNameCtrl = TextEditingController();
   final _clientEmailCtrl = TextEditingController();
   final _clientPhoneCtrl = TextEditingController();
@@ -95,6 +94,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   final _igstCtrl = TextEditingController(text: '18');
 
   double _shippingFee = 0.0;
+  PdfThemeId? _initialThemeId;
+  InvoiceCustomizationConfig? _customDesign;
   double _paidAmount = 0.0;
 
   // Settings & Details
@@ -152,13 +153,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final savedDismissed = prefs.getStringList('dismissed_invoice_tips') ?? [];
     _dismissedTips.addAll(savedDismissed);
 
-    final savedThemeId = widget.existingInvoice != null
-        ? (prefs.getString('invoice_theme_${widget.existingInvoice!.id}') ??
-            prefs.getString('default_pdf_theme'))
-        : prefs.getString('default_pdf_theme');
-    if (savedThemeId != null) {
-      _selectedTheme = PdfTheme.fromId(savedThemeId);
-    }
+    final design = await InvoiceRenderService.designForInvoice(widget.existingInvoice?.id);
+    _selectedTheme = PdfTheme.fromId(design.themeId.value);
+    _initialThemeId = _selectedTheme.id;
 
     if (widget.existingInvoice != null) {
       final inv = widget.existingInvoice!;
@@ -172,43 +169,54 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       _clientAddressCtrl.text = inv.clientAddress ?? '';
       _clientGstinCtrl.text = inv.clientGstin ?? '';
       _currency = inv.currency;
-      _notesCtrl.text = inv.notes ?? 'Thanks for your business.';
-      _status = inv.status;
+      _notesCtrl.text = inv.notes ?? ''; // a cleared note stays cleared
+      _status = inv.status == InvoiceStatus.overdue
+          ? InvoiceModel.paymentStatusFor(inv.paidAmount, inv.grandTotal)
+          : inv.status;
       _paidAmount = inv.paidAmount;
+      _shippingFee = inv.shipping;
+      if (inv.issuerSnapshot != null) {
+        final issuer = InvoiceRenderService.profileFromSnapshot(inv.issuerSnapshot, inv.currency);
+        _signaturePath = issuer?.signaturePath ?? _signaturePath;
+      }
 
       _items.addAll(inv.lineItems);
 
       if (inv.discountType != DiscountType.none && inv.discountValue > 0) {
         _hasDiscount = true;
         _discountType = inv.discountType;
-        _discountCtrl.text = inv.discountValue.toString();
+        _discountCtrl.text = NumberText.trim(inv.discountValue);
       }
 
       if (inv.sgstRate > 0 || inv.cgstRate > 0 || inv.igstRate > 0) {
         _hasTax = true;
         if (inv.igstRate > 0) {
           _useIGST = true;
-          _igstCtrl.text = inv.igstRate.toString();
+          _igstCtrl.text = NumberText.trim(inv.igstRate);
         } else {
-          _sgstCtrl.text = inv.sgstRate.toString();
-          _cgstCtrl.text = inv.cgstRate.toString();
+          _sgstCtrl.text = NumberText.trim(inv.sgstRate);
+          _cgstCtrl.text = NumberText.trim(inv.cgstRate);
         }
       }
     } else {
       // New Invoice
-      final invoiceCount = await _getNextInvoiceNumber();
-      _invoiceNumberCtrl.text = 'INV${invoiceCount.toString().padLeft(5, '0')}';
-      _dueDate = _invoiceDate.add(const Duration(days: 7));
+      _invoiceNumberCtrl.text = await DbProvider.getNextInvoiceNumber();
+      final termsDays = paymentTermsDays(prefs.getString('default_payment_terms'));
+      _dueDate = _invoiceDate.add(Duration(days: termsDays));
+      final defaultNotes = prefs.getString('biz_notes');
+      if (defaultNotes != null && defaultNotes.trim().isNotEmpty) {
+        _notesCtrl.text = defaultNotes.trim();
+      }
 
       if (defaultTax > 0) {
         _hasTax = true;
         if (currencyProvider.isDualTax) {
           final half = defaultTax / 2;
-          _sgstCtrl.text = half.toStringAsFixed(1).replaceAll('.0', '');
-          _cgstCtrl.text = half.toStringAsFixed(1).replaceAll('.0', '');
+          _sgstCtrl.text = NumberText.trim(half);
+          _cgstCtrl.text = NumberText.trim(half);
         } else {
           _useIGST = true;
-          _igstCtrl.text = defaultTax.toStringAsFixed(1).replaceAll('.0', '');
+          _igstCtrl.text = NumberText.trim(defaultTax);
         }
       }
 
@@ -223,6 +231,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       }
     }
 
+    _initialSignature = _editSignature;
     if (mounted) setState(() {});
   }
 
@@ -232,92 +241,81 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     await prefs.setStringList('dismissed_invoice_tips', _dismissedTips.toList());
   }
 
-  Future<int> _getNextInvoiceNumber() async {
-    final rows = await DbProvider.rawQuery(
-      'SELECT COUNT(*) as count FROM ${DbProvider.tableInvoices}',
-    );
-    return (rows.first['count'] as int) + 1;
-  }
+  // Calculations: one shared function, so the editor, the saved row and the
+  // PDF always agree.
+  DocumentTotals get _totals => DocumentTotals.forCurrency(
+        currencyCode: _currency,
+        lines: _items,
+        discountType: _hasDiscount ? _discountType : DiscountType.none,
+        discountValue: _hasDiscount ? NumberText.parse(_discountCtrl.text) : 0,
+        sgstRate: (!_hasTax || _useIGST) ? 0 : NumberText.parse(_sgstCtrl.text),
+        cgstRate: (!_hasTax || _useIGST) ? 0 : NumberText.parse(_cgstCtrl.text),
+        igstRate: (_hasTax && _useIGST) ? NumberText.parse(_igstCtrl.text) : 0,
+        shipping: _shippingFee,
+      );
 
-  // Calculations
-  double get _subtotal => _items.fold(0.0, (sum, item) => sum + item.total);
-
-  double get _discountAmount {
-    if (!_hasDiscount) return 0;
-    final value = double.tryParse(_discountCtrl.text) ?? 0;
-    if (_discountType == DiscountType.percentage) {
-      return _subtotal * value / 100;
-    }
-    return value;
-  }
-
-  double get _taxableAmount => (_subtotal - _discountAmount).clamp(0, double.infinity);
-
-  double get _taxAmount {
-    if (!_hasTax) return 0;
-    if (_useIGST) {
-      final rate = double.tryParse(_igstCtrl.text) ?? 0;
-      return _taxableAmount * rate / 100;
-    } else {
-      final sgst = double.tryParse(_sgstCtrl.text) ?? 0;
-      final cgst = double.tryParse(_cgstCtrl.text) ?? 0;
-      return _taxableAmount * (sgst + cgst) / 100;
-    }
-  }
-
-  double get _grandTotal => _taxableAmount + _taxAmount + _shippingFee;
+  double get _discountAmount => _totals.discountAmount;
+  double get _taxAmount => _totals.taxAmount;
+  double get _grandTotal => _totals.grandTotal;
   double get _balanceDue => (_grandTotal - _paidAmount).clamp(0, double.infinity);
 
   String get _currencySymbol => CurrencyFormatter.getCurrencySymbol(_currency);
 
-  InvoiceModel _buildInvoiceModel() {
+  /// Removes the client and every contact detail copied from it.
+  void _clearClient() {
+    _selectedClient = null;
+    _clientDetached = true;
+    for (final c in [_clientNameCtrl, _clientEmailCtrl, _clientPhoneCtrl, _clientAddressCtrl, _clientGstinCtrl]) {
+      c.clear();
+    }
+  }
+
+  InvoiceModel _buildInvoiceModel({String? issuerSnapshot}) {
     final now = DateTime.now();
     final invoiceId = _activeInvoiceId ?? const Uuid().v4();
     _activeInvoiceId = invoiceId;
 
     final lineItems = _items.asMap().entries.map((e) {
-      return LineItemModel(
-        id: e.value.id.isEmpty ? 'li-${now.microsecondsSinceEpoch}-${e.key}' : e.value.id,
+      return e.value.copyWith(
+        id: e.value.id.isEmpty ? const Uuid().v4() : e.value.id,
         invoiceId: invoiceId,
-        description: e.value.description,
-        quantity: e.value.quantity,
-        unitPrice: e.value.unitPrice,
-        total: e.value.total,
         sortOrder: e.key,
       );
     }).toList();
 
+    final totals = _totals;
     return InvoiceModel(
       id: invoiceId,
-      invoiceNumber: _invoiceNumberCtrl.text.trim().isEmpty
-          ? 'INV00001'
-          : _invoiceNumberCtrl.text.trim(),
-      clientId: _selectedClient?.id,
-      clientName: _clientNameCtrl.text.trim().isEmpty
-          ? 'Add Client'
-          : _clientNameCtrl.text.trim(),
+      invoiceNumber: _invoiceNumberCtrl.text.trim(),
+      clientId: _selectedClient?.id ?? (_clientDetached ? null : widget.existingInvoice?.clientId),
+      clientName: _clientNameCtrl.text.trim(),
       clientEmail: _clientEmailCtrl.text.trim().isEmpty ? null : _clientEmailCtrl.text.trim(),
       clientPhone: _clientPhoneCtrl.text.trim().isEmpty ? null : _clientPhoneCtrl.text.trim(),
       clientAddress: _clientAddressCtrl.text.trim().isEmpty ? null : _clientAddressCtrl.text.trim(),
       clientGstin: _clientGstinCtrl.text.trim().isEmpty ? null : _clientGstinCtrl.text.trim(),
       invoiceDate: _invoiceDate,
       dueDate: _dueDate,
-      subtotal: _subtotal,
+      subtotal: totals.subtotal,
       discountType: _hasDiscount ? _discountType : DiscountType.none,
-      discountValue: _hasDiscount ? (double.tryParse(_discountCtrl.text) ?? 0) : 0,
-      discountAmount: _discountAmount,
-      sgstRate: (!_hasTax || _useIGST) ? 0 : (double.tryParse(_sgstCtrl.text) ?? 0),
-      cgstRate: (!_hasTax || _useIGST) ? 0 : (double.tryParse(_cgstCtrl.text) ?? 0),
-      igstRate: (_hasTax && _useIGST) ? (double.tryParse(_igstCtrl.text) ?? 0) : 0,
-      taxAmount: _taxAmount,
-      grandTotal: _grandTotal,
-      paidAmount: _paidAmount,
-      status: _status,
+      discountValue: _hasDiscount ? NumberText.parse(_discountCtrl.text) : 0,
+      discountAmount: totals.discountAmount,
+      sgstRate: (!_hasTax || _useIGST) ? 0 : NumberText.parse(_sgstCtrl.text),
+      cgstRate: (!_hasTax || _useIGST) ? 0 : NumberText.parse(_cgstCtrl.text),
+      igstRate: (_hasTax && _useIGST) ? NumberText.parse(_igstCtrl.text) : 0,
+      taxAmount: totals.taxAmount,
+      shipping: totals.shipping,
+      grandTotal: totals.grandTotal,
+      // Keep the status consistent with the payments and the (possibly
+      // changed) total, e.g. a "Paid" invoice whose total went up.
+      paidAmount: _paidAmount.clamp(0, totals.grandTotal).toDouble(),
+      status: InvoiceModel.paymentStatusFor(_paidAmount, totals.grandTotal),
       notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       currency: _currency,
       createdAt: widget.existingInvoice?.createdAt ?? now,
       updatedAt: now,
       lineItems: lineItems,
+      issuerSnapshot: issuerSnapshot ?? widget.existingInvoice?.issuerSnapshot,
+      sentAt: widget.existingInvoice?.sentAt,
     );
   }
 
@@ -338,38 +336,57 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       return null;
     }
 
+    if (_invoiceNumberCtrl.text.trim().isEmpty) {
+      _invoiceNumberCtrl.text = await DbProvider.getNextInvoiceNumber();
+    }
+
     setState(() => _isSaving = true);
     try {
-      final invoice = _buildInvoiceModel();
+      // The issuer details are frozen onto the invoice each time it is saved
+      // from the editor, so later profile edits don't rewrite sent invoices.
+      final snapshot = await InvoiceRenderService.captureIssuerSnapshot(
+        signaturePath: _signaturePath,
+      );
+      final invoice = _buildInvoiceModel(issuerSnapshot: snapshot);
+      await DbProvider.saveInvoice(invoice);
+      await _persistThemeChoice(invoice.id);
 
-      await DbProvider.insert(DbProvider.tableInvoices, invoice.toMap());
-      await DbProvider.delete(DbProvider.tableLineItems, 'invoice_id = ?', [invoice.id]);
-
-      for (final item in invoice.lineItems) {
-        await DbProvider.insert(DbProvider.tableLineItems, item.toMap());
-      }
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('invoice_theme_${invoice.id}', _selectedTheme.id.value);
-
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
       return invoice;
-    } catch (e) {
-      setState(() => _isSaving = false);
+    } on DuplicateNumberException catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving invoice: $e')),
+          SnackBar(content: Text('Invoice number ${e.number} is already used. Pick another number.')),
+        );
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Save invoice failed: $e');
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save the invoice. Please try again.')),
         );
       }
       return null;
     }
   }
 
+  /// Stores the template picked in the editor. An invoice whose design was
+  /// customised in the preview keeps that design unless a different template
+  /// was picked here.
+  Future<void> _persistThemeChoice(String invoiceId) async {
+    if (_customDesign != null) {
+      await InvoiceRenderService.saveDesignForInvoice(invoiceId, _customDesign!);
+    } else if (widget.existingInvoice == null || _selectedTheme.id != _initialThemeId) {
+      await InvoiceRenderService.saveThemeForInvoice(invoiceId, _selectedTheme);
+    }
+  }
+
   Future<void> _handlePreview() async {
-    final invoice = _buildInvoiceModel();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('invoice_theme_${invoice.id}', _selectedTheme.id.value);
-    if (!mounted) return;
+    final invoice = await _saveInvoiceToDb();
+    if (invoice == null || !mounted) return;
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -400,9 +417,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
@@ -434,16 +450,16 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Invoice Details & Dates',
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                        icon: Icon(Icons.close_rounded, color: AppColors.slate400),
                         onPressed: () => Navigator.pop(ctx),
                       ),
                     ],
@@ -459,7 +475,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   const SizedBox(height: 16),
 
                   // 2. Invoice Issue Date
-                  const Text(
+                  Text(
                     'Invoice Issue Date',
                     style: TextStyle(
                       fontSize: 13,
@@ -499,11 +515,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primary),
+                              Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primary),
                               const SizedBox(width: 10),
                               Text(
                                 DateFormat('dd MMMM yyyy').format(tempDate),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.textPrimary,
@@ -511,7 +527,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               ),
                             ],
                           ),
-                          const Icon(Icons.edit_calendar_outlined, size: 18, color: AppColors.slate400),
+                          Icon(Icons.edit_calendar_outlined, size: 18, color: AppColors.slate400),
                         ],
                       ),
                     ),
@@ -522,7 +538,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -545,10 +561,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       if (!isNoDueDate)
                         Text(
                           DateFormat('dd MMM yyyy').format(tempDueDate!),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFD97706),
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.statusPartiallyPaid,
                           ),
                         ),
                     ],
@@ -653,7 +669,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppColors.onPrimary,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -663,7 +679,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         'Apply Changes',
                         style: TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -689,8 +705,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       backgroundColor: AppColors.slate100,
       labelStyle: TextStyle(
         fontSize: 12,
-        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-        color: isSelected ? Colors.white : AppColors.textPrimary,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+        color: isSelected ? AppColors.onPrimary : AppColors.textPrimary,
       ),
       side: BorderSide.none,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -712,9 +728,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
@@ -741,7 +756,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               const SizedBox(height: 18),
               const Text(
                 'Bill From (Your Business)',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 16),
               CustomTextField(label: 'Business Name *', controller: nameCtrl),
@@ -785,10 +800,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppColors.onPrimary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Save Business Info', style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: const Text('Save Business Info', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
@@ -820,32 +835,35 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   void _showAddItemSheet({int? editIndex}) {
     final item = editIndex != null ? _items[editIndex] : null;
     final descCtrl = TextEditingController(text: item?.description ?? '');
-    final qtyCtrl = TextEditingController(text: item != null ? item.quantity.toString().replaceAll('.0', '') : '1');
-    final priceCtrl = TextEditingController(text: item != null ? item.unitPrice.toString() : '');
-    final discountCtrl = TextEditingController();
-    final taxCtrl = TextEditingController();
-    bool showDiscountsAndTax = false;
+    final qtyCtrl = TextEditingController(text: item != null ? NumberText.trim(item.quantity) : '1');
+    final priceCtrl = TextEditingController(text: item != null ? NumberText.trim(item.unitPrice) : '');
+    final discountCtrl = TextEditingController(
+      text: item != null && item.discountRate > 0 ? NumberText.trim(item.discountRate) : '',
+    );
+    final taxCtrl = TextEditingController(
+      text: item?.taxRate != null ? NumberText.trim(item!.taxRate!) : '',
+    );
+    bool showDiscountsAndTax = item != null && (item.discountRate > 0 || item.taxRate != null);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          final qty = double.tryParse(qtyCtrl.text) ?? 1;
-          final price = double.tryParse(priceCtrl.text) ?? 0;
-          final discountPercent = double.tryParse(discountCtrl.text) ?? 0;
-          final taxPercent = double.tryParse(taxCtrl.text) ?? 0;
+          final qty = NumberText.parse(qtyCtrl.text, fallback: 1);
+          final price = NumberText.parse(priceCtrl.text);
+          final discountPercent = NumberText.parse(discountCtrl.text).clamp(0.0, 100.0).toDouble();
+          // Empty means "use the invoice's tax rate"; 0 means exempt.
+          final double? ownTaxRate = taxCtrl.text.trim().isEmpty ? null : NumberText.parse(taxCtrl.text);
+          final taxPercent = ownTaxRate ?? 0;
 
           final baseTotal = qty * price;
-          final discountAmount = ((baseTotal * discountPercent / 100).clamp(0.0, baseTotal)).toDouble();
-          final taxableBase = ((baseTotal - discountAmount).clamp(0.0, double.infinity)).toDouble();
-          final taxAmount = taxableBase * taxPercent / 100;
-          final netTotal = taxableBase + taxAmount;
-          final effectiveUnitPrice = qty > 0 ? (netTotal / qty) : price;
+          final netTotal = LineItemModel.netAmountFor(qty, price, discountPercent);
+          final discountAmount = baseTotal - netTotal;
+          final taxAmount = netTotal * taxPercent / 100;
 
           return Padding(
             padding: EdgeInsets.only(
@@ -872,7 +890,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   const SizedBox(height: 18),
                   Text(
                     editIndex != null ? 'Edit Item' : 'Add Item',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
@@ -898,12 +916,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                icon: const Icon(Icons.remove_circle_outline_rounded, size: 18, color: AppColors.slate400),
+                                icon: Icon(Icons.remove_circle_outline_rounded, size: 18, color: AppColors.slate400),
                                 onPressed: () {
-                                  final current = double.tryParse(qtyCtrl.text) ?? 1;
+                                  final current = NumberText.parse(qtyCtrl.text, fallback: 1);
                                   if (current > 1) {
                                     final next = current - 1;
-                                    qtyCtrl.text = next.toString().replaceAll(RegExp(r'\.0$'), '');
+                                    qtyCtrl.text = NumberText.trim(next);
                                     setSheetState(() {});
                                   }
                                 },
@@ -912,11 +930,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                icon: const Icon(Icons.add_circle_outline_rounded, size: 18, color: AppColors.primary),
+                                icon: Icon(Icons.add_circle_outline_rounded, size: 18, color: AppColors.primary),
                                 onPressed: () {
-                                  final current = double.tryParse(qtyCtrl.text) ?? 1;
+                                  final current = NumberText.parse(qtyCtrl.text, fallback: 1);
                                   final next = current + 1;
-                                  qtyCtrl.text = next.toString().replaceAll(RegExp(r'\.0$'), '');
+                                  qtyCtrl.text = NumberText.trim(next);
                                   setSheetState(() {});
                                 },
                               ),
@@ -940,7 +958,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   ),
                   const SizedBox(height: 12),
                   InkWell(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     onTap: () => setSheetState(() => showDiscountsAndTax = !showDiscountsAndTax),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
@@ -954,9 +972,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           const SizedBox(width: 4),
                           Text(
                             showDiscountsAndTax ? 'Hide Item Discount & Tax' : '+ Add Item Discount & Tax',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.primary,
                             ),
                           ),
@@ -982,7 +1000,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         Expanded(
                           child: CustomTextField(
                             label: 'Tax Rate (%)',
-                            hint: '0',
+                            hint: 'Invoice rate',
                             controller: taxCtrl,
                             suffixText: '%',
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1005,7 +1023,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Base Amount:', style: TextStyle(fontSize: 12, color: AppColors.slate600)),
+                              Text('Base Amount:', style: TextStyle(fontSize: 12, color: AppColors.slate600)),
                               Text(CurrencyFormatter.format(baseTotal, currencySymbol: _currencySymbol), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                             ],
                           ),
@@ -1013,16 +1031,16 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Discount (${discountPercent.toString().replaceAll(".0", "")}%):', style: const TextStyle(fontSize: 12, color: Color(0xFFD97706))),
-                                Text('-${CurrencyFormatter.format(discountAmount, currencySymbol: _currencySymbol)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
+                                Text('Discount (${NumberText.trim(discountPercent)}%):', style: TextStyle(fontSize: 12, color: AppColors.statusPartiallyPaid)),
+                                Text('-${CurrencyFormatter.format(discountAmount, currencySymbol: _currencySymbol)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.statusPartiallyPaid)),
                               ],
                             ),
                           if (taxAmount > 0)
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Tax (${taxPercent.toString().replaceAll(".0", "")}%):', style: const TextStyle(fontSize: 12, color: AppColors.squircleGreenIcon)),
-                                Text('+${CurrencyFormatter.format(taxAmount, currencySymbol: _currencySymbol)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.squircleGreenIcon)),
+                                Text('Tax at ${NumberText.trim(taxPercent)}% (added in totals):', style: TextStyle(fontSize: 12, color: AppColors.squircleGreenIcon)),
+                                Text('+${CurrencyFormatter.format(taxAmount, currencySymbol: _currencySymbol)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.squircleGreenIcon)),
                               ],
                             ),
                           const Divider(height: 12),
@@ -1030,10 +1048,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Total Amount:', style: TextStyle(fontWeight: FontWeight.w600)),
+                            const Text('Line amount (before tax):', style: TextStyle(fontWeight: FontWeight.w600)),
                             Text(
                               CurrencyFormatter.format(netTotal, currencySymbol: _currencySymbol),
-                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.primary),
+                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.primary),
                             ),
                           ],
                         ),
@@ -1052,15 +1070,22 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           );
                           return;
                         }
-                        final q = double.tryParse(qtyCtrl.text) ?? 1;
-                        final finalUnitPrice = (discountAmount > 0 || taxAmount > 0) ? effectiveUnitPrice : price;
-                        final newItem = LineItemModel(
+                        if (qty <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Quantity must be more than 0')),
+                          );
+                          return;
+                        }
+                        final newItem = LineItemModel.create(
                           id: item?.id ?? const Uuid().v4(),
                           invoiceId: _activeInvoiceId ?? '',
                           description: descCtrl.text.trim(),
-                          quantity: q,
-                          unitPrice: finalUnitPrice,
-                          total: netTotal,
+                          quantity: qty,
+                          unitPrice: price,
+                          discountRate: discountPercent,
+                          taxRate: ownTaxRate,
+                          hsnSac: item?.hsnSac,
+                          unit: item?.unit,
                           sortOrder: editIndex ?? _items.length,
                         );
 
@@ -1075,10 +1100,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppColors.onPrimary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text(editIndex != null ? 'Update Item' : 'Add to Invoice', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      child: Text(editIndex != null ? 'Update Item' : 'Add to Invoice', style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -1097,8 +1122,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
           padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 28),
@@ -1110,7 +1134,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.slate300, borderRadius: BorderRadius.circular(2))),
               ),
               const SizedBox(height: 18),
-              const Text('Add Discount', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const Text('Add Discount', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -1143,7 +1167,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 height: 48,
                 child: ElevatedButton(
                   onPressed: () {
-                    final val = double.tryParse(valCtrl.text) ?? 0;
+                    final val = NumberText.parse(valCtrl.text);
                     setState(() {
                       _hasDiscount = val > 0;
                       _discountType = tempType;
@@ -1153,10 +1177,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppColors.onPrimary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Apply Discount', style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: const Text('Apply Discount', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
@@ -1180,9 +1204,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
@@ -1209,14 +1232,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               const SizedBox(height: 18),
               Text(
                 '$taxName Configuration',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
               Text(
                 isDual
                     ? 'Choose CGST + SGST (intra-state) or IGST (inter-state)'
                     : 'Set $taxName percentage to apply to this invoice.',
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 14),
 
@@ -1236,11 +1259,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       label: Text(
                         rate == 0
                             ? 'No Tax (0%)'
-                            : '$taxName ${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1)}%',
+                            : '$taxName ${NumberText.trim(rate)}%',
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: isPresetSelected ? Colors.white : AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          color: isPresetSelected ? AppColors.onPrimary : AppColors.textPrimary,
                         ),
                       ),
                       backgroundColor: isPresetSelected ? AppColors.primary : AppColors.slate100,
@@ -1250,10 +1273,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         setSheetState(() {
                           if (isDual && !useIGST) {
                             final half = rate / 2;
-                            sgstCtrl.text = half.toStringAsFixed(half % 1 == 0 ? 0 : 1);
-                            cgstCtrl.text = half.toStringAsFixed(half % 1 == 0 ? 0 : 1);
+                            sgstCtrl.text = NumberText.trim(half);
+                            cgstCtrl.text = NumberText.trim(half);
                           } else {
-                            igstCtrl.text = rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1);
+                            igstCtrl.text = NumberText.trim(rate);
                           }
                         });
                       },
@@ -1275,8 +1298,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             useIGST = false;
                             final current = double.tryParse(igstCtrl.text) ?? defaultTax.rate;
                             final half = current / 2;
-                            sgstCtrl.text = half.toStringAsFixed(half % 1 == 0 ? 0 : 1);
-                            cgstCtrl.text = half.toStringAsFixed(half % 1 == 0 ? 0 : 1);
+                            sgstCtrl.text = NumberText.trim(half);
+                            cgstCtrl.text = NumberText.trim(half);
                           });
                         },
                       ),
@@ -1289,8 +1312,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         onSelected: (_) {
                           setSheetState(() {
                             useIGST = true;
-                            final total = (double.tryParse(sgstCtrl.text) ?? 0) + (double.tryParse(cgstCtrl.text) ?? 0);
-                            igstCtrl.text = (total > 0 ? total : defaultTax.rate).toStringAsFixed(1).replaceAll('.0', '');
+                            final total = (NumberText.parse(sgstCtrl.text)) + (NumberText.parse(cgstCtrl.text));
+                            igstCtrl.text = NumberText.trim(total > 0 ? total : defaultTax.rate);
                           });
                         },
                       ),
@@ -1366,19 +1389,19 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           _sgstCtrl.text = sgstCtrl.text.trim();
                           _cgstCtrl.text = cgstCtrl.text.trim();
                           final totalTax = (isDual && !useIGST)
-                              ? (double.tryParse(sgstCtrl.text) ?? 0) + (double.tryParse(cgstCtrl.text) ?? 0)
-                              : (double.tryParse(igstCtrl.text) ?? 0);
+                              ? (NumberText.parse(sgstCtrl.text)) + (NumberText.parse(cgstCtrl.text))
+                              : (NumberText.parse(igstCtrl.text));
                           _hasTax = totalTax > 0;
                         });
                         Navigator.pop(ctx);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppColors.onPrimary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: const Text('Apply Tax', style: TextStyle(fontWeight: FontWeight.w700)),
+                      child: const Text('Apply Tax', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -1391,12 +1414,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   void _showShippingSheet() {
-    final ctrl = TextEditingController(text: _shippingFee > 0 ? _shippingFee.toString() : '');
+    final ctrl = TextEditingController(text: _shippingFee > 0 ? NumberText.trim(_shippingFee) : '');
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 28),
         child: Column(
@@ -1407,7 +1429,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.slate300, borderRadius: BorderRadius.circular(2))),
             ),
             const SizedBox(height: 18),
-            const Text('Shipping Charges', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text('Shipping Charges', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 14),
             CustomTextField(
               label: 'Shipping Fee ($_currencySymbol)',
@@ -1420,15 +1442,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               height: 48,
               child: ElevatedButton(
                 onPressed: () {
-                  setState(() => _shippingFee = double.tryParse(ctrl.text) ?? 0.0);
+                  setState(() => _shippingFee = NumberText.parse(ctrl.text));
                   Navigator.pop(ctx);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Save Shipping Fee', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: const Text('Save Shipping Fee', style: TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -1437,13 +1459,68 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     );
   }
 
+  /// The invoice as saved, or null if it has not been saved yet. Payments
+  /// belong to the saved invoice, so they are managed against this.
+  Future<InvoiceModel?> _storedInvoice() async {
+    final id = _activeInvoiceId;
+    if (id == null) return null;
+    final rows = await DbProvider.query(DbProvider.tableInvoices, where: 'id = ?', whereArgs: [id]);
+    return rows.isEmpty ? null : InvoiceModel.fromMap(rows.first);
+  }
+
+  /// Takes the paid amount and status from the saved invoice's payments.
+  void _applyStoredPayment(InvoiceModel stored) {
+    setState(() {
+      _paidAmount = stored.paidAmount;
+      _status = InvoiceModel.paymentStatusFor(stored.paidAmount, stored.grandTotal);
+    });
+  }
+
+  /// Saved invoice: the payments list (record or delete payments).
+  /// New invoice: the amount already received, saved as its first payment.
+  Future<void> _openPayments() async {
+    final stored = await _storedInvoice();
+    if (!mounted) return;
+    if (stored == null) {
+      _showPaymentsSheet();
+      return;
+    }
+    if (await PaymentsSheet.show(context, stored)) {
+      final fresh = await _storedInvoice();
+      if (fresh != null && mounted) _applyStoredPayment(fresh);
+    }
+  }
+
+  /// Saved invoice: changes the status through its payments right away.
+  Future<void> _setStatus(InvoiceStatus s) async {
+    final stored = await _storedInvoice();
+    if (!mounted) return;
+    if (stored == null) {
+      setState(() {
+        _status = s;
+        if (s == InvoiceStatus.paid && _paidAmount < _grandTotal) {
+          _paidAmount = _grandTotal;
+        } else if (s == InvoiceStatus.unpaid) {
+          _paidAmount = 0;
+        }
+      });
+      if (s == InvoiceStatus.partiallyPaid && (_paidAmount <= 0 || _paidAmount >= _grandTotal)) {
+        _showPaymentsSheet();
+      }
+      return;
+    }
+    if (await InvoiceActions.changePaymentStatus(context, stored, s)) {
+      final fresh = await _storedInvoice();
+      if (fresh != null && mounted) _applyStoredPayment(fresh);
+    }
+  }
+
   void _showPaymentsSheet() {
     final ctrl = TextEditingController(text: _paidAmount > 0 ? _paidAmount.toString() : '');
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 28),
         child: Column(
@@ -1454,7 +1531,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.slate300, borderRadius: BorderRadius.circular(2))),
             ),
             const SizedBox(height: 18),
-            const Text('Record Payment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text('Amount already received', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 14),
             CustomTextField(
               label: 'Amount Paid ($_currencySymbol)',
@@ -1467,7 +1544,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               height: 48,
               child: ElevatedButton(
                 onPressed: () {
-                  final p = double.tryParse(ctrl.text) ?? 0.0;
+                  final p = NumberText.parse(ctrl.text);
                   setState(() {
                     _paidAmount = p;
                     if (_paidAmount >= _grandTotal && _grandTotal > 0) {
@@ -1482,10 +1559,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Record Payment', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: const Text('Save', style: TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -1497,6 +1574,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   void _showCurrencySheet() {
     CurrencyPickerSheet.show(
       context,
+      selectedCode: _currency,
       onCurrencySelected: (curr) {
         setState(() => _currency = curr.code);
         Navigator.pop(context);
@@ -1508,8 +1586,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final methods = ['Bank Transfer / NEFT', 'UPI / GPay / PhonePe', 'Cash', 'Credit / Debit Card', 'Cheque', 'PayPal'];
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => SafeArea(
         child: ListView(
           shrinkWrap: true,
@@ -1517,13 +1594,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           children: [
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Text('Select Payment Method', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              child: Text('Select Payment Method', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             ),
             ...methods.map((m) {
               final isSel = _paymentMethod == m;
               return ListTile(
-                title: Text(m, style: TextStyle(fontWeight: isSel ? FontWeight.w700 : FontWeight.w500)),
-                trailing: isSel ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
+                title: Text(m, style: TextStyle(fontWeight: isSel ? FontWeight.w600 : FontWeight.w500)),
+                trailing: isSel ? Icon(Icons.check_rounded, color: AppColors.primary) : null,
                 onTap: () {
                   setState(() => _paymentMethod = m);
                   Navigator.pop(ctx);
@@ -1541,8 +1618,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 28),
         child: Column(
@@ -1553,7 +1629,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.slate300, borderRadius: BorderRadius.circular(2))),
             ),
             const SizedBox(height: 18),
-            const Text('Terms & Notes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text('Terms & Notes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 14),
             CustomTextField(
               label: 'Terms / Notes',
@@ -1572,10 +1648,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Save Notes', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: const Text('Save Notes', style: TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -1587,8 +1663,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   void _showStatusSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1597,26 +1672,18 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             children: [
               Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.slate300, borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 16),
-              const Text('Mark Invoice As', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const Text('Mark Invoice As', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
-              ...[InvoiceStatus.unpaid, InvoiceStatus.partiallyPaid, InvoiceStatus.paid, InvoiceStatus.overdue].map((s) {
+              // Overdue is not picked: it shows automatically once the due
+              // date passes with a balance left.
+              ...[InvoiceStatus.unpaid, InvoiceStatus.partiallyPaid, InvoiceStatus.paid].map((s) {
                 final isSel = _status == s;
                 return ListTile(
-                  title: Text(s.label, style: TextStyle(fontWeight: isSel ? FontWeight.w700 : FontWeight.w500)),
-                  trailing: isSel ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
+                  title: Text(s.label, style: TextStyle(fontWeight: isSel ? FontWeight.w600 : FontWeight.w500)),
+                  trailing: isSel ? Icon(Icons.check_rounded, color: AppColors.primary) : null,
                   onTap: () {
-                    setState(() {
-                      _status = s;
-                      if (s == InvoiceStatus.paid && _paidAmount < _grandTotal) {
-                        _paidAmount = _grandTotal;
-                      } else if (s == InvoiceStatus.unpaid) {
-                        _paidAmount = 0;
-                      }
-                    });
                     Navigator.pop(ctx);
-                    if (s == InvoiceStatus.partiallyPaid && (_paidAmount <= 0 || _paidAmount >= _grandTotal)) {
-                      _showPaymentsSheet();
-                    }
+                    _setStatus(s);
                   },
                 );
               }),
@@ -1635,10 +1702,42 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     );
 
     if (confirm == true && _activeInvoiceId != null) {
-      await DbProvider.delete(DbProvider.tableInvoices, 'id = ?', [_activeInvoiceId]);
+      await DbProvider.deleteInvoice(_activeInvoiceId!);
+      await InvoiceRenderService.forgetInvoice(_activeInvoiceId!);
       await PdfHelper.deletePdf(_invoiceNumberCtrl.text);
       if (mounted) Navigator.pop(context, true);
     }
+  }
+
+  /// What the user has entered, to tell whether leaving would lose work.
+  String? _initialSignature;
+  String get _editSignature => [
+        _invoiceNumberCtrl.text, _clientNameCtrl.text, _clientEmailCtrl.text,
+        _clientPhoneCtrl.text, _clientAddressCtrl.text, _clientGstinCtrl.text,
+        _invoiceDate.toIso8601String(), _dueDate?.toIso8601String(),
+        for (final i in _items) '${i.description}|${i.quantity}|${i.unitPrice}|${i.discountRate}|${i.taxRate}',
+        _hasDiscount, _discountType, _discountCtrl.text, _hasTax, _useIGST,
+        _sgstCtrl.text, _cgstCtrl.text, _igstCtrl.text, _notesCtrl.text,
+        _shippingFee, _status, _paidAmount, _currency, _signaturePath, _selectedTheme.id,
+      ].join('\u0001');
+
+  Future<void> _confirmLeave(bool didPop) async {
+    if (didPop) return;
+    final dirty = _initialSignature != null && _editSignature != _initialSignature;
+    if (dirty) {
+      final discard = await AppDialog.showConfirmation(
+        context: context,
+        title: 'Discard changes?',
+        message: 'You have unsaved changes. Leave without saving them?',
+        variant: AppDialogVariant.danger,
+        icon: Icons.warning_amber_rounded,
+        confirmLabel: 'Discard',
+        cancelLabel: 'Keep editing',
+        isDestructive: true,
+      );
+      if (discard != true) return;
+    }
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -1664,872 +1763,881 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final bool showSettingsTip = hasFinancials && !hasSettings && !_dismissedTips.contains('settings') ||
         (!hasFinancials && _dismissedTips.contains('financials') && !hasSettings && !_dismissedTips.contains('settings'));
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.canvas,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.ink),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          widget.existingInvoice != null ? 'Edit Invoice' : 'Create Invoice',
-          style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.ink, letterSpacing: -0.3),
-        ),
-        centerTitle: true,
-        actions: [
-          if (!isPro)
-            IconButton(
-              icon: const Icon(Icons.workspace_premium_rounded, color: AppColors.proGold),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PaywallScreen()),
-              ),
-            ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, color: AppColors.ink, size: 20),
-            onSelected: (val) async {
-              if (val == 'clear') {
-                setState(() {
-                  _items.clear();
-                  _clientNameCtrl.clear();
-                });
-              } else if (val == 'reset_tips') {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove('dismissed_invoice_tips');
-                setState(() => _dismissedTips.clear());
-              }
-            },
-            itemBuilder: (_) => [
-              AppPopupMenuItem.item(
-                value: 'clear',
-                title: 'Clear Items',
-                icon: Icons.clear_all_rounded,
-                iconColor: AppColors.muted,
-              ),
-              AppPopupMenuItem.item(
-                value: 'reset_tips',
-                title: 'Reset Helpful Tips',
-                icon: Icons.lightbulb_outline_rounded,
-                iconColor: AppColors.ink,
-              ),
-            ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) => _confirmLeave(didPop),
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.canvas,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          bottom: PreferredSize(
+            preferredSize: Size.fromHeight(1),
+            child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
           ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-              child: Column(
-                children: [
-                  // Card 1: Invoice Number & Due Date
-                  _buildCard(
-                    onTap: _showInvoiceHeaderSheet,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceCard,
-                                    borderRadius: BorderRadius.circular(9999), // pill
-                                    border: Border.all(color: AppColors.hairline),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.ink),
+            // maybePop, so the unsaved-changes check runs.
+            onPressed: () => Navigator.maybePop(context),
+          ),
+          title: Text(
+            widget.existingInvoice != null ? 'Edit Invoice' : 'Create Invoice',
+            style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.ink, letterSpacing: -0.3),
+          ),
+          centerTitle: true,
+          actions: [
+            if (!isPro)
+              IconButton(
+                icon: Icon(Icons.workspace_premium_rounded, color: AppColors.proGold),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                ),
+              ),
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert_rounded, color: AppColors.ink, size: 20),
+              onSelected: (val) async {
+                if (val == 'clear') {
+                  setState(() {
+                    _items.clear();
+                    _clearClient();
+                  });
+                } else if (val == 'reset_tips') {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove('dismissed_invoice_tips');
+                  setState(() => _dismissedTips.clear());
+                }
+              },
+              itemBuilder: (_) => [
+                AppPopupMenuItem.item(
+                  value: 'clear',
+                  title: 'Clear Items',
+                  icon: Icons.clear_all_rounded,
+                  iconColor: AppColors.muted,
+                ),
+                AppPopupMenuItem.item(
+                  value: 'reset_tips',
+                  title: 'Reset Helpful Tips',
+                  icon: Icons.lightbulb_outline_rounded,
+                  iconColor: AppColors.ink,
+                ),
+              ],
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
+        body: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                child: Column(
+                  children: [
+                    // Card 1: Invoice Number & Due Date
+                    _buildCard(
+                      onTap: _showInvoiceHeaderSheet,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceCard,
+                                      borderRadius: BorderRadius.circular(9999), // pill
+                                      border: Border.all(color: AppColors.hairline),
+                                    ),
+                                    child: Text(
+                                      'INVOICE',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.ink,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
                                   ),
-                                  child: Text(
-                                    'INVOICE',
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _invoiceNumberCtrl.text.isNotEmpty
+                                        ? _invoiceNumberCtrl.text
+                                        : 'INV00001',
                                     style: GoogleFonts.inter(
-                                      fontSize: 10.5,
+                                      fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.ink,
-                                      letterSpacing: 0.5,
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _invoiceNumberCtrl.text.isNotEmpty
-                                      ? _invoiceNumberCtrl.text
-                                      : 'INV00001',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.ink,
+                                ],
+                              ),
+                              Icon(Icons.edit_outlined, size: 18, color: AppColors.muted),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              // Invoice Date Pill
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceSoft,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppColors.hairline),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const Icon(Icons.edit_outlined, size: 18, color: AppColors.muted),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            // Invoice Date Pill
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceSoft,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.hairline),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.muted),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        DateFormat('dd MMM yyyy').format(_invoiceDate),
-                                        style: GoogleFonts.inter(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                          color: AppColors.ink,
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.muted),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          DateFormat('dd MMM yyyy').format(_invoiceDate),
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppColors.ink,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Due Date Pill
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: _dueDate != null
-                                      ? const Color(0xFFFEF3C7)
-                                      : AppColors.slate100,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.hourglass_bottom_rounded,
-                                      size: 13,
-                                      color: _dueDate != null
-                                          ? const Color(0xFFD97706)
-                                          : AppColors.slate400,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        _dueDate != null
-                                            ? 'Due ${DateFormat('dd MMM').format(_dueDate!)}'
-                                            : 'No Due Date',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: _dueDate != null
-                                              ? const Color(0xFF92400E)
-                                              : AppColors.slate500,
+                              const SizedBox(width: 8),
+                              // Due Date Pill
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: _dueDate != null
+                                        ? AppColors.statusPartiallyPaidBg
+                                        : AppColors.slate100,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.hourglass_bottom_rounded,
+                                        size: 13,
+                                        color: _dueDate != null
+                                            ? AppColors.statusPartiallyPaid
+                                            : AppColors.slate400,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          _dueDate != null
+                                              ? 'Due ${DateFormat('dd MMM').format(_dueDate!)}'
+                                              : 'No Due Date',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: _dueDate != null
+                                                ? AppColors.statusPartiallyPaid
+                                                : AppColors.slate500,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Card 2: Templates
-                  _buildCard(
-                    child: InkWell(
-                      onTap: () async {
-                        final selected = await PdfThemePickerSheet.show(
-                          context,
-                          currentTheme: _selectedTheme,
-                          showSetAsDefault: true,
-                        );
-                        if (selected != null && mounted) {
-                          setState(() {
-                            _selectedTheme = selected;
-                          });
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: _selectedTheme.previewBg,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: _selectedTheme.previewPrimary.withValues(alpha: 0.2),
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.view_quilt_outlined,
-                              color: _selectedTheme.previewPrimary,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Templates',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                const Text(
-                                  'Choose style & paper design',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.slate500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            width: 32,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: _selectedTheme.previewBg,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: _selectedTheme.previewPrimary.withValues(alpha: 0.3),
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.04),
-                                  blurRadius: 4,
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 18,
-                                  height: 3,
-                                  color: _selectedTheme.previewPrimary,
-                                ),
-                                const SizedBox(height: 3),
-                                Container(
-                                  width: 22,
-                                  height: 2,
-                                  color: _selectedTheme.previewSecondary.withValues(alpha: 0.5),
-                                ),
-                                const SizedBox(height: 2),
-                                Container(
-                                  width: 22,
-                                  height: 2,
-                                  color: _selectedTheme.previewAccent,
-                                ),
-                              ],
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-                  // Card 3: Connected Bill From & Bill To
-                  _buildCard(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    child: Column(
-                      children: [
-                        // Bill From
-                        GestureDetector(
-                          onTap: _showBusinessSheet,
-                          behavior: HitTestBehavior.opaque,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFE0F2FE),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.storefront_outlined, color: Color(0xFF0284C7), size: 20),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Bill From', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                                    Text(
-                                      _bizName.isNotEmpty ? _bizName : 'Add Business',
-                                      style: const TextStyle(fontSize: 13, color: AppColors.slate500),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
-                            ],
-                          ),
-                        ),
-                        // Dotted Connector
-                        Padding(
-                          padding: const EdgeInsets.only(left: 19),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: SizedBox(
-                              height: 16,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                children: List.generate(
-                                  3,
-                                  (index) => Container(width: 2, height: 2, color: AppColors.slate300),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Bill To
-                        GestureDetector(
-                          onTap: _showClientSheet,
-                          behavior: HitTestBehavior.opaque,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFFEF3C7),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.people_outline_rounded, color: Color(0xFFD97706), size: 20),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Bill To', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                                    Text(
-                                      _clientNameCtrl.text.isNotEmpty ? _clientNameCtrl.text : 'Add Clients',
-                                      style: const TextStyle(fontSize: 13, color: AppColors.slate500),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
-                            ],
-                          ),
-                        ),
-
-                        // Sequential Coachmark 1: Add Client
-                        if (showClientTip) ...[
-                          _buildCoachmarkBalloon(
-                            stepLabel: 'Step 1 of 4',
-                            title: 'Add your client or customer',
-                            subtitle: 'Select an existing client or create a new one to bill',
-                            onTap: _showClientSheet,
-                            onDismiss: () => _dismissTip('client'),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Card 4: Items Section
-                  _buildCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                    // Card 2: Templates
+                    _buildCard(
+                      child: InkWell(
+                        onTap: () async {
+                          final selected = await PdfThemePickerSheet.show(
+                            context,
+                            currentTheme: _selectedTheme,
+                            showSetAsDefault: true,
+                          );
+                          if (selected != null && mounted) {
+                            setState(() {
+                              _selectedTheme = selected.theme;
+                              _customDesign = selected.customConfig;
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Row(
                           children: [
                             Container(
-                              width: 40,
-                              height: 40,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFDCFCE7),
-                                shape: BoxShape.circle,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: _selectedTheme.previewBg,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _selectedTheme.previewPrimary.withValues(alpha: 0.2),
+                                ),
                               ),
-                              child: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF16A34A), size: 20),
+                              child: Icon(
+                                Icons.view_quilt_outlined,
+                                color: _selectedTheme.previewPrimary,
+                                size: 20,
+                              ),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Items', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                                   Text(
-                                    _items.isEmpty ? 'Add Items' : '${_items.length} item(s) added',
-                                    style: const TextStyle(fontSize: 13, color: AppColors.slate500),
+                                    'Templates',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Choose style & paper design',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.slate500,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                            GestureDetector(
-                              onTap: () async {
-                                final picked = await ItemPickerSheet.show(
-                                  context,
-                                  invoiceId: _activeInvoiceId ?? '',
-                                );
-                                if (picked != null && picked.isNotEmpty) {
-                                  setState(() => _items.addAll(picked));
-                                }
-                              },
-                              child: Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color: AppColors.squirclePurple,
-                                  shape: BoxShape.circle,
+                            Container(
+                              width: 32,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: _selectedTheme.previewBg,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: _selectedTheme.previewPrimary.withValues(alpha: 0.3),
                                 ),
-                                child: const Icon(Icons.inventory_2_outlined, color: AppColors.squirclePurpleIcon, size: 18),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.04),
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 18,
+                                    height: 3,
+                                    color: _selectedTheme.previewPrimary,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Container(
+                                    width: 22,
+                                    height: 2,
+                                    color: _selectedTheme.previewSecondary.withValues(alpha: 0.5),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Container(
+                                    width: 22,
+                                    height: 2,
+                                    color: _selectedTheme.previewAccent,
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () => _showAddItemSheet(),
-                              child: Container(
-                                width: 32,
-                                height: 32,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                              ),
-                            ),
+                            Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
                           ],
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
 
-                        // Sequential Coachmark 2: Add Items
-                        if (showItemsTip) ...[
-                          _buildCoachmarkBalloon(
-                            stepLabel: 'Step 2 of 4',
-                            title: 'Create your item or service',
-                            subtitle: 'Add name, price, quantity and details',
-                            onTap: () => _showAddItemSheet(),
-                            onDismiss: () => _dismissTip('items'),
-                          ),
-                        ] else if (_items.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          const Divider(height: 1),
-                          ..._items.asMap().entries.map((entry) {
-                            final idx = entry.key;
-                            final item = entry.value;
-                            return Dismissible(
-                              key: ValueKey('line_item_${item.id}_$idx'),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 16),
-                                decoration: BoxDecoration(
-                                  color: AppColors.statusOverdueBg,
-                                  borderRadius: BorderRadius.circular(8),
+                    // Card 3: Connected Bill From & Bill To
+                    _buildCard(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      child: Column(
+                        children: [
+                          // Bill From
+                          GestureDetector(
+                            onTap: _showBusinessSheet,
+                            behavior: HitTestBehavior.opaque,
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.squircleCyan,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.storefront_outlined, color: AppColors.squircleCyanIcon, size: 20),
                                 ),
-                                child: const Icon(Icons.delete_outline_rounded, color: AppColors.accentRed, size: 20),
-                              ),
-                              onDismissed: (_) {
-                                HapticFeedback.mediumImpact();
-                                setState(() => _items.removeAt(idx));
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(item.description, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                                          Text(
-                                            '${item.quantity.toString().replaceAll(".0", "")} x ${CurrencyFormatter.format(item.unitPrice, currencySymbol: _currencySymbol)}',
-                                            style: const TextStyle(fontSize: 12, color: AppColors.slate500),
-                                          ),
-                                        ],
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Bill From', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                      Text(
+                                        _bizName.isNotEmpty ? _bizName : 'Add Business',
+                                        style: TextStyle(fontSize: 13, color: AppColors.slate500),
                                       ),
-                                    ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
+                              ],
+                            ),
+                          ),
+                          // Dotted Connector
+                          Padding(
+                            padding: const EdgeInsets.only(left: 19),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: SizedBox(
+                                height: 16,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: List.generate(
+                                    3,
+                                    (index) => Container(width: 2, height: 2, color: AppColors.slate300),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Bill To
+                          GestureDetector(
+                            onTap: _showClientSheet,
+                            behavior: HitTestBehavior.opaque,
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.statusPartiallyPaidBg,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.people_outline_rounded, color: AppColors.statusPartiallyPaid, size: 20),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Bill To', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                      Text(
+                                        _clientNameCtrl.text.isNotEmpty ? _clientNameCtrl.text : 'Add Clients',
+                                        style: TextStyle(fontSize: 13, color: AppColors.slate500),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
+                              ],
+                            ),
+                          ),
+
+                          // Sequential Coachmark 1: Add Client
+                          if (showClientTip) ...[
+                            _buildCoachmarkBalloon(
+                              stepLabel: 'Step 1 of 4',
+                              title: 'Add your client or customer',
+                              subtitle: 'Select an existing client or create a new one to bill',
+                              onTap: _showClientSheet,
+                              onDismiss: () => _dismissTip('client'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Card 4: Items Section
+                    _buildCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: AppColors.squircleGreen,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.inventory_2_outlined, color: AppColors.squircleGreenIcon, size: 20),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Items', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                                     Text(
-                                      CurrencyFormatter.format(item.total, currencySymbol: _currencySymbol),
-                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.slate500),
-                                      onPressed: () => _showAddItemSheet(editIndex: idx),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.accentRed),
-                                      onPressed: () {
-                                        HapticFeedback.lightImpact();
-                                        setState(() => _items.removeAt(idx));
-                                      },
+                                      _items.isEmpty ? 'Add Items' : '${_items.length} item(s) added',
+                                      style: TextStyle(fontSize: 13, color: AppColors.slate500),
                                     ),
                                   ],
                                 ),
                               ),
-                            );
-                          }),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Card 5: Calculation & Totals Card (Discount, Tax, Shipping, Total)
-                  _buildCard(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      children: [
-                        _buildRowTile(
-                          icon: Icons.percent_rounded,
-                          title: 'Discount',
-                          subtitle: _hasDiscount ? '(${_discountCtrl.text}${_discountType == DiscountType.percentage ? "%" : ""})' : '(0%)',
-                          value: _hasDiscount
-                              ? '-${CurrencyFormatter.format(_discountAmount, currencyCode: _currency, currencySymbol: currencySymbol)}'
-                              : '-$currencySymbol 0.00',
-                          onTap: _showDiscountSheet,
-                        ),
-                        const Divider(height: 16),
-                        _buildRowTile(
-                          icon: Icons.account_balance_outlined,
-                          title: taxShortName,
-                          subtitle: _hasTax
-                              ? (isDual && !_useIGST
-                                  ? '(CGST ${_cgstCtrl.text}% + SGST ${_sgstCtrl.text}%)'
-                                  : '(${_useIGST ? _igstCtrl.text : ((double.tryParse(_sgstCtrl.text) ?? 0) + (double.tryParse(_cgstCtrl.text) ?? 0)).toStringAsFixed(1).replaceAll('.0', '')}%)')
-                              : '(0%)',
-                          value: CurrencyFormatter.format(_taxAmount, currencyCode: _currency, currencySymbol: currencySymbol),
-                          onTap: _showTaxSheet,
-                        ),
-                        const Divider(height: 16),
-                        _buildRowTile(
-                          icon: Icons.local_shipping_outlined,
-                          title: 'Shipping',
-                          subtitle: '',
-                          value: CurrencyFormatter.format(_shippingFee, currencyCode: _currency, currencySymbol: currencySymbol),
-                          onTap: _showShippingSheet,
-                        ),
-                        const SizedBox(height: 12),
-                        // Total Row Banner
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Total', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                              Text(
-                                CurrencyFormatter.format(_grandTotal, currencyCode: _currency, currencySymbol: currencySymbol),
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                              GestureDetector(
+                                onTap: () async {
+                                  final picked = await ItemPickerSheet.show(
+                                    context,
+                                    invoiceId: _activeInvoiceId ?? '',
+                                    currencyCode: _currency,
+                                  );
+                                  if (picked != null && picked.isNotEmpty) {
+                                    setState(() => _items.addAll(picked));
+                                  }
+                                },
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.squirclePurple,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.inventory_2_outlined, color: AppColors.squirclePurpleIcon, size: 18),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => _showAddItemSheet(),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 20),
+                                ),
                               ),
                             ],
                           ),
-                        ),
 
-                        // Sequential Coachmark 3: Configure Discounts & Taxes
-                        if (showFinancialsTip) ...[
-                          _buildCoachmarkBalloon(
-                            stepLabel: 'Step 3 of 4',
-                            title: 'Configure discount, tax or shipping',
-                            subtitle: 'Apply $taxShortName rates, discounts or shipping charges',
+                          // Sequential Coachmark 2: Add Items
+                          if (showItemsTip) ...[
+                            _buildCoachmarkBalloon(
+                              stepLabel: 'Step 2 of 4',
+                              title: 'Create your item or service',
+                              subtitle: 'Add name, price, quantity and details',
+                              onTap: () => _showAddItemSheet(),
+                              onDismiss: () => _dismissTip('items'),
+                            ),
+                          ] else if (_items.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            const Divider(height: 1),
+                            ..._items.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final item = entry.value;
+                              return Dismissible(
+                                key: ValueKey('line_item_${item.id}_$idx'),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 16),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.statusOverdueBg,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(Icons.delete_outline_rounded, color: AppColors.accentRed, size: 20),
+                                ),
+                                onDismissed: (_) {
+                                  HapticFeedback.mediumImpact();
+                                  setState(() => _items.removeAt(idx));
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(item.description, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                            Text(
+                                              '${NumberText.trim(item.quantity)} x ${CurrencyFormatter.format(item.unitPrice, currencySymbol: _currencySymbol)}',
+                                              style: TextStyle(fontSize: 12, color: AppColors.slate500),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Text(
+                                        CurrencyFormatter.format(item.total, currencySymbol: _currencySymbol),
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.edit_outlined, size: 18, color: AppColors.slate500),
+                                        onPressed: () => _showAddItemSheet(editIndex: idx),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.close_rounded, size: 18, color: AppColors.accentRed),
+                                        onPressed: () {
+                                          HapticFeedback.lightImpact();
+                                          setState(() => _items.removeAt(idx));
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Card 5: Calculation & Totals Card (Discount, Tax, Shipping, Total)
+                    _buildCard(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        children: [
+                          _buildRowTile(
+                            icon: Icons.percent_rounded,
+                            title: 'Discount',
+                            subtitle: _hasDiscount ? '(${_discountCtrl.text}${_discountType == DiscountType.percentage ? "%" : ""})' : '(0%)',
+                            value: _hasDiscount
+                                ? '-${CurrencyFormatter.format(_discountAmount, currencyCode: _currency, currencySymbol: currencySymbol)}'
+                                : '-$currencySymbol 0.00',
+                            onTap: _showDiscountSheet,
+                          ),
+                          const Divider(height: 16),
+                          _buildRowTile(
+                            icon: Icons.account_balance_outlined,
+                            title: taxShortName,
+                            subtitle: _hasTax
+                                ? (isDual && !_useIGST
+                                    ? '(CGST ${_cgstCtrl.text}% + SGST ${_sgstCtrl.text}%)'
+                                    : '(${_useIGST ? _igstCtrl.text : NumberText.trim((NumberText.parse(_sgstCtrl.text)) + (NumberText.parse(_cgstCtrl.text)))}%)')
+                                : '(0%)',
+                            value: CurrencyFormatter.format(_taxAmount, currencyCode: _currency, currencySymbol: currencySymbol),
                             onTap: _showTaxSheet,
-                            onDismiss: () => _dismissTip('financials'),
                           ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Card 6: Payments & Balance Card
-                  _buildCard(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      children: [
-                        _buildRowTile(
-                          icon: Icons.monetization_on_outlined,
-                          title: 'Payments',
-                          subtitle: '',
-                          value: CurrencyFormatter.format(_paidAmount, currencyCode: _currency, currencySymbol: currencySymbol),
-                          onTap: _showPaymentsSheet,
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(10),
+                          const Divider(height: 16),
+                          _buildRowTile(
+                            icon: Icons.local_shipping_outlined,
+                            title: 'Shipping',
+                            subtitle: '',
+                            value: CurrencyFormatter.format(_shippingFee, currencyCode: _currency, currencySymbol: currencySymbol),
+                            onTap: _showShippingSheet,
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Balance Due', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                              Text(
-                                CurrencyFormatter.format(_balanceDue, currencyCode: _currency, currencySymbol: currencySymbol),
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.primary),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Card 7: Settings / Details
-                  _buildCard(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      children: [
-                        _buildRowTile(
-                          icon: Icons.payments_outlined,
-                          title: 'Currency',
-                          subtitle: '',
-                          value: '$_currency $_currencySymbol',
-                          onTap: _showCurrencySheet,
-                        ),
-                        const Divider(height: 16),
-                        _buildRowTile(
-                          icon: Icons.credit_card_outlined,
-                          title: 'Payment Method',
-                          subtitle: '',
-                          value: _paymentMethod.isNotEmpty ? _paymentMethod : '',
-                          onTap: _showPaymentMethodSheet,
-                        ),
-                        const Divider(height: 16),
-                        _buildRowTile(
-                          icon: Icons.draw_outlined,
-                          title: 'Signature',
-                          subtitle: '',
-                          value: _signaturePath != null ? 'Signature Attached' : 'Add Signature',
-                          onTap: () async {
-                            final picker = ImagePicker();
-                            final img = await picker.pickImage(source: ImageSource.gallery);
-                            if (img != null) {
-                              setState(() => _signaturePath = img.path);
-                              final prefs = await SharedPreferences.getInstance();
-                              await prefs.setString('biz_signature_path', img.path);
-                            }
-                          },
-                        ),
-                        const Divider(height: 16),
-                        _buildRowTile(
-                          icon: Icons.assignment_outlined,
-                          title: 'Terms Or Notes',
-                          subtitle: _notesCtrl.text.isNotEmpty ? _notesCtrl.text : 'Thanks for your business.',
-                          value: '',
-                          onTap: _showNotesSheet,
-                        ),
-
-                        // Sequential Coachmark 4: Payment Method & Signature
-                        if (showSettingsTip) ...[
-                          _buildCoachmarkBalloon(
-                            stepLabel: 'Step 4 of 4',
-                            title: 'Set payment method & signature',
-                            subtitle: 'Add UPI, bank details, notes or your signature',
-                            onTap: _showPaymentMethodSheet,
-                            onDismiss: () => _dismissTip('settings'),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Card 8: Attachments
-                  _buildCard(
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.slate100,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.attach_file_rounded, color: AppColors.slate700, size: 20),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Attachments', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                              Text(
-                                _attachments.isEmpty ? 'Add attachments' : '${_attachments.length} attached',
-                                style: const TextStyle(fontSize: 13, color: AppColors.slate500),
-                              ),
-                            ],
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () async {
-                            final picker = ImagePicker();
-                            final img = await picker.pickImage(source: ImageSource.gallery);
-                            if (img != null) {
-                              setState(() => _attachments.add(img.path));
-                            }
-                          },
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
+                          const SizedBox(height: 12),
+                          // Total Row Banner
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.squircleBlue,
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Total', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                                Text(
+                                  CurrencyFormatter.format(_grandTotal, currencyCode: _currency, currencySymbol: currencySymbol),
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
 
-                  // Card 9: Status & Stamp Toggle
-                  _buildCard(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      children: [
-                        _buildRowTile(
-                          icon: Icons.fact_check_outlined,
-                          title: 'Mark as',
-                          subtitle: '',
-                          value: _status.label,
-                          onTap: _showStatusSheet,
-                        ),
-                        const Divider(height: 16),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.slate100,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.verified_outlined, size: 18, color: AppColors.slate700),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Text(
-                                "Show 'PAID' Stamp on Invoice",
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            Switch.adaptive(
-                              value: _showPaidStamp,
-                              activeTrackColor: AppColors.primary,
-                              onChanged: (v) => setState(() => _showPaidStamp = v),
+                          // Sequential Coachmark 3: Configure Discounts & Taxes
+                          if (showFinancialsTip) ...[
+                            _buildCoachmarkBalloon(
+                              stepLabel: 'Step 3 of 4',
+                              title: 'Configure discount, tax or shipping',
+                              subtitle: 'Apply $taxShortName rates, discounts or shipping charges',
+                              onTap: _showTaxSheet,
+                              onDismiss: () => _dismissTip('financials'),
                             ),
                           ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
 
-                  // Card 10: Delete Invoice (if editing)
-                  if (widget.existingInvoice != null) ...[
-                    const SizedBox(height: 16),
+                    // Card 6: Payments & Balance Card
                     _buildCard(
-                      onTap: _handleDeleteInvoice,
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
                         children: [
-                          Icon(Icons.delete_outline_rounded, color: AppColors.accentRed, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Delete Invoice',
-                            style: TextStyle(color: AppColors.accentRed, fontWeight: FontWeight.w700, fontSize: 15),
+                          _buildRowTile(
+                            icon: Icons.monetization_on_outlined,
+                            title: 'Payments',
+                            subtitle: '',
+                            value: CurrencyFormatter.format(_paidAmount, currencyCode: _currency, currencySymbol: currencySymbol),
+                            onTap: _openPayments,
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.squircleBlue,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Balance Due', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                                Text(
+                                  CurrencyFormatter.format(_balanceDue, currencyCode: _currency, currencySymbol: currencySymbol),
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 12),
+
+                    // Card 7: Settings / Details
+                    _buildCard(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        children: [
+                          _buildRowTile(
+                            icon: Icons.payments_outlined,
+                            title: 'Currency',
+                            subtitle: '',
+                            value: '$_currency $_currencySymbol',
+                            onTap: _showCurrencySheet,
+                          ),
+                          const Divider(height: 16),
+                          _buildRowTile(
+                            icon: Icons.credit_card_outlined,
+                            title: 'Payment Method',
+                            subtitle: '',
+                            value: _paymentMethod.isNotEmpty ? _paymentMethod : '',
+                            onTap: _showPaymentMethodSheet,
+                          ),
+                          const Divider(height: 16),
+                          _buildRowTile(
+                            icon: Icons.draw_outlined,
+                            title: 'Signature',
+                            subtitle: '',
+                            value: _signaturePath != null ? 'Signature Attached' : 'Add Signature',
+                            onTap: () async {
+                              final picker = ImagePicker();
+                              final img = await picker.pickImage(source: ImageSource.gallery);
+                              if (img != null) {
+                                // For this invoice only; the profile signature
+                                // stays as it is.
+                                final kept = await ImageStore.keep(img.path, 'signature');
+                                if (!mounted) return;
+                                setState(() => _signaturePath = kept);
+                              }
+                            },
+                          ),
+                          const Divider(height: 16),
+                          _buildRowTile(
+                            icon: Icons.assignment_outlined,
+                            title: 'Terms Or Notes',
+                            subtitle: _notesCtrl.text.isNotEmpty ? _notesCtrl.text : 'Thanks for your business.',
+                            value: '',
+                            onTap: _showNotesSheet,
+                          ),
+
+                          // Sequential Coachmark 4: Payment Method & Signature
+                          if (showSettingsTip) ...[
+                            _buildCoachmarkBalloon(
+                              stepLabel: 'Step 4 of 4',
+                              title: 'Set payment method & signature',
+                              subtitle: 'Add UPI, bank details, notes or your signature',
+                              onTap: _showPaymentMethodSheet,
+                              onDismiss: () => _dismissTip('settings'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Card 8: Attachments
+                    _buildCard(
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.slate100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(Icons.attach_file_rounded, color: AppColors.slate700, size: 20),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Attachments', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                Text(
+                                  _attachments.isEmpty ? 'Add attachments' : '${_attachments.length} attached',
+                                  style: TextStyle(fontSize: 13, color: AppColors.slate500),
+                                ),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () async {
+                              final picker = ImagePicker();
+                              final img = await picker.pickImage(source: ImageSource.gallery);
+                              if (img != null) {
+                                setState(() => _attachments.add(img.path));
+                              }
+                            },
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 20),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Card 9: Status & Stamp Toggle
+                    _buildCard(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        children: [
+                          _buildRowTile(
+                            icon: Icons.fact_check_outlined,
+                            title: 'Mark as',
+                            subtitle: '',
+                            value: _status.label,
+                            onTap: _showStatusSheet,
+                          ),
+                          const Divider(height: 16),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.slate100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(Icons.verified_outlined, size: 18, color: AppColors.slate700),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  "Show 'PAID' Stamp on Invoice",
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              Switch.adaptive(
+                                value: _showPaidStamp,
+                                activeTrackColor: AppColors.primary,
+                                onChanged: (v) => setState(() => _showPaidStamp = v),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Card 10: Delete Invoice (if editing)
+                    if (widget.existingInvoice != null) ...[
+                      const SizedBox(height: 16),
+                      _buildCard(
+                        onTap: _handleDeleteInvoice,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.delete_outline_rounded, color: AppColors.accentRed, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Delete Invoice',
+                              style: TextStyle(color: AppColors.accentRed, fontWeight: FontWeight.w600, fontSize: 15),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-
-      // Sticky Bottom Bar with [Preview] and [Save] in Cal.com style
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        decoration: const BoxDecoration(
-          color: AppColors.canvas,
-          border: Border(top: BorderSide(color: AppColors.hairline)),
+          ],
         ),
-        child: SafeArea(
-          top: false,
-          child: Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: OutlinedButton(
-                    onPressed: _handlePreview,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.hairline, width: 1.0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      foregroundColor: AppColors.ink,
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      'Preview',
-                      style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
+
+        // Sticky Bottom Bar with [Preview] and [Save] in Cal.com style
+        bottomNavigationBar: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          decoration: BoxDecoration(
+            color: AppColors.canvas,
+            border: Border(top: BorderSide(color: AppColors.hairline)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: _handlePreview,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: AppColors.hairline, width: 1.0),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        foregroundColor: AppColors.ink,
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Preview',
+                        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: _isSaving ? null : _handleSaveAndOpenPreview,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.onPrimary,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _isSaving ? null : _handleSaveAndOpenPreview,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.onPrimary,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: _isSaving
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(color: AppColors.onPrimary, strokeWidth: 2),
+                            )
+                          : Text(
+                              'Save',
+                              style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.onPrimary),
+                            ),
                     ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : Text(
-                            'Save',
-                            style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.onPrimary),
-                          ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2556,7 +2664,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         decoration: BoxDecoration(
           color: AppColors.surfaceDark,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF262626)),
+          border: Border.all(color: AppColors.proBadgeBorder),
           boxShadow: const [
             BoxShadow(
               color: Color.fromRGBO(0, 0, 0, 0.12),
@@ -2573,7 +2681,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF262626),
+                    color: AppColors.surfaceDarkElevated,
                     borderRadius: BorderRadius.circular(9999), // pill
                   ),
                   child: Text(
@@ -2680,10 +2788,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             Text(value, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.ink)),
             const SizedBox(width: 4),
           ],
-          const Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20),
+          Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20),
         ],
       ),
     );
   }
 }
-

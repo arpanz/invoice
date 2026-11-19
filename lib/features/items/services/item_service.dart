@@ -8,7 +8,7 @@ class ItemService {
   static Future<List<SavedItemModel>> getAllItems({
     String? category,
     String? search,
-    String orderBy = 'name ASC',
+    String orderBy = 'name COLLATE NOCASE ASC',
   }) async {
     String? where;
     final List<dynamic> whereArgs = [];

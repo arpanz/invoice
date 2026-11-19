@@ -112,23 +112,23 @@ class CustomTextField extends StatelessWidget {
         filled: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: const BorderSide(color: AppColors.hairline, width: 1),
+          borderSide: BorderSide(color: AppColors.hairline, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: const BorderSide(color: AppColors.hairline, width: 1),
+          borderSide: BorderSide(color: AppColors.hairline, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: const BorderSide(color: AppColors.ink, width: 1.5),
+          borderSide: BorderSide(color: AppColors.ink, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: const BorderSide(color: AppColors.error, width: 1),
+          borderSide: BorderSide(color: AppColors.error, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+          borderSide: BorderSide(color: AppColors.error, width: 1.5),
         ),
         contentPadding: contentPadding ??
             const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

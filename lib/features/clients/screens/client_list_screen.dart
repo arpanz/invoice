@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import '../../../core/billing/billing_service.dart';
+import '../../../core/billing/free_limits.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -13,10 +13,8 @@ import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/empty_state_view.dart';
 import '../../../shared_widgets/primary_button.dart';
 import '../../invoices/models/invoice_model.dart';
-import '../../invoices/models/line_item_model.dart';
 import '../../invoices/screens/create_invoice_screen.dart';
 import '../../invoices/screens/invoice_preview_screen.dart';
-import '../../paywall/paywall_screen.dart';
 import '../models/client_model.dart';
 import '../../../shared_widgets/app_dialog.dart';
 import '../../../shared_widgets/app_popup_menu.dart';
@@ -26,10 +24,10 @@ class ClientListScreen extends StatefulWidget {
   const ClientListScreen({super.key, this.selectionMode = false});
 
   @override
-  State<ClientListScreen> createState() => _ClientListScreenState();
+  State<ClientListScreen> createState() => ClientListScreenState();
 }
 
-class _ClientListScreenState extends State<ClientListScreen> {
+class ClientListScreenState extends State<ClientListScreen> {
   List<ClientModel> _clients = [];
   bool _isLoading = true;
   String _searchQuery = '';
@@ -40,12 +38,17 @@ class _ClientListScreenState extends State<ClientListScreen> {
     _loadClients();
   }
 
-  Future<void> _loadClients() async {
-    setState(() => _isLoading = true);
+  /// Reloads quietly, e.g. when the tab is shown after a client was added
+  /// from another screen's client picker.
+  void reload() => _loadClients(showSpinner: false);
+
+  Future<void> _loadClients({bool showSpinner = true}) async {
+    if (showSpinner) setState(() => _isLoading = true);
     final rows = await DbProvider.query(
       DbProvider.tableClients,
-      orderBy: 'name ASC',
+      orderBy: 'name COLLATE NOCASE ASC',
     );
+    if (!mounted) return;
     setState(() {
       _clients = rows.map(ClientModel.fromMap).toList();
       _isLoading = false;
@@ -67,14 +70,8 @@ class _ClientListScreenState extends State<ClientListScreen> {
 
   Future<void> _showAddEditDialog({ClientModel? client}) async {
     if (client == null) {
-      final billing = context.read<BillingService>();
-      if (!billing.isPro && _clients.length >= 5) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const PaywallScreen()),
-        );
-        return;
-      }
+      if (!await FreeLimits.canSaveClient(context, _clients.length)) return;
+      if (!mounted) return;
     }
 
     final nameCtrl = TextEditingController(text: client?.name ?? '');
@@ -91,9 +88,8 @@ class _ClientListScreenState extends State<ClientListScreen> {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
@@ -115,7 +111,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                     height: 4,
                     decoration: BoxDecoration(
                       color: AppColors.slate300,
-                      borderRadius: BorderRadius.circular(99),
+                      borderRadius: BorderRadius.circular(9999),
                     ),
                   ),
                 ),
@@ -130,9 +126,9 @@ class _ClientListScreenState extends State<ClientListScreen> {
                           height: 44,
                           decoration: BoxDecoration(
                             color: AppColors.squirclePurple,
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.person_outline_rounded,
                             color: AppColors.squirclePurpleIcon,
                             size: 22,
@@ -144,9 +140,9 @@ class _ClientListScreenState extends State<ClientListScreen> {
                           children: [
                             Text(
                               client == null ? 'Add New Client' : 'Edit Client',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w600,
                                 color: AppColors.textPrimary,
                               ),
                             ),
@@ -155,7 +151,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                               client == null
                                   ? 'Save details for fast invoicing'
                                   : 'Update client information',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.slate500,
                               ),
@@ -165,7 +161,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                       ],
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                      icon: Icon(Icons.close_rounded, color: AppColors.slate400),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -224,6 +220,19 @@ class _ClientListScreenState extends State<ClientListScreen> {
       ),
     );
 
+    final controllers = [nameCtrl, emailCtrl, phoneCtrl, addressCtrl, gstinCtrl];
+    // The sheet's fields stay on screen during its closing animation, so the
+    // controllers are released only after it has gone.
+    void releaseControllers() => Future.delayed(const Duration(seconds: 1), () {
+          for (final c in controllers) {
+            c.dispose();
+          }
+        });
+
+    if (result != true) {
+      releaseControllers();
+      return;
+    }
     if (result == true) {
       final now = DateTime.now();
       final newClient = ClientModel(
@@ -237,7 +246,17 @@ class _ClientListScreenState extends State<ClientListScreen> {
         gstin: gstinCtrl.text.trim().isEmpty ? null : gstinCtrl.text.trim(),
         createdAt: client?.createdAt ?? now,
       );
-      await DbProvider.insert(DbProvider.tableClients, newClient.toMap());
+      releaseControllers();
+      try {
+        await DbProvider.saveClient(newClient);
+      } catch (e) {
+        debugPrint('Save client failed: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not save the client. Please try again.')),
+          );
+        }
+      }
       await _loadClients();
     }
   }
@@ -246,16 +265,16 @@ class _ClientListScreenState extends State<ClientListScreen> {
     final confirm = await AppDialog.showDelete(
       context: context,
       title: 'Delete Client?',
-      message: 'Are you sure you want to delete "${client.name}"? This action cannot be undone.',
+      message: 'Delete "${client.name}"? Their invoices and estimates keep the client details. This cannot be undone.',
     );
     if (confirm == true) {
-      await DbProvider.delete(DbProvider.tableClients, 'id = ?', [client.id]);
+      await DbProvider.deleteClient(client.id);
       await _loadClients();
     }
   }
 
   Color _getAvatarColor(String name) {
-    const colors = [
+    final colors = [
       AppColors.badgeOrange,
       AppColors.badgePink,
       AppColors.badgeViolet,
@@ -287,13 +306,13 @@ class _ClientListScreenState extends State<ClientListScreen> {
         backgroundColor: AppColors.canvas,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
         ),
         leading: widget.selectionMode
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.ink),
+                icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.ink),
                 onPressed: () => Navigator.pop(context),
               )
             : null,
@@ -321,7 +340,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
-                  const Icon(Icons.search_rounded, color: AppColors.muted, size: 18),
+                  Icon(Icons.search_rounded, color: AppColors.muted, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
@@ -342,7 +361,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
           ),
           Expanded(
             child: _isLoading
-                ? const Center(
+                ? Center(
                     child: CircularProgressIndicator(color: AppColors.primary),
                   )
                 : filtered.isEmpty
@@ -379,7 +398,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
               child: FloatingActionButton.extended(
                 heroTag: 'client_list_fab',
                 onPressed: () => _showAddEditDialog(),
-                icon: const Icon(Icons.person_add_rounded, color: AppColors.onPrimary, size: 18),
+                icon: Icon(Icons.person_add_rounded, color: AppColors.onPrimary, size: 18),
                 label: Text(
                   'Add Client',
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.onPrimary, fontSize: 13),
@@ -426,7 +445,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                   initials,
                   style: GoogleFonts.inter(
                     color: AppColors.ink,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
                 ),
@@ -443,7 +462,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      const Icon(Icons.email_outlined, size: 12, color: AppColors.muted),
+                      Icon(Icons.email_outlined, size: 12, color: AppColors.muted),
                       const SizedBox(width: 4),
                       Text(
                         client.email!,
@@ -459,7 +478,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      const Icon(Icons.phone_outlined, size: 12, color: AppColors.muted),
+                      Icon(Icons.phone_outlined, size: 12, color: AppColors.muted),
                       const SizedBox(width: 4),
                       Text(
                         client.phone!,
@@ -474,9 +493,9 @@ class _ClientListScreenState extends State<ClientListScreen> {
               ],
             ),
             trailing: widget.selectionMode
-                ? const Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20)
+                ? Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20)
                 : PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded, color: AppColors.muted, size: 18),
+                    icon: Icon(Icons.more_vert_rounded, color: AppColors.muted, size: 18),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onSelected: (value) {
@@ -509,39 +528,30 @@ class _ClientListScreenState extends State<ClientListScreen> {
 
   Future<void> _showClientDetailSheet(ClientModel client) async {
     HapticFeedback.lightImpact();
-    // Query invoices for this client
-    final invRows = await DbProvider.query(
-      DbProvider.tableInvoices,
-      where: 'client_name = ? OR (client_email IS NOT NULL AND client_email = ?)',
-      whereArgs: [client.name, client.email ?? ''],
-      orderBy: 'invoice_date DESC',
-    );
+    // This client's invoices: linked by id; older invoices made before the
+    // link was stored are matched by name (without a link to someone else).
+    final homeCurrency = context.read<CurrencyProvider>().currencyCode;
+    final all = await DbProvider.loadInvoices();
+    final clientInvoices = all
+        .where((inv) =>
+            inv.clientId == client.id ||
+            (inv.clientId == null && inv.clientName.trim().toLowerCase() == client.name.trim().toLowerCase()))
+        .toList();
 
+    // Totals only add up invoices in the app currency; others are counted.
     double totalInvoiced = 0.0;
     double totalPaid = 0.0;
     double totalDue = 0.0;
-    final List<InvoiceModel> clientInvoices = [];
-
-    for (final row in invRows) {
-      final invoiceId = row['id'] as String;
-      final itemRows = await DbProvider.query(
-        DbProvider.tableLineItems,
-        where: 'invoice_id = ?',
-        whereArgs: [invoiceId],
-      );
-      final items = itemRows.map(LineItemModel.fromMap).toList();
-      final inv = InvoiceModel.fromMap(row, items: items);
-      clientInvoices.add(inv);
-
-      totalInvoiced += inv.grandTotal;
-      if (inv.status == InvoiceStatus.paid) {
-        totalPaid += inv.grandTotal;
-      } else if (inv.status == InvoiceStatus.partiallyPaid) {
-        totalPaid += inv.paidAmount;
-        totalDue += inv.balanceDue;
-      } else {
-        totalDue += inv.grandTotal;
+    var otherCurrencyCount = 0;
+    for (final inv in clientInvoices) {
+      if (inv.currency.toUpperCase() != homeCurrency.toUpperCase()) {
+        otherCurrencyCount++;
+        continue;
       }
+      totalInvoiced += inv.grandTotal;
+      final paid = inv.status == InvoiceStatus.paid ? inv.grandTotal : inv.paidAmount;
+      totalPaid += paid;
+      totalDue += (inv.grandTotal - paid).clamp(0, double.infinity);
     }
 
     if (!mounted) return;
@@ -550,9 +560,8 @@ class _ClientListScreenState extends State<ClientListScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDetailState) {
@@ -576,7 +585,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                     height: 4,
                     decoration: BoxDecoration(
                       color: AppColors.slate300,
-                      borderRadius: BorderRadius.circular(99),
+                      borderRadius: BorderRadius.circular(9999),
                     ),
                   ),
                 ),
@@ -590,9 +599,9 @@ class _ClientListScreenState extends State<ClientListScreen> {
                         backgroundColor: AppColors.primaryMuted,
                         child: Text(
                           initials.isEmpty ? 'CL' : initials,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.primary,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w600,
                             fontSize: 18,
                           ),
                         ),
@@ -604,9 +613,9 @@ class _ClientListScreenState extends State<ClientListScreen> {
                           children: [
                             Text(
                               client.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w600,
                                 color: AppColors.textPrimary,
                               ),
                             ),
@@ -614,7 +623,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 client.email!,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   color: AppColors.slate500,
                                 ),
@@ -624,7 +633,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                        icon: Icon(Icons.edit_outlined, color: AppColors.primary),
                         tooltip: 'Edit Client',
                         onPressed: () async {
                           Navigator.pop(ctx);
@@ -632,7 +641,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                         },
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                        icon: Icon(Icons.close_rounded, color: AppColors.slate400),
                         onPressed: () => Navigator.pop(ctx),
                       ),
                     ],
@@ -649,20 +658,20 @@ class _ClientListScreenState extends State<ClientListScreen> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: AppColors.primaryMuted,
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.3)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Total Invoiced', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                              Text('Total Invoiced', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
                               const SizedBox(height: 4),
                               Text(
                                 CurrencyFormatter.format(
                                   totalInvoiced,
                                   currencyCode: currencyProvider.currencyCode,
                                 ),
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.primaryDark),
                               ),
                             ],
                           ),
@@ -674,20 +683,20 @@ class _ClientListScreenState extends State<ClientListScreen> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: AppColors.statusPaidBg,
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: AppColors.statusPaid.withValues(alpha: 0.3)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Paid', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.statusPaid)),
+                              Text('Paid', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.statusPaid)),
                               const SizedBox(height: 4),
                               Text(
                                 CurrencyFormatter.format(
                                   totalPaid,
                                   currencyCode: currencyProvider.currencyCode,
                                 ),
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.statusPaid),
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.statusPaid),
                               ),
                             ],
                           ),
@@ -699,7 +708,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: totalDue > 0 ? AppColors.statusUnpaidBg : AppColors.slate100,
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: (totalDue > 0 ? AppColors.statusUnpaid : AppColors.slate300).withValues(alpha: 0.3)),
                           ),
                           child: Column(
@@ -721,7 +730,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                                 ),
                                 style: TextStyle(
                                   fontSize: 15,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w600,
                                   color: totalDue > 0 ? AppColors.statusUnpaid : AppColors.slate700,
                                 ),
                               ),
@@ -732,6 +741,14 @@ class _ClientListScreenState extends State<ClientListScreen> {
                     ],
                   ),
                 ),
+                if (otherCurrencyCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    child: Text(
+                      'Totals are for $homeCurrency invoices only; $otherCurrencyCount in other currencies are not included.',
+                      style: TextStyle(fontSize: 11.5, color: AppColors.slate500),
+                    ),
+                  ),
                 const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -740,12 +757,14 @@ class _ClientListScreenState extends State<ClientListScreen> {
                     children: [
                       Text(
                         'Invoices (${clientInvoices.length})',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                       ),
                       TextButton.icon(
-                        onPressed: () {
+                        onPressed: () async {
                           Navigator.pop(ctx);
-                          Navigator.push(
+                          if (!await FreeLimits.canCreateInvoice(context)) return;
+                          if (!mounted) return;
+                          await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => CreateInvoiceScreen(
@@ -755,7 +774,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                           ).then((_) => _loadClients());
                         },
                         icon: const Icon(Icons.add_rounded, size: 16),
-                        label: const Text('New Invoice', style: TextStyle(fontWeight: FontWeight.w700)),
+                        label: const Text('New Invoice', style: TextStyle(fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
@@ -763,7 +782,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                 const Divider(height: 1),
                 Expanded(
                   child: clientInvoices.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Padding(
                             padding: EdgeInsets.all(24),
                             child: Column(
@@ -808,17 +827,17 @@ class _ClientListScreenState extends State<ClientListScreen> {
                                         children: [
                                           Text(
                                             inv.invoiceNumber,
-                                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.textPrimary),
+                                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary),
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            inv.status.label,
+                                            inv.effectiveStatus.label,
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w600,
-                                              color: inv.status == InvoiceStatus.paid
+                                              color: inv.effectiveStatus == InvoiceStatus.paid
                                                   ? AppColors.statusPaid
-                                                  : inv.status == InvoiceStatus.overdue
+                                                  : inv.effectiveStatus == InvoiceStatus.overdue
                                                       ? AppColors.statusOverdue
                                                       : AppColors.statusUnpaid,
                                             ),
@@ -833,10 +852,10 @@ class _ClientListScreenState extends State<ClientListScreen> {
                                             ? inv.currency
                                             : currencyProvider.currencyCode,
                                       ),
-                                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.textPrimary),
+                                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary),
                                     ),
                                     const SizedBox(width: 6),
-                                    const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.slate400),
+                                    Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.slate400),
                                   ],
                                 ),
                               ),

@@ -154,7 +154,7 @@ class EstimateModel {
       expiryDate!.isBefore(DateTime.now());
 
   /// True when this estimate can be converted to an invoice.
-  bool get canConvert => status != EstimateStatus.converted;
+  bool get canConvert => status != EstimateStatus.converted && convertedInvoiceId == null;
 
   factory EstimateModel.fromMap(
     Map<String, dynamic> map, {

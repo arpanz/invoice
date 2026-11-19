@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../core/utils/number_text.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -14,13 +15,13 @@ import '../../../core/database/db_provider.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../../../shared_widgets/currency_picker_sheet.dart';
 import '../../invoices/models/invoice_customization_config.dart';
 import '../../invoices/models/pdf_theme.dart';
 import '../../invoices/widgets/invoice_customizer_studio_sheet.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../paywall/paywall_screen.dart';
-import '../../invoices/screens/invoice_history_screen.dart';
 import 'business_profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -76,12 +77,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: AppColors.canvas,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.ink),
+          icon: Icon(Icons.arrow_back_rounded, color: AppColors.ink),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -121,33 +122,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-            const Divider(height: 1, indent: 56, color: AppColors.hairline),
-            _buildGroupedTile(
-              icon: Icons.history_rounded,
-              iconBg: AppColors.surfaceCard,
-              iconColor: AppColors.ink,
-              title: 'Invoice History',
-              subtitle: 'View all past invoices',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const InvoiceHistoryScreen(),
-                ),
-              ),
-            ),
           ]),
           const SizedBox(height: 20),
 
-          _buildSectionHeader('Data & Backup'),
+          _buildSectionHeader('Your Data'),
           _buildCardGroup([
             _buildGroupedTile(
               icon: Icons.cloud_download_rounded,
               iconBg: AppColors.surfaceCard,
               iconColor: AppColors.ink,
-              title: 'Export Workspace Backup',
-              subtitle: 'Save complete JSON backup of invoices & data',
+              title: 'Export Data (JSON)',
+              subtitle: 'A copy of your records to keep or open elsewhere. It can\'t be restored into the app yet.',
               onTap: _exportBackupJson,
-              trailing: const Icon(
+              trailing: Icon(
                 Icons.share_outlined,
                 size: 18,
                 color: AppColors.ink,
@@ -159,10 +146,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSectionHeader('Preferences'),
           _buildCardGroup([
             _buildCurrencyTile(currencyProvider.selectedCurrency),
-            const Divider(height: 1, indent: 56, color: AppColors.hairline),
+            Divider(height: 1, indent: 56, color: AppColors.hairline),
             _buildTaxRateTile(currencyProvider),
-            const Divider(height: 1, indent: 56, color: AppColors.hairline),
+            Divider(height: 1, indent: 56, color: AppColors.hairline),
             _buildPdfThemeTile(),
+            Divider(height: 1, indent: 56, color: AppColors.hairline),
+            _buildAppearanceTile(),
           ]),
           const SizedBox(height: 20),
 
@@ -176,7 +165,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: 'Leave a rating for Invoice Maker Pro',
               onTap: () => AppReviewService.instance.openRatingFlow(),
             ),
-            const Divider(height: 1, indent: 56, color: AppColors.hairline),
+            Divider(height: 1, indent: 56, color: AppColors.hairline),
             _buildGroupedTile(
               icon: Icons.help_outline_rounded,
               iconBg: AppColors.surfaceCard,
@@ -185,7 +174,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: 'Quick tips and walkthrough',
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                MaterialPageRoute(builder: (_) => const OnboardingScreen(isReplay: true)),
               ),
             ),
           ]),
@@ -212,7 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF262626)),
+        border: Border.all(color: AppColors.proBadgeBorder),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -222,8 +211,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFF222222),
-                borderRadius: BorderRadius.circular(10),
+                color: AppColors.surfaceDarkElevated,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
                 Icons.star_rounded,
@@ -261,8 +250,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 MaterialPageRoute(builder: (_) => const PaywallScreen()),
               ),
               style: ElevatedButton.styleFrom(
+                // The card stays dark in both themes.
                 backgroundColor: Colors.white,
-                foregroundColor: AppColors.ink,
+                foregroundColor: const Color(0xFF111111),
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -285,7 +275,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.verified_rounded,
             color: AppColors.statusPaid,
             size: 24,
@@ -356,26 +346,96 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         title: Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: AppColors.textPrimary,
             letterSpacing: -0.2,
           ),
         ),
         subtitle: Text(
           subtitle,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
         trailing:
             trailing ??
             (onTap != null
-                ? const Icon(
+                ? Icon(
                     Icons.chevron_right_rounded,
                     color: AppColors.slate400,
                   )
                 : null),
         onTap: onTap,
+      ),
+    );
+  }
+
+  static const _themeModeLabels = {
+    ThemeMode.system: 'Same as device',
+    ThemeMode.light: 'Light',
+    ThemeMode.dark: 'Dark',
+  };
+
+  Widget _buildAppearanceTile() {
+    final mode = context.watch<ThemeController>().mode;
+    return _buildGroupedTile(
+      icon: AppColors.isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+      iconBg: AppColors.squirclePurple,
+      iconColor: AppColors.squirclePurpleIcon,
+      title: 'Appearance',
+      subtitle: _themeModeLabels[mode]!,
+      onTap: _showAppearancePicker,
+    );
+  }
+
+  void _showAppearancePicker() {
+    final controller = context.read<ThemeController>();
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  'Appearance',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+              RadioGroup<ThemeMode>(
+                groupValue: controller.mode,
+                onChanged: (m) {
+                  if (m == null) return;
+                  Navigator.pop(ctx);
+                  controller.setMode(m);
+                },
+                child: Column(
+                  children: [
+                    for (final entry in _themeModeLabels.entries)
+                      RadioListTile<ThemeMode>(
+                        value: entry.key,
+                        title: Text(
+                          entry.value,
+                          style: TextStyle(color: AppColors.ink),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -392,26 +452,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: AppColors.squircleGreen,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.currency_exchange_rounded,
             size: 20,
             color: AppColors.squircleGreenIcon,
           ),
         ),
-        title: const Text(
+        title: Text(
           'Default Currency',
           style: TextStyle(
             fontSize: 15,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: AppColors.textPrimary,
             letterSpacing: -0.2,
           ),
         ),
         subtitle: Text(
           '${selectedCurrency.symbol} ${selectedCurrency.code} • ${selectedCurrency.name}',
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
-        trailing: const Icon(
+        trailing: Icon(
           Icons.chevron_right_rounded,
           color: AppColors.slate400,
         ),
@@ -441,11 +501,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: _defaultTheme.previewPrimary,
           ),
         ),
-        title: const Text(
+        title: Text(
           'Default Design & Typography',
           style: TextStyle(
             fontSize: 15,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: AppColors.textPrimary,
             letterSpacing: -0.2,
           ),
@@ -454,7 +514,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           '${_defaultTheme.name} • ${_defaultConfig.fontFamily.displayName} • ${_defaultConfig.density.displayName}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -472,12 +532,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _defaultTheme.name,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: _defaultTheme.previewPrimary,
                 ),
               ),
               const SizedBox(width: 4),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
                 size: 16,
                 color: AppColors.slate400,
@@ -489,7 +549,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           final updated = await InvoiceCustomizerStudioSheet.show(
             context,
             initialConfig: _defaultConfig,
-            showSetAsDefault: true,
+            // Everything saved here is the default, so the checkbox would
+            // only mislead.
+            showSetAsDefault: false,
             title: 'Default Invoice Design Studio',
           );
           if (updated != null && mounted) {
@@ -530,7 +592,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: AppColors.surfaceCard,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.percent_rounded,
             size: 18,
             color: AppColors.ink,
@@ -565,7 +627,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _showTaxRateEditor() async {
     final currencyProvider = context.read<CurrencyProvider>();
     final currentRate = currencyProvider.defaultTax.rate;
-    final controller = TextEditingController(text: currentRate.toString());
+    final controller = TextEditingController(text: NumberText.trim(currentRate));
     final formKey = GlobalKey<FormState>();
 
     final action = await showModalBottomSheet<String>(
@@ -575,9 +637,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.canvas,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
           ),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           child: Column(
@@ -631,7 +693,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               label: Text(
                                 rate == 0
                                     ? '0%'
-                                    : '${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1)}%',
+                                    : '${NumberText.trim(rate)}%',
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -649,9 +711,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                               onPressed: () {
                                 setSheetState(() {
-                                  controller.text = rate.toStringAsFixed(
-                                    rate % 1 == 0 ? 0 : 1,
-                                  );
+                                  controller.text = NumberText.trim(rate);
                                 });
                               },
                             );
@@ -691,7 +751,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onPressed: () => Navigator.pop(ctx, 'reset'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.error,
-                          side: const BorderSide(color: AppColors.hairline),
+                          side: BorderSide(color: AppColors.hairline),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -706,7 +766,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onPressed: () => Navigator.pop(ctx),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.ink,
-                        side: const BorderSide(color: AppColors.hairline),
+                        side: BorderSide(color: AppColors.hairline),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -761,35 +821,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final lineItems = await DbProvider.query(DbProvider.tableLineItems);
       final clients = await DbProvider.query(DbProvider.tableClients);
       final estimates = await DbProvider.query(DbProvider.tableEstimates);
+      final estimateLines = await DbProvider.query(DbProvider.tableEstimateLineItems);
+      final payments = await DbProvider.query(DbProvider.tablePayments);
       final items = await DbProvider.query(DbProvider.tableSavedItems);
+      final prefs = await SharedPreferences.getInstance();
+      final profile = {
+        for (final key in prefs.getKeys().where((k) => k.startsWith('biz_') || k.startsWith('default_')))
+          key: prefs.get(key),
+      };
 
       final data = {
         'app': 'Invoice Maker Pro',
-        'version': 1,
+        'version': 3,
+        'note': 'Logo and signature images are not included.',
+        'business_profile': profile,
         'exported_at': DateTime.now().toIso8601String(),
         'invoices': invoices,
         'line_items': lineItems,
         'clients': clients,
         'estimates': estimates,
+        'estimate_line_items': estimateLines,
+        'payments': payments,
         'saved_items': items,
       };
 
       final jsonString = const JsonEncoder.withIndent('  ').convert(data);
       final tempDir = await getTemporaryDirectory();
       final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final file = File('${tempDir.path}/invoice_maker_pro_backup_$dateStr.json');
+      final file = File('${tempDir.path}/invoice_maker_pro_export_$dateStr.json');
       await file.writeAsString(jsonString);
 
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path)],
-          text: 'Invoice Maker Pro Data Backup ($dateStr)',
+          text: 'Invoice Maker Pro data export ($dateStr)',
         ),
       );
     } catch (e) {
+      debugPrint('Settings action failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to export backup: $e')),
+          const SnackBar(content: Text('Could not export your data. Please try again.')),
         );
       }
     }

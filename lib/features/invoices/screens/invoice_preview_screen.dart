@@ -4,23 +4,23 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/app/app_review_service.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
-import '../../../core/utils/pdf_helper.dart';
 import '../../paywall/paywall_screen.dart';
 import '../models/invoice_customization_config.dart';
 import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
 import '../models/pdf_theme.dart';
+import '../services/invoice_actions.dart';
+import '../widgets/payments_sheet.dart';
+import '../services/invoice_render_service.dart';
 import '../services/pdf_generator_service.dart';
+import '../../../core/billing/free_limits.dart';
+import 'package:uuid/uuid.dart';
 import '../widgets/invoice_customizer_studio_sheet.dart';
 import 'create_invoice_screen.dart';
-import '../../../shared_widgets/app_dialog.dart';
 
 class InvoicePreviewScreen extends StatefulWidget {
   final InvoiceModel invoice;
@@ -36,7 +36,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   Uint8List? _pdfBytes;
   List<MemoryImage>? _rasterPages;
   bool _isLoading = true;
-  bool _isSent = false;
+  bool get _isSent => _invoice.sentAt != null;
   final TransformationController _zoomController = TransformationController();
   bool _isZoomed = false;
   TapDownDetails? _doubleTapDetails;
@@ -49,7 +49,6 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   void initState() {
     super.initState();
     _invoice = widget.invoice;
-    _checkSentStatus();
     _loadThemeAndRender();
   }
 
@@ -59,62 +58,20 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     super.dispose();
   }
 
-  Future<void> _checkSentStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final sent = prefs.getBool('invoice_sent_${_invoice.id}') ?? false;
-    if (mounted) {
-      setState(() => _isSent = sent);
-    }
-  }
-
   Future<void> _markSentStatus(bool sent) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('invoice_sent_${_invoice.id}', sent);
+    final sentAt = await InvoiceActions.setSent(_invoice.id, sent);
     if (mounted) {
-      setState(() => _isSent = sent);
+      setState(() {
+        _invoice = sentAt != null ? _invoice.copyWith(sentAt: sentAt) : _invoice.copyWith(clearSentAt: true);
+      });
     }
   }
 
-  Future<BusinessProfile> _getBusinessProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    return BusinessProfile(
-      businessName: prefs.getString('biz_name') ?? 'My Business',
-      address: prefs.getString('biz_address'),
-      phone: prefs.getString('biz_phone'),
-      email: prefs.getString('biz_email'),
-      gstin: prefs.getString('biz_gstin'),
-      bankName: prefs.getString('biz_bank_name'),
-      accountNumber: prefs.getString('biz_account'),
-      ifscCode: prefs.getString('biz_ifsc'),
-      upiId: prefs.getString('biz_upi'),
-      logoPath: prefs.getString('biz_logo_path'),
-      signaturePath: prefs.getString('biz_signature_path'),
-      currency: _invoice.currency,
-    );
-  }
+  Future<BusinessProfile> _getBusinessProfile() => InvoiceRenderService.profileFor(_invoice);
 
   Future<void> _loadThemeAndRender() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedConfigJson =
-        prefs.getString('invoice_customization_${_invoice.id}') ??
-        prefs.getString('default_invoice_customization');
-    if (savedConfigJson != null) {
-      final parsed = InvoiceCustomizationConfig.tryFromJsonString(
-        savedConfigJson,
-      );
-      if (parsed != null) {
-        _customConfig = parsed;
-        _currentTheme = parsed.toPdfTheme();
-      }
-    } else {
-      final savedThemeId =
-          prefs.getString('invoice_theme_${_invoice.id}') ??
-          prefs.getString('default_pdf_theme');
-      if (savedThemeId != null) {
-        _currentTheme = PdfTheme.fromId(savedThemeId);
-        _customConfig = InvoiceCustomizationConfig.fromTheme(_currentTheme);
-      }
-    }
+    _customConfig = await InvoiceRenderService.designForInvoice(_invoice.id);
+    _currentTheme = _customConfig.toPdfTheme();
     await _generateAndRasterizePdf();
   }
 
@@ -130,15 +87,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       title: 'Invoice Design Studio',
     );
     if (updated != null && mounted) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        'invoice_customization_${_invoice.id}',
-        updated.toJsonString(),
-      );
-      await prefs.setString(
-        'invoice_theme_${_invoice.id}',
-        updated.themeId.value,
-      );
+      await InvoiceRenderService.saveDesignForInvoice(_invoice.id, updated);
+      if (!mounted) return;
       setState(() {
         _customConfig = updated;
         _currentTheme = updated.toPdfTheme();
@@ -151,12 +101,10 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     setState(() => _isLoading = true);
     try {
       final isPro = context.read<BillingService>().isPro;
-      final profile = await _getBusinessProfile();
-      final bytes = await PdfGeneratorService.generateInvoicePdf(
-        invoice: _invoice,
-        businessProfile: profile,
+      final bytes = await InvoiceRenderService.renderInvoice(
+        _invoice,
         isPro: isPro,
-        customizationConfig: _customConfig,
+        design: _customConfig,
       );
 
       final images = <MemoryImage>[];
@@ -173,11 +121,12 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         });
       }
     } catch (e) {
+      debugPrint('Render preview failed: $e');
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error rendering preview: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not show the preview. Please try again.')),
+        );
       }
     }
   }
@@ -202,70 +151,26 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     }
   }
 
-  Future<void> _updateStatus(
-    InvoiceStatus newStatus, {
-    double? paidAmount,
-  }) async {
-    final updateData = <String, dynamic>{
-      'status': newStatus.value,
-      'updated_at': DateTime.now().millisecondsSinceEpoch,
-    };
-    double finalPaidAmount = _invoice.paidAmount;
-    if (paidAmount != null) {
-      finalPaidAmount = paidAmount;
-      updateData['paid_amount'] = paidAmount;
-    } else if (newStatus == InvoiceStatus.paid) {
-      finalPaidAmount = _invoice.grandTotal;
-      updateData['paid_amount'] = _invoice.grandTotal;
-    } else if (newStatus == InvoiceStatus.unpaid) {
-      finalPaidAmount = 0.0;
-      updateData['paid_amount'] = 0.0;
-    }
-
-    await DbProvider.update(DbProvider.tableInvoices, updateData, 'id = ?', [
-      _invoice.id,
-    ]);
-    _invoice = _invoice.copyWith(
-      status: newStatus,
-      paidAmount: finalPaidAmount,
-      updatedAt: DateTime.now(),
-    );
-    setState(() {});
-    await _generateAndRasterizePdf();
+  /// Changes the payment state through payments (see InvoiceActions).
+  Future<void> _updateStatus(InvoiceStatus target) async {
+    final changed = await InvoiceActions.changePaymentStatus(context, _invoice, target);
+    if (changed && mounted) await _refreshInvoiceFromDb();
   }
 
-  Future<void> _promptPartialPayment() async {
-    final currencySymbol = CurrencyFormatter.getCurrencySymbol(
-      _invoice.currency,
-    );
-    final amount = await AppDialog.showPartialPayment(
-      context: context,
-      documentNumber: _invoice.invoiceNumber,
-      grandTotal: _invoice.grandTotal,
-      currencySymbol: currencySymbol,
-      currentPaidAmount: _invoice.paidAmount,
-    );
-
-    if (amount == null) return;
-
-    if (amount >= _invoice.grandTotal && _invoice.grandTotal > 0) {
-      _updateStatus(InvoiceStatus.paid, paidAmount: _invoice.grandTotal);
-    } else if (amount <= 0) {
-      _updateStatus(InvoiceStatus.unpaid, paidAmount: 0.0);
-    } else {
-      _updateStatus(InvoiceStatus.partiallyPaid, paidAmount: amount);
-    }
+  Future<void> _openPayments() async {
+    final changed = await PaymentsSheet.show(context, _invoice);
+    if (changed && mounted) await _refreshInvoiceFromDb();
   }
 
   void _showStatusPicker() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -275,7 +180,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(99),
+                  borderRadius: BorderRadius.circular(9999),
                 ),
               ),
               const SizedBox(height: 18),
@@ -285,18 +190,18 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Change Invoice Status',
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Invoice ${_invoice.invoiceNumber}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: AppColors.slate500,
@@ -305,7 +210,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       color: AppColors.slate400,
                     ),
@@ -317,7 +222,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               _buildStatusOption(
                 InvoiceStatus.unpaid,
                 'Unpaid',
-                'Awaiting payment from client',
+                'Deletes recorded payments',
                 Icons.pending_actions_rounded,
                 AppColors.statusUnpaid,
                 AppColors.statusUnpaidBg,
@@ -325,8 +230,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               const SizedBox(height: 8),
               _buildStatusOption(
                 InvoiceStatus.partiallyPaid,
-                'Partially Paid',
-                'Record a deposit or partial amount',
+                'Record a payment',
+                'Add a deposit or part payment',
                 Icons.pie_chart_outline_rounded,
                 AppColors.statusPartiallyPaid,
                 AppColors.statusPartiallyPaidBg,
@@ -340,15 +245,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 AppColors.statusPaid,
                 AppColors.statusPaidBg,
               ),
-              const SizedBox(height: 8),
-              _buildStatusOption(
-                InvoiceStatus.overdue,
-                'Overdue',
-                'Past payment due date',
-                Icons.alarm_off_rounded,
-                AppColors.statusOverdue,
-                AppColors.statusOverdueBg,
-              ),
+
             ],
           ),
         ),
@@ -369,11 +266,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       borderRadius: BorderRadius.circular(16),
       onTap: () {
         Navigator.pop(context);
-        if (status == InvoiceStatus.partiallyPaid) {
-          _promptPartialPayment();
-        } else {
-          _updateStatus(status);
-        }
+        _updateStatus(status);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -405,7 +298,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     label,
                     style: TextStyle(
                       fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: isSelected
                           ? AppColors.primary
                           : AppColors.textPrimary,
@@ -414,7 +307,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.slate500,
                     ),
@@ -423,7 +316,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               ),
             ),
             if (isSelected)
-              const Icon(
+              Icon(
                 Icons.check_circle_rounded,
                 color: AppColors.primary,
                 size: 22,
@@ -436,56 +329,13 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
 
   Future<void> _sendInvoice() async {
     if (_pdfBytes == null) return;
-    try {
-      final path = await PdfGeneratorService.saveAndGetPath(
-        _pdfBytes!,
-        _invoice.invoiceNumber,
-      );
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(path)],
-          text: 'Invoice ${_invoice.invoiceNumber} for ${_invoice.clientName}',
-        ),
-      );
-      await _markSentStatus(true);
-      await AppReviewService.instance.registerSignificantAction();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to send invoice: $e')));
-      }
-    }
+    final updated = await InvoiceActions.share(context, _invoice, pdfBytes: _pdfBytes);
+    if (updated != null && mounted) setState(() => _invoice = updated);
   }
 
   Future<void> _downloadPdf() async {
     if (_pdfBytes == null) return;
-    try {
-      final path = await PdfGeneratorService.saveAndGetPath(
-        _pdfBytes!,
-        _invoice.invoiceNumber,
-      );
-      await AppReviewService.instance.registerSignificantAction();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.slate900,
-          behavior: SnackBarBehavior.floating,
-          content: Text('Invoice saved successfully to $path'),
-          action: SnackBarAction(
-            label: 'View',
-            textColor: AppColors.electricAccent,
-            onPressed: () {},
-          ),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save invoice: $e')));
-      }
-    }
+    await InvoiceActions.saveToDevice(context, _invoice, pdfBytes: _pdfBytes);
   }
 
   Future<void> _printPdf() async {
@@ -511,12 +361,12 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   void _showMoreActions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -526,23 +376,23 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(99),
+                  borderRadius: BorderRadius.circular(9999),
                 ),
               ),
               const SizedBox(height: 18),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'More Actions',
                     style: TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       color: AppColors.slate400,
                     ),
@@ -575,7 +425,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     _currentTheme.name,
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: _currentTheme.previewPrimary,
                     ),
                   ),
@@ -611,7 +461,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 title: _invoice.status == InvoiceStatus.paid
                     ? 'Mark as Unpaid'
                     : 'Mark as Paid',
-                subtitle: 'Toggle current payment state',
+                subtitle: _invoice.status == InvoiceStatus.paid
+                    ? 'Deletes the recorded payments'
+                    : 'Records a payment for the balance',
                 onTap: () {
                   Navigator.pop(ctx);
                   _updateStatus(
@@ -619,6 +471,18 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                         ? InvoiceStatus.unpaid
                         : InvoiceStatus.paid,
                   );
+                },
+              ),
+              const SizedBox(height: 8),
+              _buildActionTile(
+                icon: Icons.payments_outlined,
+                iconColor: AppColors.squircleGreenIcon,
+                bgColor: AppColors.squircleGreen,
+                title: 'Payments',
+                subtitle: 'See, record or delete payments',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openPayments();
                 },
               ),
               const SizedBox(height: 8),
@@ -637,7 +501,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               _buildActionTile(
                 icon: Icons.delete_outline_rounded,
                 iconColor: AppColors.accentRed,
-                bgColor: const Color(0xFFFEE2E2),
+                bgColor: AppColors.statusOverdueBg,
                 title: 'Delete Invoice',
                 subtitle: 'Permanently remove this invoice',
                 isDestructive: true,
@@ -696,7 +560,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     title,
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: isDestructive
                           ? AppColors.accentRed
                           : AppColors.textPrimary,
@@ -705,7 +569,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
                       color: AppColors.slate500,
                     ),
@@ -721,52 +585,36 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   }
 
   Future<void> _duplicateInvoice() async {
-    final newInvNumber =
-        'INV${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-    final duplicate = _invoice.copyWith(
-      id: 'inv-${DateTime.now().millisecondsSinceEpoch}',
-      invoiceNumber: newInvNumber,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      status: InvoiceStatus.unpaid,
-    );
-
-    await DbProvider.insert(DbProvider.tableInvoices, duplicate.toMap());
-    for (final item in duplicate.lineItems) {
-      await DbProvider.insert(DbProvider.tableLineItems, {
-        'id': 'li-${DateTime.now().microsecondsSinceEpoch}',
-        'invoice_id': duplicate.id,
-        'description': item.description,
-        'quantity': item.quantity,
-        'unit_price': item.unitPrice,
-        'total': item.total,
-        'sort_order': item.sortOrder,
-      });
+    if (!await FreeLimits.canCreateInvoice(context)) return;
+    try {
+      final copy = await DbProvider.duplicateInvoice(
+        _invoice,
+        newInvoiceId: const Uuid().v4(),
+        newLineId: () => const Uuid().v4(),
+      );
+      // The copy keeps this invoice's design.
+      await InvoiceRenderService.saveDesignForInvoice(copy.id, _customConfig);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Duplicated as ${copy.invoiceNumber}, dated today and unpaid')),
+      );
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => InvoicePreviewScreen(invoice: copy)),
+      );
+    } catch (e) {
+      debugPrint('Duplicate invoice failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not duplicate the invoice. Please try again.')),
+        );
+      }
     }
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Duplicated as $newInvNumber')));
-    Navigator.pop(context, true);
   }
 
   Future<void> _confirmDelete() async {
-    final confirm = await AppDialog.showDelete(
-      context: context,
-      title: 'Delete Invoice?',
-      message:
-          'Are you sure you want to delete ${_invoice.invoiceNumber}? This action cannot be undone.',
-    );
-
-    if (confirm == true) {
-      await DbProvider.delete(DbProvider.tableInvoices, 'id = ?', [
-        _invoice.id,
-      ]);
-      await PdfHelper.deletePdf(_invoice.invoiceNumber);
-      if (mounted) {
-        Navigator.pop(context, true);
-      }
+    if (await InvoiceActions.confirmAndDelete(context, _invoice) && mounted) {
+      Navigator.pop(context, true);
     }
   }
 
@@ -818,12 +666,12 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         backgroundColor: AppColors.canvas,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
         ),
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 18,
             color: AppColors.ink,
@@ -842,7 +690,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.palette_outlined,
               color: AppColors.ink,
               size: 20,
@@ -852,7 +700,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
           ),
           if (!isPro)
             IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.workspace_premium_rounded,
                 color: AppColors.proGold,
                 size: 20,
@@ -863,7 +711,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.share_outlined,
               color: AppColors.ink,
               size: 20,
@@ -882,7 +730,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 Container(
                   color: AppColors.surfaceSoft,
                   child: _isLoading
-                      ? const Center(
+                      ? Center(
                           child: CircularProgressIndicator(
                             color: AppColors.primary,
                           ),
@@ -1003,7 +851,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             ),
                           ),
                           const SizedBox(width: 2),
-                          const Icon(
+                          Icon(
                             Icons.keyboard_arrow_down_rounded,
                             size: 14,
                             color: AppColors.muted,
@@ -1052,10 +900,10 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
             duration: const Duration(milliseconds: 260),
             curve: Curves.easeInOutCubic,
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.canvas,
               borderRadius: BorderRadius.vertical(
-                top: Radius.circular(20),
+                top: Radius.circular(16),
               ),
               border: Border(top: BorderSide(color: AppColors.hairline)),
               boxShadow: [
@@ -1132,11 +980,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                           icon: Container(
                             width: 38,
                             height: 38,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: AppColors.primary,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.send_rounded, color: Colors.white, size: 16),
+                            child: Icon(Icons.send_rounded, color: AppColors.onPrimary, size: 16),
                           ),
                         ),
                         IconButton(
@@ -1144,7 +992,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             HapticFeedback.selectionClick();
                             setState(() => _isBottomPanelCollapsed = false);
                           },
-                          icon: const Icon(Icons.keyboard_arrow_up_rounded, color: AppColors.muted),
+                          icon: Icon(Icons.keyboard_arrow_up_rounded, color: AppColors.muted),
                           tooltip: 'Expand details',
                         ),
                       ],
@@ -1170,23 +1018,23 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: _invoice.status == InvoiceStatus.paid
+                              color: _invoice.effectiveStatus == InvoiceStatus.paid
                                   ? AppColors.statusPaidBg
-                                  : _invoice.status == InvoiceStatus.partiallyPaid
+                                  : _invoice.effectiveStatus == InvoiceStatus.partiallyPaid
                                   ? AppColors.statusPartiallyPaidBg
-                                  : _invoice.status == InvoiceStatus.overdue
+                                  : _invoice.effectiveStatus == InvoiceStatus.overdue
                                   ? AppColors.statusOverdueBg
                                   : AppColors.surfaceCard,
                               borderRadius: BorderRadius.circular(9999), // pill
                               border: Border.all(
-                                color: _invoice.status == InvoiceStatus.paid
+                                color: _invoice.effectiveStatus == InvoiceStatus.paid
                                     ? AppColors.statusPaid.withValues(alpha: 0.2)
-                                    : _invoice.status ==
+                                    : _invoice.effectiveStatus ==
                                           InvoiceStatus.partiallyPaid
                                     ? AppColors.statusPartiallyPaid.withValues(
                                         alpha: 0.2,
                                       )
-                                    : _invoice.status == InvoiceStatus.overdue
+                                    : _invoice.effectiveStatus == InvoiceStatus.overdue
                                     ? AppColors.statusOverdue.withValues(
                                         alpha: 0.2,
                                       )
@@ -1198,16 +1046,16 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  _invoice.status.label,
+                                  _invoice.effectiveStatus.label,
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: _invoice.status == InvoiceStatus.paid
+                                    color: _invoice.effectiveStatus == InvoiceStatus.paid
                                         ? AppColors.statusPaid
-                                        : _invoice.status ==
+                                        : _invoice.effectiveStatus ==
                                               InvoiceStatus.partiallyPaid
                                         ? AppColors.statusPartiallyPaid
-                                        : _invoice.status == InvoiceStatus.overdue
+                                        : _invoice.effectiveStatus == InvoiceStatus.overdue
                                         ? AppColors.statusOverdue
                                         : AppColors.ink,
                                   ),
@@ -1216,12 +1064,12 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                 Icon(
                                   Icons.keyboard_arrow_down_rounded,
                                   size: 14,
-                                  color: _invoice.status == InvoiceStatus.paid
+                                  color: _invoice.effectiveStatus == InvoiceStatus.paid
                                       ? AppColors.statusPaid
-                                      : _invoice.status ==
+                                      : _invoice.effectiveStatus ==
                                             InvoiceStatus.partiallyPaid
                                       ? AppColors.statusPartiallyPaid
-                                      : _invoice.status == InvoiceStatus.overdue
+                                      : _invoice.effectiveStatus == InvoiceStatus.overdue
                                       ? AppColors.statusOverdue
                                       : AppColors.muted,
                                 ),
@@ -1251,26 +1099,33 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             letterSpacing: -0.6,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _isSent
-                                ? AppColors.statusPaidBg
-                                : AppColors.surfaceCard,
-                            borderRadius: BorderRadius.circular(9999), // pill
-                            border: Border.all(color: AppColors.hairline),
-                          ),
-                          child: Text(
-                            _isSent ? 'Sent' : 'Not sent',
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: _isSent
-                                  ? AppColors.statusPaid
-                                  : AppColors.muted,
+                        Tooltip(
+                          message: _isSent ? 'Tap to mark as not sent' : 'Tap to mark as sent',
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(9999),
+                            onTap: () => _markSentStatus(!_isSent),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _isSent
+                                    ? AppColors.statusPaidBg
+                                    : AppColors.surfaceCard,
+                                borderRadius: BorderRadius.circular(9999), // pill
+                                border: Border.all(color: AppColors.hairline),
+                              ),
+                              child: Text(
+                                _isSent ? 'Sent' : 'Not sent',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: _isSent
+                                      ? AppColors.statusPaid
+                                      : AppColors.muted,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -1321,7 +1176,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                       height: 48,
                       child: ElevatedButton.icon(
                         onPressed: _sendInvoice,
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.send_rounded,
                           size: 18,
                           color: AppColors.onPrimary,
@@ -1368,7 +1223,6 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                         _buildActionButton(
                           icon: Icons.more_horiz_rounded,
                           label: 'More',
-                          hasBadge: true,
                           onTap: _showMoreActions,
                         ),
                       ],
@@ -1418,7 +1272,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                   child: Container(
                     width: 8,
                     height: 8,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.error,
                       shape: BoxShape.circle,
                     ),

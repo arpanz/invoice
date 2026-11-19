@@ -6,14 +6,14 @@ import '../core/theme/app_colors.dart';
 class DoodleArrow extends StatelessWidget {
   final double width;
   final double height;
-  final Color color;
+  final Color? color;
   final double strokeWidth;
 
   const DoodleArrow({
     super.key,
     this.width = 44,
     this.height = 70,
-    this.color = AppColors.accentCyan,
+    this.color,
     this.strokeWidth = 2.2,
   });
 
@@ -22,7 +22,7 @@ class DoodleArrow extends StatelessWidget {
     return CustomPaint(
       size: Size(width, height),
       painter: _DoodleArrowPainter(
-        color: color,
+        color: color ?? AppColors.accentCyan,
         strokeWidth: strokeWidth,
       ),
     );

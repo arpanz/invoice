@@ -179,8 +179,9 @@ void main() {
           home: Scaffold(
             body: PdfThemePickerSheet(
               currentTheme: PdfTheme.classicBlue,
-              onThemeSelected: (theme, setAsDefault) {
-                selectedResult = theme;
+              onThemeSelected: (choice, setAsDefault) {
+                selectedResult = choice.theme;
+                expect(choice.customConfig, isNull); // a plain template
                 defaultSaved = setAsDefault;
               },
             ),

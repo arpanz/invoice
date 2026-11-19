@@ -1,10 +1,10 @@
 import 'dart:async';
+import '../../invoices/services/invoice_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
@@ -12,16 +12,11 @@ import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
-import '../../../core/utils/pdf_helper.dart';
 import '../../invoices/models/invoice_model.dart';
-import '../../invoices/models/line_item_model.dart';
-import '../../invoices/models/pdf_theme.dart';
 import '../../invoices/screens/create_invoice_screen.dart';
 import '../../invoices/screens/invoice_preview_screen.dart';
-import '../../invoices/services/pdf_generator_service.dart';
 import '../../paywall/paywall_screen.dart';
 import '../../settings/screens/settings_screen.dart';
-import '../../../shared_widgets/app_dialog.dart';
 import '../../../shared_widgets/app_popup_menu.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -41,6 +36,7 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   double _totalPaid = 0.0;
   double _totalUnpaid = 0.0;
+  Map<String, int> _otherCurrencyCounts = const {};
   String _currency = 'INR';
   bool _hasProfileAlert = false;
 
@@ -68,34 +64,27 @@ class DashboardScreenState extends State<DashboardScreen> {
     final bizName = prefs.getString('biz_name');
     final hasIncompleteProfile = bizName == null || bizName.trim().isEmpty || bizName == 'My Business';
 
-    final rows = await DbProvider.query(
-      DbProvider.tableInvoices,
-      orderBy: 'invoice_date DESC',
-    );
+    final all = await DbProvider.loadInvoices();
 
     final List<InvoiceModel> loaded = [];
     double paidSum = 0.0;
     double unpaidSum = 0.0;
+    final otherCurrencies = <String, int>{};
 
-    for (final row in rows) {
-      final invoiceId = row['id'] as String;
-      final itemRows = await DbProvider.query(
-        DbProvider.tableLineItems,
-        where: 'invoice_id = ?',
-        whereArgs: [invoiceId],
-        orderBy: 'sort_order ASC',
-      );
-      final items = itemRows.map(LineItemModel.fromMap).toList();
-      final inv = InvoiceModel.fromMap(row, items: items);
+    for (final inv in all) {
       loaded.add(inv);
 
+      // Amounts in different currencies can't be added up: the summary
+      // counts the home currency and notes the rest.
+      if (inv.currency.toUpperCase() != _currency.toUpperCase()) {
+        otherCurrencies[inv.currency] = (otherCurrencies[inv.currency] ?? 0) + 1;
+        continue;
+      }
       if (inv.status == InvoiceStatus.paid) {
         paidSum += inv.grandTotal;
-      } else if (inv.status == InvoiceStatus.partiallyPaid) {
+      } else {
         paidSum += inv.paidAmount;
         unpaidSum += inv.balanceDue;
-      } else {
-        unpaidSum += inv.grandTotal;
       }
     }
 
@@ -104,6 +93,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         _allInvoices = loaded;
         _totalPaid = paidSum;
         _totalUnpaid = unpaidSum;
+        _otherCurrencyCounts = otherCurrencies;
         _hasProfileAlert = hasIncompleteProfile;
         _isLoading = false;
       });
@@ -122,10 +112,10 @@ class DashboardScreenState extends State<DashboardScreen> {
 
       // Status chip filter
       if (_selectedFilter == 'all') return true;
-      if (_selectedFilter == 'unpaid') return inv.status == InvoiceStatus.unpaid;
-      if (_selectedFilter == 'partially_paid') return inv.status == InvoiceStatus.partiallyPaid;
-      if (_selectedFilter == 'overdue') return inv.status == InvoiceStatus.overdue;
-      if (_selectedFilter == 'paid') return inv.status == InvoiceStatus.paid;
+      if (_selectedFilter == 'unpaid') return inv.effectiveStatus == InvoiceStatus.unpaid;
+      if (_selectedFilter == 'partially_paid') return inv.effectiveStatus == InvoiceStatus.partiallyPaid;
+      if (_selectedFilter == 'overdue') return inv.effectiveStatus == InvoiceStatus.overdue;
+      if (_selectedFilter == 'paid') return inv.effectiveStatus == InvoiceStatus.paid;
       return true;
     }).toList();
   }
@@ -141,7 +131,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Color _getAvatarColor(String name) {
-    const colors = [
+    final colors = [
       AppColors.badgeOrange,
       AppColors.badgePink,
       AppColors.badgeViolet,
@@ -175,29 +165,10 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _quickUpdateStatus(
-    InvoiceModel invoice,
-    InvoiceStatus status, {
-    double? paidAmount,
-  }) async {
-    final updateData = <String, dynamic>{
-      'status': status.value,
-      'updated_at': DateTime.now().millisecondsSinceEpoch,
-    };
-    if (paidAmount != null) {
-      updateData['paid_amount'] = paidAmount;
-    } else if (status == InvoiceStatus.paid) {
-      updateData['paid_amount'] = invoice.grandTotal;
-    } else if (status == InvoiceStatus.unpaid) {
-      updateData['paid_amount'] = 0.0;
-    }
-
-    await DbProvider.update(
-      DbProvider.tableInvoices,
-      updateData,
-      'id = ?',
-      [invoice.id],
-    );
+  /// Changes the payment state through payments (see InvoiceActions).
+  Future<void> _quickUpdateStatus(InvoiceModel invoice, InvoiceStatus status) async {
+    final changed = await InvoiceActions.changePaymentStatus(context, invoice, status);
+    if (!changed) return;
     if (status == InvoiceStatus.paid) {
       HapticFeedback.mediumImpact();
       if (mounted) {
@@ -209,12 +180,12 @@ class DashboardScreenState extends State<DashboardScreen> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             content: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: AppColors.statusPaid, size: 20),
+                Icon(Icons.check_circle_rounded, color: AppColors.statusPaid, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Invoice ${invoice.invoiceNumber} marked as Paid in Full',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.canvas),
                   ),
                 ),
               ],
@@ -226,47 +197,11 @@ class DashboardScreenState extends State<DashboardScreen> {
     await _loadData();
   }
 
-  Future<void> _promptPartialPayment(InvoiceModel invoice) async {
-    final currencySymbol = CurrencyFormatter.getCurrencySymbol(
-      invoice.currency.isNotEmpty ? invoice.currency : _currency,
-    );
-    final amount = await AppDialog.showPartialPayment(
-      context: context,
-      documentNumber: invoice.invoiceNumber,
-      grandTotal: invoice.grandTotal,
-      currencySymbol: currencySymbol,
-      currentPaidAmount: invoice.paidAmount,
-    );
-
-    if (amount == null) return;
-
-    if (amount >= invoice.grandTotal && invoice.grandTotal > 0) {
-      _quickUpdateStatus(
-        invoice,
-        InvoiceStatus.paid,
-        paidAmount: invoice.grandTotal,
-      );
-    } else if (amount <= 0) {
-      _quickUpdateStatus(
-        invoice,
-        InvoiceStatus.unpaid,
-        paidAmount: 0.0,
-      );
-    } else {
-      _quickUpdateStatus(
-        invoice,
-        InvoiceStatus.partiallyPaid,
-        paidAmount: amount,
-      );
-    }
-  }
-
   void _showQuickStatusPicker(InvoiceModel invoice) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.canvas,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -310,7 +245,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.muted, size: 20),
+                    icon: Icon(Icons.close_rounded, color: AppColors.muted, size: 20),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -319,7 +254,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               _buildStatusOptionTile(
                 ctx: ctx,
                 title: 'Unpaid',
-                subtitle: 'Awaiting payment from client',
+                subtitle: 'Deletes recorded payments',
                 icon: Icons.pending_actions_rounded,
                 iconColor: AppColors.statusUnpaid,
                 bgColor: AppColors.statusUnpaidBg,
@@ -332,15 +267,15 @@ class DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 8),
               _buildStatusOptionTile(
                 ctx: ctx,
-                title: 'Partially Paid',
-                subtitle: 'Record a deposit or partial amount',
+                title: 'Record a payment',
+                subtitle: 'Add a deposit or part payment',
                 icon: Icons.pie_chart_outline_rounded,
                 iconColor: AppColors.statusPartiallyPaid,
                 bgColor: AppColors.statusPartiallyPaidBg,
                 isSelected: invoice.status == InvoiceStatus.partiallyPaid,
                 onTap: () {
                   Navigator.pop(ctx);
-                  _promptPartialPayment(invoice);
+                  _quickUpdateStatus(invoice, InvoiceStatus.partiallyPaid);
                 },
               ),
               const SizedBox(height: 8),
@@ -355,20 +290,6 @@ class DashboardScreenState extends State<DashboardScreen> {
                 onTap: () {
                   Navigator.pop(ctx);
                   _quickUpdateStatus(invoice, InvoiceStatus.paid);
-                },
-              ),
-              const SizedBox(height: 8),
-              _buildStatusOptionTile(
-                ctx: ctx,
-                title: 'Overdue',
-                subtitle: 'Past payment due date',
-                icon: Icons.alarm_off_rounded,
-                iconColor: AppColors.statusOverdue,
-                bgColor: AppColors.statusOverdueBg,
-                isSelected: invoice.status == InvoiceStatus.overdue,
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _quickUpdateStatus(invoice, InvoiceStatus.overdue);
                 },
               ),
             ],
@@ -437,7 +358,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle_rounded, color: AppColors.ink, size: 20),
+              Icon(Icons.check_circle_rounded, color: AppColors.ink, size: 20),
           ],
         ),
       ),
@@ -445,67 +366,12 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _sharePdf(InvoiceModel invoice) async {
-    try {
-      final isPro = context.read<BillingService>().isPro;
-      final prefs = await SharedPreferences.getInstance();
-      final profile = BusinessProfile(
-        businessName: prefs.getString('biz_name') ?? 'My Business',
-        address: prefs.getString('biz_address'),
-        phone: prefs.getString('biz_phone'),
-        email: prefs.getString('biz_email'),
-        gstin: prefs.getString('biz_gstin'),
-        bankName: prefs.getString('biz_bank_name'),
-        accountNumber: prefs.getString('biz_account'),
-        ifscCode: prefs.getString('biz_ifsc'),
-        upiId: prefs.getString('biz_upi'),
-        logoPath: prefs.getString('biz_logo_path'),
-        signaturePath: prefs.getString('biz_signature_path'),
-        currency: invoice.currency,
-      );
-
-      final savedThemeId = prefs.getString('invoice_theme_${invoice.id}') ??
-          prefs.getString('default_pdf_theme');
-      final theme = PdfTheme.fromId(savedThemeId);
-
-      final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
-        invoice: invoice,
-        businessProfile: profile,
-        isPro: isPro,
-        theme: theme,
-      );
-
-      final path = await PdfGeneratorService.saveAndGetPath(
-        pdfBytes,
-        invoice.invoiceNumber,
-      );
-
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(path)],
-          text: 'Invoice ${invoice.invoiceNumber} for ${invoice.clientName}',
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to share: $e')),
-        );
-      }
-    }
+    final updated = await InvoiceActions.share(context, invoice);
+    if (updated != null) await _loadData();
   }
 
   Future<void> _deleteInvoice(InvoiceModel invoice) async {
-    final confirm = await AppDialog.showDelete(
-      context: context,
-      title: 'Delete Invoice?',
-      message: 'Are you sure you want to delete ${invoice.invoiceNumber}? This action cannot be undone.',
-    );
-
-    if (confirm == true) {
-      await DbProvider.delete(DbProvider.tableInvoices, 'id = ?', [invoice.id]);
-      await PdfHelper.deletePdf(invoice.invoiceNumber);
-      await _loadData();
-    }
+    if (await InvoiceActions.confirmAndDelete(context, invoice)) await _loadData();
   }
 
   @override
@@ -523,7 +389,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: AppColors.canvas,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
         ),
@@ -532,7 +398,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             icon: Stack(
               clipBehavior: Clip.none,
               children: [
-                const Icon(Icons.menu_rounded, color: AppColors.ink, size: 22),
+                Icon(Icons.settings_outlined, color: AppColors.ink, size: 22),
                 if (_hasProfileAlert)
                   Positioned(
                     top: -2,
@@ -540,7 +406,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                     child: Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.warning,
                         shape: BoxShape.circle,
                       ),
@@ -614,7 +480,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.surfaceDark,
                     borderRadius: BorderRadius.circular(9999), // pill
-                    border: Border.all(color: const Color(0xFF333333)),
+                    border: Border.all(color: AppColors.proBadgeBorder),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -625,7 +491,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         'PRO',
                         style: GoogleFonts.inter(
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: Colors.white,
                           letterSpacing: 0.5,
                         ),
@@ -731,6 +597,17 @@ class DashboardScreenState extends State<DashboardScreen> {
                               letterSpacing: -1.2,
                             ),
                           ),
+                          if (_otherCurrencyCounts.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Totals are for $currencyCode invoices only. Not included: '
+                              '${_otherCurrencyCounts.entries.map((e) => '${e.value} in ${e.key}').join(', ')}.',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: const Color(0xFF888888),
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 16),
                           const Divider(height: 1, color: Color(0xFF242424)),
                           const SizedBox(height: 14),
@@ -820,7 +697,7 @@ class DashboardScreenState extends State<DashboardScreen> {
 
             // Invoices List or Clean SaaS Empty State
             if (_isLoading)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 child: Center(
                   child: CircularProgressIndicator(color: AppColors.primary),
                 ),
@@ -912,7 +789,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppColors.hairline),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.search_off_rounded,
                 size: 28,
                 color: AppColors.muted,
@@ -932,7 +809,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             Text(
               _searchQuery.isNotEmpty
                   ? 'No invoices match "$_searchQuery"'
-                  : 'No invoices with status "$_selectedFilter"',
+                  : 'No ${const {'unpaid': 'unpaid', 'partially_paid': 'part-paid', 'overdue': 'overdue', 'paid': 'paid'}[_selectedFilter] ?? ''} invoices',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(fontSize: 13, color: AppColors.muted),
             ),
@@ -951,7 +828,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               label: const Text('Reset Filters'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.ink,
-                side: const BorderSide(color: AppColors.hairline),
+                side: BorderSide(color: AppColors.hairline),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -975,7 +852,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               borderRadius: BorderRadius.circular(16), // rounded.xl
               border: Border.all(color: AppColors.hairline),
             ),
-            child: const Center(
+            child: Center(
               child: Icon(
                 Icons.receipt_long_rounded,
                 size: 32,
@@ -1038,7 +915,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     Color badgeBg;
     String badgeText;
 
-    switch (invoice.status) {
+    switch (invoice.effectiveStatus) {
       case InvoiceStatus.paid:
         badgeColor = AppColors.statusPaid;
         badgeBg = AppColors.statusPaidBg;
@@ -1094,7 +971,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                       initials,
                       style: GoogleFonts.inter(
                         fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.ink,
                       ),
                     ),
@@ -1178,12 +1055,14 @@ class DashboardScreenState extends State<DashboardScreen> {
 
                 const SizedBox(width: 4),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded, color: AppColors.muted, size: 18),
+                  icon: Icon(Icons.more_vert_rounded, color: AppColors.muted, size: 18),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onSelected: (action) {
                     if (action == 'preview') _openInvoicePreview(invoice);
                     if (action == 'share') _sharePdf(invoice);
+                    if (action == 'save') InvoiceActions.saveToDevice(context, invoice);
+                    if (action == 'print') InvoiceActions.printPdf(context, invoice);
                     if (action == 'edit') {
                       Navigator.push(
                         context,
@@ -1209,6 +1088,16 @@ class DashboardScreenState extends State<DashboardScreen> {
                       value: 'share',
                       title: 'Share PDF',
                       icon: Icons.share_outlined,
+                    ),
+                    AppPopupMenuItem.item(
+                      value: 'save',
+                      title: 'Save PDF',
+                      icon: Icons.download_rounded,
+                    ),
+                    AppPopupMenuItem.item(
+                      value: 'print',
+                      title: 'Print',
+                      icon: Icons.print_outlined,
                     ),
                     AppPopupMenuItem.divider(),
                     AppPopupMenuItem.item(

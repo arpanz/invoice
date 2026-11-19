@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
+import 'theme_controller.dart';
 
 /// Cal.com Design System Typography & Theme Configuration
 class AppTypography {
@@ -15,13 +16,13 @@ class AppTypography {
   static TextStyle money({
     double fontSize = 16,
     FontWeight fontWeight = FontWeight.w600,
-    Color color = AppColors.ink,
+    Color? color,
     double letterSpacing = -0.5,
   }) {
     return GoogleFonts.inter(
       fontSize: fontSize,
       fontWeight: fontWeight,
-      color: color,
+      color: color ?? AppColors.ink,
       letterSpacing: letterSpacing,
       fontFeatures: tabularFigures,
     );
@@ -31,13 +32,13 @@ class AppTypography {
   static TextStyle monoCode({
     double fontSize = 12,
     FontWeight fontWeight = FontWeight.w500,
-    Color color = AppColors.muted,
+    Color? color,
     double letterSpacing = -0.2,
   }) {
     return GoogleFonts.jetBrainsMono(
       fontSize: fontSize,
       fontWeight: fontWeight,
-      color: color,
+      color: color ?? AppColors.muted,
       letterSpacing: letterSpacing,
       fontFeatures: tabularFigures,
     );
@@ -154,19 +155,21 @@ class AppTypography {
         ),
       );
 
-  static ThemeData get lightTheme => ThemeData(
+  /// The app theme for the current [AppColors.isDark] setting.
+  static ThemeData get theme => ThemeData(
         useMaterial3: true,
-        colorScheme: const ColorScheme.light(
+        brightness: AppColors.isDark ? Brightness.dark : Brightness.light,
+        colorScheme: (AppColors.isDark ? ColorScheme.dark : ColorScheme.light)(
           primary: AppColors.primary,
           onPrimary: AppColors.onPrimary,
           primaryContainer: AppColors.surfaceCard,
           onPrimaryContainer: AppColors.ink,
           secondary: AppColors.body,
-          onSecondary: Colors.white,
+          onSecondary: AppColors.canvas,
           surface: AppColors.surface,
           onSurface: AppColors.ink,
           error: AppColors.error,
-          onError: Colors.white,
+          onError: AppColors.onPrimary,
           outline: AppColors.hairline,
         ),
         scaffoldBackgroundColor: AppColors.background,
@@ -176,6 +179,8 @@ class AppTypography {
           foregroundColor: AppColors.ink,
           elevation: 0,
           scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          systemOverlayStyle: ThemeController.overlayStyle,
           centerTitle: false,
           titleTextStyle: GoogleFonts.inter(
             fontSize: 18,
@@ -189,7 +194,7 @@ class AppTypography {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12), // rounded.lg
-            side: const BorderSide(color: AppColors.hairline, width: 1),
+            side: BorderSide(color: AppColors.hairline, width: 1),
           ),
           margin: EdgeInsets.zero,
         ),
@@ -198,23 +203,23 @@ class AppTypography {
           fillColor: AppColors.canvas,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8), // rounded.md
-            borderSide: const BorderSide(color: AppColors.hairline, width: 1),
+            borderSide: BorderSide(color: AppColors.hairline, width: 1),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.hairline, width: 1),
+            borderSide: BorderSide(color: AppColors.hairline, width: 1),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.ink, width: 1.5),
+            borderSide: BorderSide(color: AppColors.ink, width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.error, width: 1),
+            borderSide: BorderSide(color: AppColors.error, width: 1),
           ),
           focusedErrorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+            borderSide: BorderSide(color: AppColors.error, width: 1.5),
           ),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -250,7 +255,7 @@ class AppTypography {
             backgroundColor: AppColors.canvas,
             foregroundColor: AppColors.ink,
             elevation: 0,
-            side: const BorderSide(color: AppColors.hairline, width: 1),
+            side: BorderSide(color: AppColors.hairline, width: 1),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -270,14 +275,14 @@ class AppTypography {
             borderRadius: BorderRadius.circular(9999), // full circle
           ),
         ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
           backgroundColor: AppColors.canvas,
           selectedItemColor: AppColors.primary,
           unselectedItemColor: AppColors.mutedSoft,
           elevation: 0,
           type: BottomNavigationBarType.fixed,
         ),
-        dividerTheme: const DividerThemeData(
+        dividerTheme: DividerThemeData(
           color: AppColors.hairlineSoft,
           thickness: 1,
           space: 1,
@@ -289,7 +294,7 @@ class AppTypography {
           shadowColor: const Color.fromRGBO(0, 0, 0, 0.12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16), // rounded.xl
-            side: const BorderSide(color: AppColors.hairline, width: 1),
+            side: BorderSide(color: AppColors.hairline, width: 1),
           ),
           titleTextStyle: GoogleFonts.inter(
             fontSize: 18,
@@ -312,7 +317,7 @@ class AppTypography {
           shadowColor: const Color.fromRGBO(0, 0, 0, 0.08),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: AppColors.hairline, width: 1),
+            side: BorderSide(color: AppColors.hairline, width: 1),
           ),
           textStyle: GoogleFonts.inter(
             fontSize: 14,
@@ -321,13 +326,13 @@ class AppTypography {
           ),
           menuPadding: const EdgeInsets.symmetric(vertical: 6),
         ),
-        bottomSheetTheme: const BottomSheetThemeData(
+        bottomSheetTheme: BottomSheetThemeData(
           backgroundColor: AppColors.canvas,
           surfaceTintColor: Colors.transparent,
           elevation: 16,
           modalBarrierColor: Color.fromRGBO(0, 0, 0, 0.45),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
           ),
           clipBehavior: Clip.antiAliasWithSaveLayer,
           showDragHandle: false,
@@ -339,20 +344,20 @@ class AppTypography {
           shadowColor: const Color.fromRGBO(0, 0, 0, 0.12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: AppColors.hairline, width: 1),
+            side: BorderSide(color: AppColors.hairline, width: 1),
           ),
           headerBackgroundColor: AppColors.primary,
-          headerForegroundColor: Colors.white,
+          headerForegroundColor: AppColors.onPrimary,
           headerHeadlineStyle: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
+            color: AppColors.onPrimary,
             letterSpacing: -0.4,
           ),
           headerHelpStyle: GoogleFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: Colors.white.withValues(alpha: 0.8),
+            color: AppColors.onPrimary.withValues(alpha: 0.8),
           ),
           weekdayStyle: GoogleFonts.inter(
             fontSize: 12,
@@ -364,8 +369,12 @@ class AppTypography {
             fontWeight: FontWeight.w500,
             color: AppColors.ink,
           ),
-          todayForegroundColor: WidgetStateProperty.all(AppColors.primary),
-          todayBorder: const BorderSide(color: AppColors.primary, width: 1.5),
+          todayForegroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppColors.onPrimary
+                : AppColors.primary,
+          ),
+          todayBorder: BorderSide(color: AppColors.primary, width: 1.5),
           yearStyle: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -376,7 +385,7 @@ class AppTypography {
           elevation: 16,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: AppColors.hairline, width: 1),
+            side: BorderSide(color: AppColors.hairline, width: 1),
           ),
           hourMinuteShape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),

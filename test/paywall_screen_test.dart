@@ -31,10 +31,12 @@ void main() {
 
     // Verify section label and feature items
     expect(find.text('WHAT\'S INCLUDED'), findsOneWidget);
-    expect(find.text('Unlimited Invoices'), findsOneWidget);
-    expect(find.text('Custom Branding & Logo'), findsOneWidget);
-    expect(find.text('Client & Inventory Manager'), findsOneWidget);
-    expect(find.text('Priority Support'), findsOneWidget);
+    // Only what Pro actually unlocks, with the free limits stated.
+    expect(find.text('Unlimited Invoices & Estimates'), findsOneWidget);
+    expect(find.text('Unlimited Clients'), findsOneWidget);
+    expect(find.text('No Watermark'), findsOneWidget);
+    expect(find.text('The free plan includes 10 of each per calendar month.'), findsOneWidget);
+    expect(find.text('The free plan saves up to 10 clients.'), findsOneWidget);
 
     // Verify Pricing boxes and CTA
     expect(find.text('Monthly'), findsOneWidget);

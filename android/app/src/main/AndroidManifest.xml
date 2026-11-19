@@ -6,17 +6,11 @@
     <uses-permission android:name="com.android.vending.BILLING" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <application
         android:label="Invoice Maker Pro"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
-
-        <!-- AdMob App ID (TODO: Replace with real ID before publishing) -->
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-4397005408366648~1395942028" />
 
         <activity
             android:name=".MainActivity"

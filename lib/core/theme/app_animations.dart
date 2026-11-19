@@ -9,30 +9,6 @@ class AppAnimations {
 
   static const Curve defaultCurve = Curves.easeOutCubic;
   static const Curve bounceCurve = Curves.elasticOut;
-
-  /// Custom slide-up + fade page route for bottom sheet-like page navigation.
-  static Route<T> slideUpRoute<T>({required Widget page}) {
-    return PageRouteBuilder<T>(
-      pageBuilder: (context, animation, secondaryAnimation) => page,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final tween = Tween<Offset>(
-          begin: const Offset(0.0, 0.08),
-          end: Offset.zero,
-        ).chain(CurveTween(curve: Curves.easeOutCubic));
-
-        final fadeTween = Tween<double>(begin: 0.0, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeOut));
-
-        return SlideTransition(
-          position: animation.drive(tween),
-          child: FadeTransition(
-            opacity: animation.drive(fadeTween),
-            child: child,
-          ),
-        );
-      },
-    );
-  }
 }
 
 /// A wrapper that smoothly slides & fades in children on load.
@@ -54,9 +30,20 @@ class StaggeredEntrance extends StatefulWidget {
 
 class _StaggeredEntranceState extends State<StaggeredEntrance>
     with SingleTickerProviderStateMixin {
+  /// Rows only animate as part of the batch that appears together when a
+  /// list loads. Rows built later (scrolled into view, or scrolled back)
+  /// appear at once instead of waiting and re-animating.
+  static DateTime _batchStart = DateTime.fromMillisecondsSinceEpoch(0);
+  static const _batchWindow = Duration(milliseconds: 700);
+  static DateTime _lastBuilt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// The delay never grows past this many steps.
+  static const _maxSteps = 8;
+
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  bool _started = false;
 
   @override
   void initState() {
@@ -76,11 +63,31 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     ).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
+  }
 
-    Future.delayed(widget.delayStep * widget.index, () {
-      if (mounted) {
-        _controller.forward();
-      }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+
+    final now = DateTime.now();
+    // A new batch starts with a first row built after a quiet moment (a
+    // list loading), not while rows are being built by scrolling.
+    if (widget.index == 0 && now.difference(_lastBuilt) > const Duration(milliseconds: 400)) {
+      _batchStart = now;
+    }
+    _lastBuilt = now;
+    final inBatch = now.difference(_batchStart) < _batchWindow;
+
+    // Respect the system "remove animations" setting.
+    if (MediaQuery.maybeDisableAnimationsOf(context) == true || !inBatch) {
+      _controller.value = 1;
+      return;
+    }
+    final steps = widget.index.clamp(0, _maxSteps);
+    Future.delayed(widget.delayStep * steps, () {
+      if (mounted) _controller.forward();
     });
   }
 

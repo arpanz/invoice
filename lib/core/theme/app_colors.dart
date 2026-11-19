@@ -4,131 +4,144 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
+  /// Set by the app root whenever the light/dark choice changes; every
+  /// colour below is read through it. The root then rebuilds every widget,
+  /// so screens already open pick up the new colours.
+  static bool isDark = false;
+
   // Core Brand & Action
-  static const Color primary = Color(0xFF111111); // Cal.com signature black CTA
-  static const Color primaryActive = Color(0xFF242424); // Pressed state
-  static const Color primaryDisabled = Color(0xFFE5E7EB);
-  static const Color primaryDark = Color(0xFF101010);
-  static const Color primaryLight = Color(0xFF242424);
-  static const Color primaryMuted = Color(0xFFF5F5F5);
+  static Color get primary => isDark ? const Color(0xFFF5F5F5) : const Color(0xFF111111); // Cal.com signature black CTA
+  static Color get primaryActive => isDark ? const Color(0xFFE5E5E5) : const Color(0xFF242424); // Pressed state
+  static Color get primaryDisabled => isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E7EB);
+  static Color get primaryDark => isDark ? const Color(0xFFFFFFFF) : const Color(0xFF101010);
+  static Color get primaryLight => isDark ? const Color(0xFFD4D4D4) : const Color(0xFF242424);
+  static Color get primaryMuted => isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5);
 
   // Surfaces & Floors
-  static const Color canvas = Color(0xFFFFFFFF); // Default white floor
-  static const Color surfaceSoft = Color(0xFFF8F9FA); // Nav wrapper, soft dividers
-  static const Color surfaceCard = Color(0xFFF5F5F5); // Light-gray card surface
-  static const Color surfaceStrong = Color(0xFFE5E7EB); // Hairline alternative
-  static const Color surfaceDark = Color(0xFF101010); // Signature dark card / footer
-  static const Color surfaceDarkElevated = Color(0xFF1A1A1A); // Nested dark surface
+  static Color get canvas => isDark ? const Color(0xFF161616) : const Color(0xFFFFFFFF); // Default white floor
+  static Color get surfaceSoft => isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FA); // Nav wrapper, soft dividers
+  static Color get surfaceCard => isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5); // Light-gray card surface
+  static Color get surfaceStrong => isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E7EB); // Hairline alternative
+  static Color get surfaceDark => isDark ? const Color(0xFF262626) : const Color(0xFF101010); // Signature dark card / footer
+  static Color get surfaceDarkElevated => isDark ? const Color(0xFF2E2E2E) : const Color(0xFF1A1A1A); // Nested dark surface
 
   // Hairlines & Borders
-  static const Color hairline = Color(0xFFE5E7EB); // 1px border tone
-  static const Color hairlineSoft = Color(0xFFF3F4F6); // Soft divider
+  static Color get hairline => isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E7EB); // 1px border tone
+  static Color get hairlineSoft => isDark ? const Color(0xFF222222) : const Color(0xFFF3F4F6); // Soft divider
 
   // Text & Ink
-  static const Color ink = Color(0xFF111111); // Headlines & primary type
-  static const Color body = Color(0xFF374151); // Running body text
-  static const Color muted = Color(0xFF6B7280); // Secondary text & subheadings
-  static const Color mutedSoft = Color(0xFF898989); // Captions & fine-print
-  static const Color onPrimary = Color(0xFFFFFFFF); // Text on primary CTA
-  static const Color onDark = Color(0xFFFFFFFF); // Text on dark surfaces
-  static const Color onDarkSoft = Color(0xFFA1A1AA); // Muted text on dark surfaces
+  static Color get ink => isDark ? const Color(0xFFF2F2F2) : const Color(0xFF111111); // Headlines & primary type
+  static Color get body => isDark ? const Color(0xFFD1D5DB) : const Color(0xFF374151); // Running body text
+  static Color get muted => isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280); // Secondary text & subheadings
+  static Color get mutedSoft => isDark ? const Color(0xFF7A7A7A) : const Color(0xFF898989); // Captions & fine-print
+  static Color get onPrimary => isDark ? const Color(0xFF111111) : const Color(0xFFFFFFFF); // Text on primary CTA
+  static Color get onDark => isDark ? const Color(0xFFFFFFFF) : const Color(0xFFFFFFFF); // Text on dark surfaces
+  static Color get onDarkSoft => isDark ? const Color(0xFFA1A1AA) : const Color(0xFFA1A1AA); // Muted text on dark surfaces
 
   // Semantic & Brand Accent
-  static const Color brandAccent = Color(0xFF3B82F6); // Modern electric blue (used sparingly)
-  static const Color success = Color(0xFF10B981);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color error = Color(0xFFEF4444);
+  static Color get brandAccent => isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6); // Modern electric blue (used sparingly)
+  static Color get success => isDark ? const Color(0xFF34D399) : const Color(0xFF10B981);
+  static Color get warning => isDark ? const Color(0xFFFBBF24) : const Color(0xFFF59E0B);
+  static Color get error => isDark ? const Color(0xFFF87171) : const Color(0xFFEF4444);
 
   // Badge Pastels (for category pills & avatar fills)
-  static const Color badgeOrange = Color(0xFFFB923C);
-  static const Color badgePink = Color(0xFFEC4899);
-  static const Color badgeViolet = Color(0xFF8B5CF6);
-  static const Color badgeEmerald = Color(0xFF34D399);
-  static const Color badgeBlue = Color(0xFF60A5FA);
+  static Color get badgeOrange => isDark ? const Color(0xFFFB923C) : const Color(0xFFFB923C);
+  static Color get badgePink => isDark ? const Color(0xFFF472B6) : const Color(0xFFEC4899);
+  static Color get badgeViolet => isDark ? const Color(0xFFA78BFA) : const Color(0xFF8B5CF6);
+  static Color get badgeEmerald => isDark ? const Color(0xFF34D399) : const Color(0xFF34D399);
+  static Color get badgeBlue => isDark ? const Color(0xFF60A5FA) : const Color(0xFF60A5FA);
 
   // Semantic Mapping / Aliases
-  static const Color background = Color(0xFFF8F9FA); // App screen background
-  static const Color surface = Color(0xFFFFFFFF); // White card background
-  static const Color cardBorder = Color(0xFFE5E7EB); // 1px hairline card border
-  static const Color textPrimary = Color(0xFF111111);
-  static const Color textSecondary = Color(0xFF4B5563);
-  static const Color textHint = Color(0xFF898989);
-  static const Color electricAccent = Color(0xFF3B82F6);
-  static const Color accentCyan = Color(0xFF0284C7);
-  static const Color accent = Color(0xFF10B981);
-  static const Color accentOrange = Color(0xFFF59E0B);
-  static const Color accentRed = Color(0xFFEF4444);
+  static Color get background => isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF8F9FA); // App screen background
+  static Color get surface => isDark ? const Color(0xFF161616) : const Color(0xFFFFFFFF); // White card background
+  static Color get cardBorder => isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E7EB); // 1px hairline card border
+  static Color get textPrimary => isDark ? const Color(0xFFF2F2F2) : const Color(0xFF111111);
+  static Color get textSecondary => isDark ? const Color(0xFFB4BAC4) : const Color(0xFF4B5563);
+  static Color get textHint => isDark ? const Color(0xFF7A7A7A) : const Color(0xFF898989);
+  static Color get electricAccent => isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6);
+  static Color get accentCyan => isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
+  static Color get accent => isDark ? const Color(0xFF34D399) : const Color(0xFF10B981);
+  static Color get accentOrange => isDark ? const Color(0xFFFBBF24) : const Color(0xFFF59E0B);
+  static Color get accentRed => isDark ? const Color(0xFFF87171) : const Color(0xFFEF4444);
 
   // Neutrals Scale
-  static const Color slate900 = Color(0xFF111111);
-  static const Color slate800 = Color(0xFF1E293B);
-  static const Color slate700 = Color(0xFF374151);
-  static const Color slate600 = Color(0xFF4B5563);
-  static const Color slate500 = Color(0xFF6B7280);
-  static const Color slate400 = Color(0xFF9CA3AF);
-  static const Color slate300 = Color(0xFFD1D5DB);
-  static const Color slate200 = Color(0xFFE5E7EB);
-  static const Color slate100 = Color(0xFFF3F4F6);
-  static const Color slate50 = Color(0xFFF9FAFB);
+  static Color get slate900 => isDark ? const Color(0xFFF3F4F6) : const Color(0xFF111111);
+  static Color get slate800 => isDark ? const Color(0xFFE5E7EB) : const Color(0xFF1E293B);
+  static Color get slate700 => isDark ? const Color(0xFFD1D5DB) : const Color(0xFF374151);
+  static Color get slate600 => isDark ? const Color(0xFFB4BAC4) : const Color(0xFF4B5563);
+  static Color get slate500 => isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+  static Color get slate400 => isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF);
+  static Color get slate300 => isDark ? const Color(0xFF4B5563) : const Color(0xFFD1D5DB);
+  static Color get slate200 => isDark ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+  static Color get slate100 => isDark ? const Color(0xFF262626) : const Color(0xFFF3F4F6);
+  static Color get slate50 => isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF9FAFB);
 
   // Status Badges & Pills
-  static const Color statusPaid = Color(0xFF10B981);
-  static const Color statusPaidBg = Color(0xFFECFDF5);
-  static const Color statusUnpaid = Color(0xFF111111);
-  static const Color statusUnpaidBg = Color(0xFFF3F4F6);
-  static const Color statusPartiallyPaid = Color(0xFFD97706);
-  static const Color statusPartiallyPaidBg = Color(0xFFFEF3C7);
-  static const Color statusOverdue = Color(0xFFEF4444);
-  static const Color statusOverdueBg = Color(0xFFFEF2F2);
-  static const Color statusPending = Color(0xFFF59E0B);
-  static const Color statusPendingBg = Color(0xFFFFFBEB);
+  static Color get statusPaid => isDark ? const Color(0xFF34D399) : const Color(0xFF10B981);
+  static Color get statusPaidBg => isDark ? const Color(0xFF12291F) : const Color(0xFFECFDF5);
+  static Color get statusUnpaid => isDark ? const Color(0xFFE5E7EB) : const Color(0xFF111111);
+  static Color get statusUnpaidBg => isDark ? const Color(0xFF262626) : const Color(0xFFF3F4F6);
+  static Color get statusPartiallyPaid => isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
+  static Color get statusPartiallyPaidBg => isDark ? const Color(0xFF2E2410) : const Color(0xFFFEF3C7);
+  static Color get statusOverdue => isDark ? const Color(0xFFF87171) : const Color(0xFFEF4444);
+  static Color get statusOverdueBg => isDark ? const Color(0xFF2D1515) : const Color(0xFFFEF2F2);
+  static Color get statusPending => isDark ? const Color(0xFFFBBF24) : const Color(0xFFF59E0B);
+  static Color get statusPendingBg => isDark ? const Color(0xFF2B2410) : const Color(0xFFFFFBEB);
 
   // Duotone Tile Tokens (Avatars & Categorization)
-  static const Color squirclePurple = Color(0xFFF5F3FF);
-  static const Color squirclePurpleIcon = Color(0xFF8B5CF6);
-  static const Color squircleGreen = Color(0xFFECFDF5);
-  static const Color squircleGreenIcon = Color(0xFF10B981);
-  static const Color squircleCyan = Color(0xFFF0F9FF);
-  static const Color squircleCyanIcon = Color(0xFF0284C7);
-  static const Color squircleOrange = Color(0xFFFFF7ED);
-  static const Color squircleOrangeIcon = Color(0xFFF97316);
-  static const Color squircleTeal = Color(0xFFF0FDFA);
-  static const Color squircleTealIcon = Color(0xFF0D9488);
-  static const Color squircleBlue = Color(0xFFEFF6FF);
-  static const Color squircleBlueIcon = Color(0xFF3B82F6);
+  static Color get squirclePurple => isDark ? const Color(0xFF221C33) : const Color(0xFFF5F3FF);
+  static Color get squirclePurpleIcon => isDark ? const Color(0xFFA78BFA) : const Color(0xFF8B5CF6);
+  static Color get squircleGreen => isDark ? const Color(0xFF12291F) : const Color(0xFFECFDF5);
+  static Color get squircleGreenIcon => isDark ? const Color(0xFF34D399) : const Color(0xFF10B981);
+  static Color get squircleCyan => isDark ? const Color(0xFF0F2433) : const Color(0xFFF0F9FF);
+  static Color get squircleCyanIcon => isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
+  static Color get squircleOrange => isDark ? const Color(0xFF2E1E10) : const Color(0xFFFFF7ED);
+  static Color get squircleOrangeIcon => isDark ? const Color(0xFFFB923C) : const Color(0xFFF97316);
+  static Color get squircleTeal => isDark ? const Color(0xFF0F2826) : const Color(0xFFF0FDFA);
+  static Color get squircleTealIcon => isDark ? const Color(0xFF2DD4BF) : const Color(0xFF0D9488);
+  static Color get squircleBlue => isDark ? const Color(0xFF111E33) : const Color(0xFFEFF6FF);
+  static Color get squircleBlueIcon => isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6);
 
   // Pro / Featured Badges
-  static const Color proGold = Color(0xFF111111);
-  static const Color proGoldLight = Color(0xFFF5F5F5);
-  static const Color proBadgeBg = Color(0xFF101010);
-  static const Color proBadgeBorder = Color(0xFF242424);
+  static Color get proGold => isDark ? const Color(0xFFF2F2F2) : const Color(0xFF111111);
+  static Color get proGoldLight => isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5);
+  static Color get proBadgeBg => isDark ? const Color(0xFF262626) : const Color(0xFF101010);
+  static Color get proBadgeBorder => isDark ? const Color(0xFF3A3A3A) : const Color(0xFF242424);
 
   // PDF Table
-  static const Color tableHeader = Color(0xFF111111);
-  static const Color tableRowAlt = Color(0xFFF9FAFB);
-  static const Color tableRowNormal = Color(0xFFFFFFFF);
+  static Color get tableHeader => isDark ? const Color(0xFFF2F2F2) : const Color(0xFF111111);
+  static Color get tableRowAlt => isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF9FAFB);
+  static Color get tableRowNormal => isDark ? const Color(0xFF161616) : const Color(0xFFFFFFFF);
 
   // Gradients
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF111111), Color(0xFF242424)],
+  static LinearGradient get primaryGradient => LinearGradient(
+    colors: isDark
+        ? const [Color(0xFFF5F5F5), Color(0xFFE5E5E5)]
+        : const [Color(0xFF111111), Color(0xFF242424)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const LinearGradient ctaGradient = LinearGradient(
-    colors: [Color(0xFF111111), Color(0xFF1A1A1A)],
+  static LinearGradient get ctaGradient => LinearGradient(
+    colors: isDark
+        ? const [Color(0xFFF5F5F5), Color(0xFFE5E5E5)]
+        : const [Color(0xFF111111), Color(0xFF1A1A1A)],
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
   );
 
-  static const LinearGradient heroGradient = LinearGradient(
-    colors: [Color(0xFF101010), Color(0xFF1A1A1A)],
+  static LinearGradient get heroGradient => LinearGradient(
+    colors: isDark
+        ? const [Color(0xFF262626), Color(0xFF1F1F1F)]
+        : const [Color(0xFF101010), Color(0xFF1A1A1A)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const LinearGradient proGradient = LinearGradient(
-    colors: [Color(0xFF101010), Color(0xFF242424)],
+  static LinearGradient get proGradient => LinearGradient(
+    colors: isDark
+        ? const [Color(0xFF262626), Color(0xFF333333)]
+        : const [Color(0xFF101010), Color(0xFF242424)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

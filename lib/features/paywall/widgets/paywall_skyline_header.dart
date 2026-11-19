@@ -59,7 +59,7 @@ class PaywallSkylineHeader extends StatelessWidget {
                             'ENTERPRISE SUITE',
                             style: TextStyle(
                               fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               letterSpacing: 0.8,
                               color: Colors.white.withValues(alpha: 0.95),
                             ),
@@ -73,7 +73,7 @@ class PaywallSkylineHeader extends StatelessWidget {
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: onClose,
-                        borderRadius: BorderRadius.circular(50),
+                        borderRadius: BorderRadius.circular(9999),
                         child: Container(
                           width: 36,
                           height: 36,
@@ -144,7 +144,7 @@ class PaywallSkylineHeader extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 26,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
                     letterSpacing: -0.5,
                   ),

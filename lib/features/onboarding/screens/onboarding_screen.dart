@@ -1,17 +1,18 @@
 import 'dart:io';
+import '../../../core/utils/image_store.dart';
 import 'package:flutter/material.dart';
+import '../../../core/utils/number_text.dart';
+import '../../../core/utils/currency_formatter.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/billing/billing_service.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared_widgets/primary_button.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../../invoices/screens/create_invoice_screen.dart';
-import '../../settings/widgets/paywall_bottom_sheet.dart';
 
 enum BusinessType { freelancer, smallBusiness, agency, products, other }
 
@@ -25,7 +26,15 @@ enum OnboardingGoal {
 
 /// Duolingo-Style Guided Business Journey Onboarding Screen
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  /// True when opened from Settings › Help & Guide: a walkthrough only. It
+  /// changes no settings and returns to Settings when done.
+  final bool isReplay;
+
+  const OnboardingScreen({super.key, this.isReplay = false});
+
+  /// Set by onboarding just before it completes, so the app shell opens the
+  /// invoice editor on top of itself (Back then returns to the dashboard).
+  static bool openCreateInvoiceOnStart = false;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -53,7 +62,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   String _selectedTerms = 'Due on Receipt';
 
   // Animation controller for Step 1 building invoice
-  late AnimationController _animCtrl;
   int _invoiceBuildStep = 0;
 
   @override
@@ -62,11 +70,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _selectedCurrency = SupportedCurrencies.popular.first;
     _taxRate = _selectedCurrency.defaultTax.rate;
     _taxName = _selectedCurrency.defaultTax.shortName;
-
-    _animCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    );
 
     _runInvoiceBuildAnimation();
 
@@ -92,7 +95,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   void dispose() {
     _pageController.dispose();
-    _animCtrl.dispose();
     _bizNameCtrl.dispose();
     _bizEmailCtrl.dispose();
     _bizPhoneCtrl.dispose();
@@ -118,20 +120,26 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  Future<void> _pickLogo() async {
-    final isPro = context.read<BillingService>().isPro;
-    if (!isPro) {
-      PaywallBottomSheet.show(context);
-      return;
-    }
+  /// The sample invoice on the welcome page: real arithmetic, so the first
+  /// screen of a finance app adds up.
+  static const double _sampleSubtotal = 1800;
 
+  String _sampleMoney(double amount) => CurrencyFormatter.format(
+        amount,
+        currencyCode: _selectedCurrency.code,
+        currencySymbol: _selectedCurrency.symbol,
+      );
+
+  Future<void> _pickLogo() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 80,
     );
     if (picked != null) {
-      setState(() => _logoPath = picked.path);
+      final kept = await ImageStore.keep(picked.path, 'logo');
+      if (!mounted) return;
+      setState(() => _logoPath = kept);
     }
   }
 
@@ -158,6 +166,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Future<void> _finishOnboarding({bool openCreateInvoice = false}) async {
+    if (widget.isReplay) {
+      // A walkthrough from Settings changes nothing.
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      if (openCreateInvoice) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
+        );
+      }
+      return;
+    }
+
     await _saveBusinessProfile();
 
     final prefs = await SharedPreferences.getInstance();
@@ -166,19 +186,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     if (!mounted) return;
     final currencyProvider = context.read<CurrencyProvider>();
     await currencyProvider.setCurrency(_selectedCurrency);
-    if (_taxRate > 0) {
-      await currencyProvider.setCustomTaxRate(_taxRate);
-    }
+    // Save the chosen rate even when it is 0 ("No Tax"), or new invoices fall
+    // back to the currency's default rate.
+    await currencyProvider.setCustomTaxRate(_taxRate);
+    // Completing onboarding makes the app root swap this screen for the app
+    // shell, so this is the last step: the shell opens the editor if asked.
+    OnboardingScreen.openCreateInvoiceOnStart = openCreateInvoice;
     await currencyProvider.completeOnboarding();
-
-    if (!mounted) return;
-    if (openCreateInvoice) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()),
-      );
-    } else {
-      Navigator.of(context).pushReplacementNamed('/home');
-    }
   }
 
   @override
@@ -195,7 +209,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.arrow_back_rounded,
                         color: AppColors.textPrimary,
                       ),
@@ -219,9 +233,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       ),
                       child: Text(
                         'STEP $_currentPage OF ${_totalSteps - 2}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.primary,
                           letterSpacing: 1.0,
                         ),
@@ -230,11 +244,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     const Spacer(),
                     TextButton(
                       onPressed: () => _goToStep(_totalSteps - 1),
-                      child: const Text(
+                      child: Text(
                         'Skip',
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.textSecondary,
                         ),
                       ),
@@ -252,7 +266,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   child: LinearProgressIndicator(
                     value: _currentPage / (_totalSteps - 2),
                     backgroundColor: AppColors.slate200,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
+                    valueColor: AlwaysStoppedAnimation<Color>(
                       AppColors.primary,
                     ),
                     minHeight: 5,
@@ -340,9 +354,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                       ),
                                     ],
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.receipt_long_rounded,
-                                    color: Colors.white,
+                                    color: AppColors.onPrimary,
                                     size: 22,
                                   ),
                                 ),
@@ -356,19 +370,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                           : 'Your Business Name',
                                       style: TextStyle(
                                         fontSize: 15,
-                                        fontWeight: FontWeight.w900,
+                                        fontWeight: FontWeight.w600,
                                         color: _invoiceBuildStep >= 1
                                             ? AppColors.textPrimary
                                             : AppColors.slate400,
                                       ),
                                     ),
                                     const SizedBox(height: 2),
-                                    const Text(
+                                    Text(
                                       '#INV-2026-001',
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: AppColors.textSecondary,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ],
@@ -384,7 +398,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                 color: _invoiceBuildStep >= 2
                                     ? AppColors.primaryMuted
                                     : AppColors.slate100,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: _invoiceBuildStep >= 2
                                       ? AppColors.primary.withValues(alpha: 0.2)
@@ -397,7 +411,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                     : '+ Client Name',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w600,
                                   color: _invoiceBuildStep >= 2
                                       ? AppColors.primary
                                       : AppColors.slate500,
@@ -428,7 +442,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                         : '+ Add Line Item',
                                     style: TextStyle(
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w600,
                                       color: _invoiceBuildStep >= 3
                                           ? AppColors.textPrimary
                                           : AppColors.slate400,
@@ -436,11 +450,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                   ),
                                   Text(
                                     _invoiceBuildStep >= 3
-                                        ? '${_selectedCurrency.symbol}1,800.00'
+                                        ? _sampleMoney(_sampleSubtotal)
                                         : '${_selectedCurrency.symbol}0.00',
                                     style: TextStyle(
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w900,
+                                      fontWeight: FontWeight.w600,
                                       color: _invoiceBuildStep >= 3
                                           ? AppColors.textPrimary
                                           : AppColors.slate400,
@@ -455,19 +469,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      '$_taxName (${_taxRate.toStringAsFixed(_taxRate % 1 == 0 ? 0 : 1)}%)',
-                                      style: const TextStyle(
+                                      '$_taxName (${NumberText.trim(_taxRate)}%)',
+                                      style: TextStyle(
                                         fontSize: 11,
                                         color: AppColors.textSecondary,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                     Text(
-                                      '${_selectedCurrency.symbol}${(1800.0 * _taxRate / 100).toStringAsFixed(2)}',
-                                      style: const TextStyle(
+                                      _sampleMoney(_sampleSubtotal * _taxRate / 100),
+                                      style: TextStyle(
                                         fontSize: 11,
                                         color: AppColors.textSecondary,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ],
@@ -485,22 +499,22 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'GRAND TOTAL',
                                   style: TextStyle(
                                     fontSize: 10,
-                                    fontWeight: FontWeight.w900,
+                                    fontWeight: FontWeight.w600,
                                     color: AppColors.textSecondary,
                                     letterSpacing: 0.8,
                                   ),
                                 ),
                                 Text(
                                   _invoiceBuildStep >= 4
-                                      ? '${_selectedCurrency.symbol}2,450.00'
+                                      ? _sampleMoney(_sampleSubtotal * (1 + _taxRate / 100))
                                       : '${_selectedCurrency.symbol}0.00',
                                   style: TextStyle(
                                     fontSize: 22,
-                                    fontWeight: FontWeight.w900,
+                                    fontWeight: FontWeight.w600,
                                     color: AppColors.primary,
                                     letterSpacing: -0.6,
                                   ),
@@ -533,7 +547,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                   ],
                                 ),
                                 child: Row(
-                                  children: const [
+                                  children: [
                                     Icon(
                                       Icons.check_circle_rounded,
                                       color: AppColors.statusPaid,
@@ -544,7 +558,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                       'PAID & SENT',
                                       style: TextStyle(
                                         fontSize: 11,
-                                        fontWeight: FontWeight.w900,
+                                        fontWeight: FontWeight.w600,
                                         color: AppColors.statusPaid,
                                         letterSpacing: 0.5,
                                       ),
@@ -562,19 +576,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 const SizedBox(height: 28),
 
                 // Headlines
-                const Text(
+                Text(
                   'Invoicing made\neffortless & fast.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 30,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                     letterSpacing: -1.0,
                     height: 1.15,
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'Create your first professional invoice in under 60 seconds.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -612,11 +626,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => _goToStep(1),
-                child: const Text(
+                child: Text(
                   'I’m just exploring',
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.textSecondary,
                   ),
                 ),
@@ -638,17 +652,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'What are you invoicing for?',
             style: TextStyle(
               fontSize: 26,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
               letterSpacing: -0.8,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Select your primary business type to customize templates.',
             style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
@@ -735,18 +749,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'What do you want to\nstay on top of?',
             style: TextStyle(
               fontSize: 26,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
               letterSpacing: -0.8,
               height: 1.2,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'We’ll tailor your workspace features to match your main focus.',
             style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
@@ -765,7 +779,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.stars_rounded,
                     color: AppColors.statusPaid,
                     size: 20,
@@ -774,9 +788,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   Expanded(
                     child: Text(
                       _goalFeedback!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.statusPaid,
                       ),
                     ),
@@ -882,8 +896,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
+              color: AppColors.canvas,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: AppColors.primary.withValues(alpha: 0.3),
                 width: 1.5,
@@ -901,7 +915,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         children: [
                           _logoPath != null && File(_logoPath!).existsSync()
                               ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(12),
                                   child: Image.file(
                                     File(_logoPath!),
                                     width: 44,
@@ -914,14 +928,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                   height: 44,
                                   decoration: BoxDecoration(
                                     gradient: AppColors.primaryGradient,
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Center(
                                     child: Text(
                                       initials,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
+                                      style: TextStyle(
+                                        color: AppColors.onPrimary,
+                                        fontWeight: FontWeight.w600,
                                         fontSize: 16,
                                       ),
                                     ),
@@ -934,9 +948,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                               children: [
                                 Text(
                                   nameText,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 15,
-                                    fontWeight: FontWeight.w900,
+                                    fontWeight: FontWeight.w600,
                                     color: AppColors.textPrimary,
                                   ),
                                   maxLines: 1,
@@ -945,7 +959,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                 if (emailText.isNotEmpty)
                                   Text(
                                     emailText,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
                                       color: AppColors.textSecondary,
                                       fontWeight: FontWeight.w600,
@@ -956,7 +970,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                 if (phoneText.isNotEmpty)
                                   Text(
                                     phoneText,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 10,
                                       color: AppColors.textSecondary,
                                     ),
@@ -978,11 +992,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         color: AppColors.primaryMuted,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
+                      child: Text(
                         'LIVE PREVIEW',
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.primary,
                         ),
                       ),
@@ -1000,19 +1014,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Sample Service Item',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
                         ),
                       ),
                       Text(
                         '${_selectedCurrency.symbol}1,200.00',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
                         ),
                       ),
@@ -1024,17 +1038,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           ),
           const SizedBox(height: 20),
 
-          const Text(
+          Text(
             'Business Profile',
             style: TextStyle(
               fontSize: 26,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
               letterSpacing: -0.8,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'As you type, your invoice header updates above.',
             style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
@@ -1043,8 +1057,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
+              color: AppColors.canvas,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.cardBorder),
               boxShadow: AppColors.cardShadow,
             ),
@@ -1063,24 +1077,24 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.add_photo_alternate_rounded,
                           color: AppColors.primary,
                           size: 24,
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Add Company Logo (Optional)',
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.textPrimary,
                             ),
                           ),
                         ),
                         if (_logoPath != null)
-                          const Icon(
+                          Icon(
                             Icons.check_circle_rounded,
                             color: AppColors.statusPaid,
                             size: 20,
@@ -1096,7 +1110,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   hint: 'e.g. Acme Studio',
                   controller: _bizNameCtrl,
                   textCapitalization: TextCapitalization.words,
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.business_rounded,
                     color: AppColors.primary,
                   ),
@@ -1108,7 +1122,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   hint: 'contact@acme.com',
                   controller: _bizEmailCtrl,
                   keyboardType: TextInputType.emailAddress,
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.email_rounded,
                     color: AppColors.primary,
                   ),
@@ -1120,7 +1134,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   hint: '+1 234 567 8900',
                   controller: _bizPhoneCtrl,
                   keyboardType: TextInputType.phone,
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.phone_rounded,
                     color: AppColors.primary,
                   ),
@@ -1159,11 +1173,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Which currency do you invoice in?',
             style: TextStyle(
               fontSize: 26,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
               letterSpacing: -0.8,
             ),
@@ -1171,7 +1185,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           const SizedBox(height: 6),
           Text(
             'Invoices and taxes will adapt automatically to your country.',
-            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 20),
 
@@ -1206,7 +1220,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primaryMuted : Colors.white,
+                    color: isSelected ? AppColors.primaryMuted : AppColors.canvas,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
                       color: isSelected
@@ -1237,7 +1251,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                               currency.code,
                               style: TextStyle(
                                 fontSize: 15,
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.w600,
                                 color: isSelected
                                     ? AppColors.primary
                                     : AppColors.textPrimary,
@@ -1245,7 +1259,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             ),
                             Text(
                               '${currency.symbol} • ${currency.countryName.isNotEmpty ? currency.countryName : currency.name}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w600,
@@ -1257,7 +1271,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         ),
                       ),
                       if (isSelected)
-                        const Icon(
+                        Icon(
                           Icons.check_circle_rounded,
                           color: AppColors.primary,
                           size: 18,
@@ -1274,12 +1288,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           Center(
             child: TextButton.icon(
               onPressed: _showAllCurrenciesPicker,
-              icon: const Icon(Icons.public, size: 18, color: AppColors.primary),
-              label: const Text(
+              icon: Icon(Icons.public, size: 18, color: AppColors.primary),
+              label: Text(
                 'More Countries & Currencies (35+)',
                 style: TextStyle(
                   color: AppColors.primary,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
               ),
@@ -1292,16 +1306,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             defaultTax.rate == 0
                 ? 'Tax Rate (${_selectedCurrency.countryName})'
                 : 'Default ${defaultTax.shortName} for ${_selectedCurrency.countryName}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 17,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             defaultTax.description ?? 'Standard rate for ${_selectedCurrency.name}',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),
 
@@ -1312,7 +1326,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             children: presetRates.map((rate) {
               final label = rate == 0.0
                   ? 'No Tax (0%)'
-                  : '${defaultTax.shortName} ${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1)}%';
+                  : '${defaultTax.shortName} ${NumberText.trim(rate)}%';
               return _buildTaxChip(label, rate, defaultTax.shortName);
             }).toList(),
           ),
@@ -1335,9 +1349,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
         String searchQuery = '';
@@ -1369,7 +1382,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     const SizedBox(height: 16),
                     const Text(
                       'Select Country / Currency',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -1401,16 +1414,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             title: Text(
                               '${c.countryName.isNotEmpty ? c.countryName : c.name} (${c.code})',
                               style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w600,
                                 color: isSelected ? AppColors.primary : AppColors.textPrimary,
                               ),
                             ),
                             subtitle: Text(
                               '${c.symbol} • ${c.defaultTax.shortName} (${c.defaultTax.rate}%)',
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                             ),
                             trailing: isSelected
-                                ? const Icon(Icons.check_circle, color: AppColors.primary)
+                                ? Icon(Icons.check_circle, color: AppColors.primary)
                                 : null,
                             onTap: () {
                               setState(() {
@@ -1449,8 +1462,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          color: isSelected ? AppColors.primary : AppColors.canvas,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.cardBorder,
             width: isSelected ? 2 : 1,
@@ -1469,8 +1482,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           label,
           style: TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w800,
-            color: isSelected ? Colors.white : AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? AppColors.onPrimary : AppColors.textPrimary,
           ),
         ),
       ),
@@ -1489,18 +1502,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'When are your invoices\nusually due?',
             style: TextStyle(
               fontSize: 26,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
               letterSpacing: -0.8,
               height: 1.2,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Pre-fills the due date whenever you create a new invoice.',
             style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
@@ -1528,8 +1541,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     vertical: 18,
                   ),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primaryMuted : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
+                    color: isSelected ? AppColors.primaryMuted : AppColors.canvas,
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected
                           ? AppColors.primary
@@ -1556,9 +1569,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           ),
                         ),
                         child: isSelected
-                            ? const Icon(
+                            ? Icon(
                                 Icons.check_rounded,
-                                color: Colors.white,
+                                color: AppColors.onPrimary,
                                 size: 18,
                               )
                             : null,
@@ -1569,8 +1582,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: isSelected
-                              ? FontWeight.w900
-                              : FontWeight.w700,
+                              ? FontWeight.w600
+                              : FontWeight.w600,
                           color: isSelected
                               ? AppColors.primary
                               : AppColors.textPrimary,
@@ -1613,28 +1626,28 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ),
               ],
             ),
-            child: const Center(
+            child: Center(
               child: Icon(
                 Icons.auto_awesome_rounded,
-                color: Colors.white,
+                color: AppColors.onPrimary,
                 size: 48,
               ),
             ),
           ),
           const SizedBox(height: 28),
 
-          const Text(
+          Text(
             'Your workspace is ready!',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 28,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
               letterSpacing: -0.8,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Everything is pre-configured to create clean PDF invoices.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
@@ -1645,8 +1658,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
+              color: AppColors.canvas,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.cardBorder),
               boxShadow: AppColors.cardShadow,
             ),
@@ -1685,11 +1698,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           const SizedBox(height: 12),
           TextButton(
             onPressed: () => _finishOnboarding(openCreateInvoice: false),
-            child: const Text(
+            child: Text(
               'Explore the dashboard',
               style: TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
               ),
             ),
@@ -1705,11 +1718,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       children: [
         Container(
           padding: const EdgeInsets.all(4),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.statusPaidBg,
             shape: BoxShape.circle,
           ),
-          child: const Icon(
+          child: Icon(
             Icons.check_rounded,
             color: AppColors.statusPaid,
             size: 16,
@@ -1722,15 +1735,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
                 ),
               ),
               Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -1771,8 +1784,8 @@ class _GoalCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? AppColors.primary.withValues(alpha: 0.08)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(24),
+              : AppColors.canvas,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected ? AppColors.primary : AppColors.cardBorder,
             width: selected ? 2.5 : 1,
@@ -1799,7 +1812,7 @@ class _GoalCard extends StatelessWidget {
               ),
               child: Icon(
                 icon,
-                color: selected ? Colors.white : AppColors.primary,
+                color: selected ? AppColors.onPrimary : AppColors.primary,
                 size: 25,
               ),
             ),
@@ -1812,7 +1825,7 @@ class _GoalCard extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w600,
                       color: selected
                           ? AppColors.primary
                           : AppColors.textPrimary,
@@ -1821,7 +1834,7 @@ class _GoalCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
                     ),
@@ -1832,7 +1845,7 @@ class _GoalCard extends StatelessWidget {
             AnimatedScale(
               scale: selected ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 180),
-              child: const Icon(
+              child: Icon(
                 Icons.check_circle_rounded,
                 color: AppColors.primary,
                 size: 22,

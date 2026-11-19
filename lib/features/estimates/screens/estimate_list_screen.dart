@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import '../services/estimate_actions.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
@@ -14,14 +13,12 @@ import '../../../core/theme/app_animations.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared_widgets/empty_state_view.dart';
 import '../../invoices/models/line_item_model.dart';
-import '../../invoices/models/pdf_theme.dart';
 import '../../invoices/screens/invoice_preview_screen.dart';
 import '../../invoices/services/pdf_generator_service.dart';
 import '../../paywall/paywall_screen.dart';
 import '../models/estimate_model.dart';
 import 'create_estimate_screen.dart';
 import 'estimate_preview_screen.dart';
-import '../../../shared_widgets/app_dialog.dart';
 import '../../../shared_widgets/app_popup_menu.dart';
 
 class EstimateListScreen extends StatefulWidget {
@@ -75,15 +72,22 @@ class EstimateListScreenState extends State<EstimateListScreen> {
     double pendingSum = 0.0;
 
     for (final row in rows) {
-      final estimateId = row['id'] as String;
-      final itemRows = await DbProvider.query(
-        DbProvider.tableEstimateLineItems,
-        where: 'estimate_id = ?',
-        whereArgs: [estimateId],
-        orderBy: 'sort_order ASC',
-      );
-      final items = itemRows.map(LineItemModel.fromMap).toList();
-      final est = EstimateModel.fromMap(row, items: items);
+      final EstimateModel est;
+      try {
+        final estimateId = row['id'] as String;
+        final itemRows = await DbProvider.query(
+          DbProvider.tableEstimateLineItems,
+          where: 'estimate_id = ?',
+          whereArgs: [estimateId],
+          orderBy: 'sort_order ASC',
+        );
+        final items = itemRows.map(LineItemModel.fromMap).toList();
+        est = EstimateModel.fromMap(row, items: items);
+      } catch (e) {
+        // One unreadable row must not leave the whole tab on a spinner.
+        debugPrint('Skipping unreadable estimate ${row['id']}: $e');
+        continue;
+      }
       loaded.add(est);
 
       estimatedSum += est.grandTotal;
@@ -152,6 +156,12 @@ class EstimateListScreenState extends State<EstimateListScreen> {
   }
 
   Future<void> _quickUpdateStatus(EstimateModel estimate, EstimateStatus status) async {
+    if (EstimateActions.isLocked(estimate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A converted estimate keeps its status. Delete its invoice to change it.')),
+      );
+      return;
+    }
     await DbProvider.update(
       DbProvider.tableEstimates,
       {
@@ -165,122 +175,37 @@ class EstimateListScreenState extends State<EstimateListScreen> {
   }
 
   Future<void> _convertToInvoice(EstimateModel estimate) async {
-    final confirm = await AppDialog.showConvertEstimate(
-      context: context,
-      estimateNumber: estimate.estimateNumber,
-      clientName: estimate.clientName,
-    );
-
-    if (confirm != true) return;
-
-    try {
-      final nextInvNumber = await DbProvider.getNextInvoiceNumber();
-      final newInvoiceId = const Uuid().v4();
-
-      final invoice = estimate.toInvoiceModel(
-        newInvoiceId: newInvoiceId,
-        newInvoiceNumber: nextInvNumber,
-      );
-
-      await DbProvider.insert(DbProvider.tableInvoices, invoice.toMap());
-      for (int i = 0; i < invoice.lineItems.length; i++) {
-        final item = invoice.lineItems[i];
-        await DbProvider.insert(DbProvider.tableLineItems, {
-          'id': item.id,
-          'invoice_id': invoice.id,
-          'description': item.description,
-          'quantity': item.quantity,
-          'unit_price': item.unitPrice,
-          'total': item.total,
-          'sort_order': i,
-        });
-      }
-
-      await DbProvider.update(
-        DbProvider.tableEstimates,
-        {
-          'status': EstimateStatus.converted.value,
-          'converted_invoice_id': newInvoiceId,
-          'updated_at': DateTime.now().millisecondsSinceEpoch,
-        },
-        'id = ?',
-        [estimate.id],
-      );
-
-      final prefs = await SharedPreferences.getInstance();
-      final estimateCustomization = prefs.getString('estimate_customization_${estimate.id}');
-      if (estimateCustomization != null) {
-        await prefs.setString('invoice_customization_$newInvoiceId', estimateCustomization);
-      }
-      final estimateTheme = prefs.getString('estimate_theme_${estimate.id}');
-      if (estimateTheme != null) {
-        await prefs.setString('invoice_theme_$newInvoiceId', estimateTheme);
-      }
-
-      await _loadData();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Converted to Invoice $nextInvNumber!'),
-          action: SnackBarAction(
-            label: 'VIEW',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => InvoicePreviewScreen(invoice: invoice),
-                ),
-              );
-            },
-          ),
+    final invoice = await EstimateActions.convert(context, estimate);
+    await _loadData();
+    if (invoice == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Converted to Invoice ${invoice.invoiceNumber}'),
+        action: SnackBarAction(
+          label: 'VIEW',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => InvoicePreviewScreen(invoice: invoice),
+              ),
+            );
+          },
         ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to convert: $e')),
-        );
-      }
-    }
+      ),
+    );
   }
 
   Future<void> _sharePdf(EstimateModel estimate) async {
     try {
-      final isPro = context.read<BillingService>().isPro;
-      final prefs = await SharedPreferences.getInstance();
-      final profile = BusinessProfile(
-        businessName: prefs.getString('biz_name') ?? 'My Business',
-        address: prefs.getString('biz_address'),
-        phone: prefs.getString('biz_phone'),
-        email: prefs.getString('biz_email'),
-        gstin: prefs.getString('biz_gstin'),
-        bankName: prefs.getString('biz_bank_name'),
-        accountNumber: prefs.getString('biz_account'),
-        ifscCode: prefs.getString('biz_ifsc'),
-        upiId: prefs.getString('biz_upi'),
-        logoPath: prefs.getString('biz_logo_path'),
-        signaturePath: prefs.getString('biz_signature_path'),
-        currency: estimate.currency,
-        invoiceTitleOverride: 'ESTIMATE',
+      final pdfBytes = await EstimateActions.render(
+        estimate,
+        isPro: context.read<BillingService>().isPro,
       );
-
-      final savedThemeId = prefs.getString('estimate_theme_${estimate.id}') ??
-          prefs.getString('default_pdf_theme');
-      final theme = PdfTheme.fromId(savedThemeId);
-
-      final pdfBytes = await PdfGeneratorService.generateEstimatePdf(
-        estimate: estimate,
-        businessProfile: profile,
-        isPro: isPro,
-        theme: theme,
-      );
-
       final path = await PdfGeneratorService.saveAndGetPath(
         pdfBytes,
         estimate.estimateNumber,
       );
-
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(path)],
@@ -288,29 +213,21 @@ class EstimateListScreenState extends State<EstimateListScreen> {
         ),
       );
     } catch (e) {
+      debugPrint('Share estimate failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to share: $e')),
+          const SnackBar(content: Text('Could not share the estimate. Please try again.')),
         );
       }
     }
   }
 
   Future<void> _deleteEstimate(EstimateModel estimate) async {
-    final confirm = await AppDialog.showDelete(
-      context: context,
-      title: 'Delete Estimate?',
-      message: 'Are you sure you want to delete ${estimate.estimateNumber}? This action cannot be undone.',
-    );
-
-    if (confirm == true) {
-      await DbProvider.delete(DbProvider.tableEstimates, 'id = ?', [estimate.id]);
-      await _loadData();
-    }
+    if (await EstimateActions.confirmAndDelete(context, estimate)) await _loadData();
   }
 
   Color _getAvatarColor(String name) {
-    const colors = [
+    final colors = [
       AppColors.badgeOrange,
       AppColors.badgePink,
       AppColors.badgeViolet,
@@ -346,7 +263,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
         backgroundColor: AppColors.canvas,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
         ),
@@ -354,18 +271,18 @@ class EstimateListScreenState extends State<EstimateListScreen> {
             ? TextField(
                 controller: _searchCtrl,
                 autofocus: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Search estimate or client...',
                   border: InputBorder.none,
                   hintStyle: TextStyle(color: AppColors.mutedSoft, fontSize: 15),
                 ),
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.ink,
                   fontSize: 16,
                 ),
                 onChanged: (val) => setState(() => _searchQuery = val.trim()),
               )
-            : const Text(
+            : Text(
                 'Estimates',
                 style: TextStyle(
                   fontSize: 20,
@@ -406,7 +323,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.surfaceDark,
                     borderRadius: BorderRadius.circular(9999),
-                    border: Border.all(color: const Color(0xFF333333)),
+                    border: Border.all(color: AppColors.proBadgeBorder),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
@@ -417,7 +334,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                         'PRO',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: Colors.white,
                           letterSpacing: 0.5,
                         ),
@@ -458,7 +375,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Estimated',
                                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.muted),
                                 ),
@@ -469,7 +386,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                                     currencyCode: currencyCode,
                                     currencySymbol: currencySymbol,
                                   ),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.ink,
@@ -493,7 +410,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Pending',
                                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.muted),
                                 ),
@@ -504,7 +421,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                                     currencyCode: currencyCode,
                                     currencySymbol: currencySymbol,
                                   ),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.statusOverdue,
@@ -528,7 +445,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Accepted',
                                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.muted),
                                 ),
@@ -539,7 +456,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                                     currencyCode: currencyCode,
                                     currencySymbol: currencySymbol,
                                   ),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.statusPaid,
@@ -582,7 +499,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
 
             // Estimates List or Clean Empty State
             if (_isLoading)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 child: Center(
                   child: CircularProgressIndicator(color: AppColors.primary),
                 ),
@@ -627,8 +544,8 @@ class EstimateListScreenState extends State<EstimateListScreen> {
               child: FloatingActionButton.extended(
                 heroTag: 'estimate_list_fab',
                 onPressed: _createNewEstimate,
-                icon: const Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 18),
-                label: const Text(
+                icon: Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 18),
+                label: Text(
                   'New Estimate',
                   style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.onPrimary, fontSize: 13),
                 ),
@@ -699,9 +616,9 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                   child: Center(
                     child: Text(
                       initials,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.ink,
                       ),
                     ),
@@ -716,7 +633,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                     children: [
                       Text(
                         estimate.clientName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
                           color: AppColors.ink,
@@ -727,7 +644,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                       const SizedBox(height: 2),
                       Text(
                         '${estimate.estimateNumber} • ${dateFormat.format(estimate.estimateDate)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: AppColors.muted,
                         ),
@@ -747,7 +664,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                             ? estimate.currency
                             : _currency,
                       ),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: AppColors.ink,
@@ -781,7 +698,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
 
                 const SizedBox(width: 4),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppColors.muted),
+                  icon: Icon(Icons.more_vert_rounded, size: 18, color: AppColors.muted),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onSelected: (val) {
@@ -828,6 +745,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                       title: 'Share PDF',
                       icon: Icons.share_outlined,
                     ),
+                    if (!EstimateActions.isLocked(estimate)) ...[
                     AppPopupMenuItem.divider(),
                     AppPopupMenuItem.item(
                       value: 'accepted',
@@ -843,6 +761,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                       iconColor: AppColors.statusOverdue,
                       iconBgColor: AppColors.statusOverdueBg,
                     ),
+                    ],
                     AppPopupMenuItem.divider(),
                     AppPopupMenuItem.item(
                       value: 'delete',

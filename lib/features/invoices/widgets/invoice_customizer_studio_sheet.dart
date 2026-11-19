@@ -117,8 +117,12 @@ class _InvoiceCustomizerStudioSheetState
     });
   }
 
+  /// Counts renders, so a slow earlier render can't replace a newer one.
+  int _renderGeneration = 0;
+
   Future<void> _renderPreview() async {
     if (!mounted) return;
+    final generation = ++_renderGeneration;
     setState(() => _isRendering = true);
     try {
       String? currencyCode;
@@ -142,7 +146,7 @@ class _InvoiceCustomizerStudioSheetState
         dpi: 110,
       )) {
         final png = await page.toPng();
-        if (mounted) {
+        if (mounted && generation == _renderGeneration) {
           setState(() {
             _previewImageBytes = png;
             _isRendering = false;
@@ -151,7 +155,7 @@ class _InvoiceCustomizerStudioSheetState
         break;
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && generation == _renderGeneration) {
         setState(() => _isRendering = false);
       }
     }
@@ -163,9 +167,11 @@ class _InvoiceCustomizerStudioSheetState
 
     return Container(
       height: sheetHeight,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      // Keeps the focused field (e.g. the footer message) above the keyboard.
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      decoration: BoxDecoration(
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: SafeArea(
         top: false,
@@ -198,15 +204,15 @@ class _InvoiceCustomizerStudioSheetState
                           widget.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.textPrimary,
                             letterSpacing: -0.3,
                           ),
                         ),
                         const SizedBox(height: 2),
-                        const Text(
+                        Text(
                           'Live preview updates instantly',
                           style: TextStyle(
                             fontSize: 12,
@@ -224,12 +230,12 @@ class _InvoiceCustomizerStudioSheetState
                       );
                       _footerMessageController.text = '';
                     },
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.refresh_rounded,
                       size: 16,
                       color: AppColors.slate600,
                     ),
-                    label: const Text(
+                    label: Text(
                       'Reset',
                       style: TextStyle(
                         fontSize: 13,
@@ -239,7 +245,7 @@ class _InvoiceCustomizerStudioSheetState
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       color: AppColors.slate400,
                     ),
@@ -248,13 +254,16 @@ class _InvoiceCustomizerStudioSheetState
                 ],
               ),
             ),
-            const Divider(height: 1, color: AppColors.cardBorder),
+            Divider(height: 1, color: AppColors.cardBorder),
 
             // Top Half: Live Interactive Preview Card (32% height)
+            // Folded away while the keyboard is up, so the field being
+            // typed in has room on small phones.
             Container(
-              height: 220,
+              height: MediaQuery.viewInsetsOf(context).bottom > 0 ? 0 : 220,
               width: double.infinity,
-              color: const Color(0xFFF8FAFC),
+              clipBehavior: Clip.hardEdge,
+              decoration: BoxDecoration(color: AppColors.background),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -345,8 +354,8 @@ class _InvoiceCustomizerStudioSheetState
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
+                          color: AppColors.canvas,
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.cardBorder),
                           boxShadow: [
                             BoxShadow(
@@ -356,7 +365,7 @@ class _InvoiceCustomizerStudioSheetState
                             ),
                           ],
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
@@ -369,7 +378,7 @@ class _InvoiceCustomizerStudioSheetState
                               'Quick Look',
                               style: TextStyle(
                                 fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w600,
                                 color: AppColors.primary,
                               ),
                             ),
@@ -392,7 +401,7 @@ class _InvoiceCustomizerStudioSheetState
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.canvas,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.cardBorder),
                           boxShadow: [
@@ -403,7 +412,7 @@ class _InvoiceCustomizerStudioSheetState
                             ),
                           ],
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
@@ -431,8 +440,8 @@ class _InvoiceCustomizerStudioSheetState
 
             // Tab Bar
             Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: AppColors.canvas,
                 border: Border(bottom: BorderSide(color: AppColors.cardBorder)),
               ),
               child: TabBar(
@@ -444,7 +453,7 @@ class _InvoiceCustomizerStudioSheetState
                 labelPadding: EdgeInsets.zero,
                 labelStyle: const TextStyle(
                   fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
                 unselectedLabelStyle: const TextStyle(
                   fontSize: 11.5,
@@ -488,7 +497,7 @@ class _InvoiceCustomizerStudioSheetState
               ),
             ),
 
-            const Divider(height: 1, color: AppColors.cardBorder),
+            Divider(height: 1, color: AppColors.cardBorder),
 
             // Footer
             Padding(
@@ -517,7 +526,7 @@ class _InvoiceCustomizerStudioSheetState
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             'Set as default style for future documents',
                             style: TextStyle(
                               fontSize: 13,
@@ -539,7 +548,7 @@ class _InvoiceCustomizerStudioSheetState
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppColors.onPrimary,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -549,7 +558,7 @@ class _InvoiceCustomizerStudioSheetState
                         'Apply & Save Style',
                         style: TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -584,12 +593,16 @@ class _InvoiceCustomizerStudioSheetState
 
               return GestureDetector(
                 onTap: () {
+                  // A template brings its own colours and header layout;
+                  // the user's other choices (fonts, toggles, footer) stay.
+                  final base = InvoiceCustomizationConfig.fromTheme(theme);
                   _onConfigModified(
                     _config.copyWith(
                       themeId: theme.id,
-                      primaryColor: theme.previewPrimary,
-                      secondaryColor: theme.previewSecondary,
-                      accentColor: theme.previewAccent,
+                      primaryColor: base.primaryColor,
+                      secondaryColor: base.secondaryColor,
+                      accentColor: base.accentColor,
+                      headerPosition: base.headerPosition,
                     ),
                   );
                 },
@@ -598,7 +611,7 @@ class _InvoiceCustomizerStudioSheetState
                   width: 84,
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: isSelected ? theme.previewBg : Colors.white,
+                    color: isSelected ? theme.previewBg : AppColors.canvas,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected
@@ -647,7 +660,7 @@ class _InvoiceCustomizerStudioSheetState
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: isSelected
-                              ? FontWeight.w700
+                              ? FontWeight.w600
                               : FontWeight.w500,
                           color: isSelected
                               ? theme.previewPrimary
@@ -691,8 +704,8 @@ class _InvoiceCustomizerStudioSheetState
                 decoration: BoxDecoration(
                   color: isMatch
                       ? preset.primary.withValues(alpha: 0.08)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(10),
+                      : AppColors.canvas,
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isMatch ? preset.primary : AppColors.cardBorder,
                     width: isMatch ? 1.8 : 1.0,
@@ -727,7 +740,7 @@ class _InvoiceCustomizerStudioSheetState
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: isMatch
-                              ? FontWeight.w700
+                              ? FontWeight.w600
                               : FontWeight.w500,
                           color: isMatch ? preset.primary : AppColors.slate700,
                         ),
@@ -764,7 +777,7 @@ class _InvoiceCustomizerStudioSheetState
               decoration: BoxDecoration(
                 color: isSelected
                     ? AppColors.primary.withValues(alpha: 0.05)
-                    : Colors.white,
+                    : AppColors.canvas,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isSelected ? AppColors.primary : AppColors.cardBorder,
@@ -789,7 +802,7 @@ class _InvoiceCustomizerStudioSheetState
                           family.displayName,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: isSelected
                                 ? AppColors.primary
                                 : AppColors.textPrimary,
@@ -800,7 +813,7 @@ class _InvoiceCustomizerStudioSheetState
                           family.description,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11.5,
                             color: AppColors.slate500,
                           ),
@@ -833,7 +846,7 @@ class _InvoiceCustomizerStudioSheetState
                   decoration: BoxDecoration(
                     color: isSelected
                         ? AppColors.primary.withValues(alpha: 0.07)
-                        : Colors.white,
+                        : AppColors.canvas,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected
@@ -848,7 +861,7 @@ class _InvoiceCustomizerStudioSheetState
                         density.displayName,
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: isSelected
                               ? AppColors.primary
                               : AppColors.textPrimary,
@@ -901,7 +914,7 @@ class _InvoiceCustomizerStudioSheetState
               decoration: BoxDecoration(
                 color: isSelected
                     ? AppColors.primary.withValues(alpha: 0.05)
-                    : Colors.white,
+                    : AppColors.canvas,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isSelected ? AppColors.primary : AppColors.cardBorder,
@@ -930,7 +943,7 @@ class _InvoiceCustomizerStudioSheetState
                           pos.displayName,
                           style: TextStyle(
                             fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: isSelected
                                 ? AppColors.primary
                                 : AppColors.textPrimary,
@@ -940,7 +953,7 @@ class _InvoiceCustomizerStudioSheetState
                           pos.description,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: AppColors.slate500,
                           ),
@@ -949,7 +962,7 @@ class _InvoiceCustomizerStudioSheetState
                     ),
                   ),
                   if (isSelected)
-                    const Icon(
+                    Icon(
                       Icons.check_circle_rounded,
                       size: 18,
                       color: AppColors.primary,
@@ -974,7 +987,7 @@ class _InvoiceCustomizerStudioSheetState
               decoration: BoxDecoration(
                 color: isSelected
                     ? AppColors.primary.withValues(alpha: 0.05)
-                    : Colors.white,
+                    : AppColors.canvas,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isSelected ? AppColors.primary : AppColors.cardBorder,
@@ -999,7 +1012,7 @@ class _InvoiceCustomizerStudioSheetState
                           layout.displayName,
                           style: TextStyle(
                             fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: isSelected
                                 ? AppColors.primary
                                 : AppColors.textPrimary,
@@ -1009,7 +1022,7 @@ class _InvoiceCustomizerStudioSheetState
                           layout.description,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: AppColors.slate500,
                           ),
@@ -1018,7 +1031,7 @@ class _InvoiceCustomizerStudioSheetState
                     ),
                   ),
                   if (isSelected)
-                    const Icon(
+                    Icon(
                       Icons.check_circle_rounded,
                       size: 18,
                       color: AppColors.primary,
@@ -1093,7 +1106,7 @@ class _InvoiceCustomizerStudioSheetState
           controller: _footerMessageController,
           decoration: InputDecoration(
             hintText: 'e.g. Thank you for your business!',
-            hintStyle: const TextStyle(fontSize: 13, color: AppColors.slate400),
+            hintStyle: TextStyle(fontSize: 13, color: AppColors.slate400),
             filled: true,
             fillColor: AppColors.slate50,
             contentPadding: const EdgeInsets.symmetric(
@@ -1101,16 +1114,16 @@ class _InvoiceCustomizerStudioSheetState
               vertical: 12,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.cardBorder),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.cardBorder),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.cardBorder),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.cardBorder),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
                 color: AppColors.primary,
                 width: 1.5,
               ),
@@ -1135,10 +1148,10 @@ class _InvoiceCustomizerStudioSheetState
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: value ? const Color(0xFFF0FDF4) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        color: value ? AppColors.statusPaidBg : AppColors.canvas,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: value ? const Color(0xFF86EFAC) : AppColors.cardBorder,
+          color: value ? AppColors.statusPaid.withValues(alpha: 0.4) : AppColors.cardBorder,
         ),
       ),
       child: Row(
@@ -1150,7 +1163,7 @@ class _InvoiceCustomizerStudioSheetState
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
@@ -1160,7 +1173,7 @@ class _InvoiceCustomizerStudioSheetState
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     color: AppColors.slate500,
                   ),
@@ -1192,9 +1205,9 @@ class _InvoiceCustomizerStudioSheetState
         const SizedBox(width: 8),
         Text(
           text.toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
             color: AppColors.slate500,
             letterSpacing: 0.8,
           ),
@@ -1322,13 +1335,13 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
     final themeName = PdfTheme.fromId(widget.config.themeId.value).name;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
             color: AppColors.textPrimary,
             size: 19,
@@ -1338,11 +1351,11 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Quick Look Preview',
               style: TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
               ),
             ),
@@ -1360,7 +1373,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
                 const SizedBox(width: 5),
                 Text(
                   themeName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w500,
                     color: AppColors.slate500,
@@ -1379,12 +1392,12 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
                   _isZoomed = false;
                 });
               },
-              icon: const Icon(
+              icon: Icon(
                 Icons.fit_screen_rounded,
                 size: 16,
                 color: AppColors.primary,
               ),
-              label: const Text(
+              label: Text(
                 'Fit',
                 style: TextStyle(
                   fontSize: 13,
@@ -1395,7 +1408,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
             ),
           const SizedBox(width: 8),
         ],
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, thickness: 1, color: AppColors.cardBorder),
         ),
@@ -1459,7 +1472,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
                       );
                     },
                   )
-                : const Center(
+                : Center(
                     child: CircularProgressIndicator(color: AppColors.primary),
                   ),
           ),
@@ -1476,7 +1489,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.canvas,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppColors.cardBorder),
                   boxShadow: [
@@ -1488,7 +1501,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
                   ],
                 ),
                 child: _isLoading
-                    ? const Row(
+                    ? Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           SizedBox(
@@ -1514,7 +1527,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
                         _isZoomed
                             ? 'Double-tap to reset view'
                             : 'Pinch or double-tap to zoom in',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11.5,
                           color: AppColors.slate600,
                           fontWeight: FontWeight.w500,

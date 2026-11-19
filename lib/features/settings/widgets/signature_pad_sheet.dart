@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,6 +13,8 @@ class SignaturePadSheet extends StatefulWidget {
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
+      // Strokes must not drag the sheet down or dismiss it.
+      enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (_) => const SignaturePadSheet(),
     );
@@ -23,6 +26,9 @@ class SignaturePadSheet extends StatefulWidget {
 
 class _SignaturePadSheetState extends State<SignaturePadSheet> {
   final List<List<Offset>> _strokes = [];
+
+  /// Shown under the pad. A snackbar would sit behind this sheet.
+  String? _notice;
   Color _penColor = const Color(0xFF0F172A); // Dark slate ink
   final double _penWidth = 3.0;
   bool _isSaving = false;
@@ -37,6 +43,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
   ];
 
   void _onPanStart(DragStartDetails details) {
+    if (_notice != null) setState(() => _notice = null);
     final renderBox =
         _canvasKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
@@ -85,12 +92,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
 
   Future<void> _saveSignature() async {
     if (_strokes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please draw your signature before saving'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      setState(() => _notice = 'Draw your signature above, then save.');
       return;
     }
 
@@ -103,11 +105,32 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
     HapticFeedback.mediumImpact();
 
     try {
+      // Export only the drawn area (plus a small margin), at 2x for print,
+      // so the signature fills its box on the PDF instead of printing small
+      // inside a mostly blank canvas.
+      final points = _strokes.expand((stroke) => stroke);
+      var bounds = Rect.fromPoints(points.first, points.first);
+      for (final p in points) {
+        bounds = bounds.expandToInclude(Rect.fromPoints(p, p));
+      }
+      // A dot or a tiny scribble would be blown up to fill the signature
+      // box on the PDF.
+      if (bounds.longestSide < 24) {
+        setState(() {
+          _isSaving = false;
+          _notice = 'That looks too small. Sign across the pad, then save.';
+        });
+        return;
+      }
+      bounds = bounds
+          .inflate(_penWidth + 6)
+          .intersect(Offset.zero & size);
+      const pixelRatio = 2.0;
+
       final recorder = ui.PictureRecorder();
-      final canvas = Canvas(
-        recorder,
-        Rect.fromLTWH(0, 0, size.width, size.height),
-      );
+      final canvas = Canvas(recorder);
+      canvas.scale(pixelRatio);
+      canvas.translate(-bounds.left, -bounds.top);
 
       final painter = _SignaturePainter(
         strokes: _strokes,
@@ -118,8 +141,8 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
 
       final picture = recorder.endRecording();
       final img = await picture.toImage(
-        size.width.toInt(),
-        size.height.toInt(),
+        (bounds.width * pixelRatio).ceil().clamp(1, 4096),
+        (bounds.height * pixelRatio).ceil().clamp(1, 4096),
       );
       final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
 
@@ -138,14 +161,12 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
         Navigator.pop(context, filePath);
       }
     } catch (e) {
+      debugPrint('Settings action failed: $e');
       if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save signature: $e'),
-            backgroundColor: AppColors.accentRed,
-          ),
-        );
+        setState(() {
+          _isSaving = false;
+          _notice = 'Could not save the signature. Please try again.';
+        });
       }
     }
   }
@@ -156,9 +177,9 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
 
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomInset),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -181,16 +202,16 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: AppColors.squirclePurple,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.draw_rounded,
                   color: AppColors.squirclePurpleIcon,
                   size: 20,
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -198,7 +219,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                       'Draw Signature',
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                         letterSpacing: -0.3,
                       ),
@@ -214,7 +235,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                 ),
               ),
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.close_rounded,
                   color: AppColors.slate500,
                 ),
@@ -250,7 +271,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         if (_strokes.isEmpty)
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.only(bottom: 60),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -279,7 +300,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                             color: AppColors.slate200,
                           ),
                         ),
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 8,
@@ -315,6 +336,9 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                   GestureDetector(
                     key: _canvasKey,
                     behavior: HitTestBehavior.opaque,
+                    // Start the stroke where the finger lands, not after the
+                    // drag slop, so the first part of a stroke isn't lost.
+                    dragStartBehavior: DragStartBehavior.down,
                     onPanStart: _onPanStart,
                     onPanUpdate: _onPanUpdate,
                     child: CustomPaint(
@@ -330,6 +354,13 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
               ),
             ),
           ),
+          if (_notice != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _notice!,
+              style: TextStyle(fontSize: 12.5, color: AppColors.accentRed),
+            ),
+          ],
           const SizedBox(height: 14),
 
           // Tools Toolbar (Color, Undo, Clear)
@@ -352,7 +383,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                       color: color,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isSelected ? AppColors.primary : Colors.white,
+                        color: isSelected ? AppColors.primary : AppColors.canvas,
                         width: isSelected ? 2.5 : 1.5,
                       ),
                       boxShadow: [
@@ -401,7 +432,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.slate700,
-                    side: const BorderSide(color: AppColors.slate200),
+                    side: BorderSide(color: AppColors.slate200),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -409,7 +440,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                   ),
                   child: const Text(
                     'Cancel',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -420,7 +451,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                   onPressed: _isSaving ? null : _saveSignature,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppColors.onPrimary,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -428,13 +459,13 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: _isSaving
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                                AlwaysStoppedAnimation<Color>(AppColors.onPrimary),
                           ),
                         )
                       : const Row(
@@ -445,7 +476,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                             Text(
                               'Use Signature',
                               style: TextStyle(
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w600,
                                 fontSize: 14,
                               ),
                             ),

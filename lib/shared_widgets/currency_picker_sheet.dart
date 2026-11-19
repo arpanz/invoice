@@ -8,15 +8,20 @@ import '../core/theme/app_colors.dart';
 class CurrencyPickerSheet extends StatefulWidget {
   final Function(Currency)? onCurrencySelected;
 
-  const CurrencyPickerSheet({super.key, this.onCurrencySelected});
+  /// The currency to tick. Defaults to the app's currency; an editor passes
+  /// the document's own.
+  final String? selectedCode;
+
+  const CurrencyPickerSheet({super.key, this.onCurrencySelected, this.selectedCode});
 
   static Future<Currency?> show(BuildContext context,
-      {Function(Currency)? onCurrencySelected}) {
+      {Function(Currency)? onCurrencySelected, String? selectedCode}) {
     return showModalBottomSheet<Currency>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => CurrencyPickerSheet(
+        selectedCode: selectedCode,
         onCurrencySelected: (curr) {
           if (onCurrencySelected != null) {
             onCurrencySelected(curr);
@@ -53,13 +58,14 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedCurrency = context.watch<CurrencyProvider>().selectedCurrency;
+    final selectedCode =
+        widget.selectedCode ?? context.watch<CurrencyProvider>().selectedCurrency.code;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.82,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.canvas,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
         children: [
@@ -83,7 +89,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                     color: AppColors.surfaceCard,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.public_rounded,
                     color: AppColors.ink,
                     size: 18,
@@ -115,7 +121,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                 ),
                 IconButton(
                   icon:
-                      const Icon(Icons.close_rounded, color: AppColors.muted, size: 20),
+                      Icon(Icons.close_rounded, color: AppColors.muted, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -144,14 +150,14 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                     color: AppColors.mutedSoft,
                     fontSize: 13.5,
                   ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search_rounded,
                     color: AppColors.muted,
                     size: 18,
                   ),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear_rounded,
+                          icon: Icon(Icons.clear_rounded,
                               color: AppColors.muted, size: 16),
                           onPressed: () {
                             _searchCtrl.clear();
@@ -178,7 +184,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
               separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final currency = _filteredCurrencies[index];
-                final isSelected = currency.code == selectedCurrency.code;
+                final isSelected = currency.code == selectedCode;
 
                 return Material(
                   color: isSelected
@@ -274,14 +280,14 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                           if (isSelected)
                             Container(
                               padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 color: AppColors.primary,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.check_rounded,
                                 size: 12,
-                                color: Colors.white,
+                                color: AppColors.onPrimary,
                               ),
                             )
                           else

@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import '../../core/ads/ad_manager.dart';
+import 'package:provider/provider.dart';
+import '../../core/billing/billing_service.dart';
+import '../../core/billing/free_limits.dart';
 import '../../core/theme/app_colors.dart';
 import 'widgets/paywall_skyline_header.dart';
 
@@ -15,15 +18,12 @@ class PaywallScreen extends StatefulWidget {
 
 class _PaywallScreenState extends State<PaywallScreen>
     with SingleTickerProviderStateMixin {
-  final InAppPurchase _iap = InAppPurchase.instance;
-  bool _available = true;
-  bool _isLoading = false;
-  String _selectedProductId = AdManager.productId;
-
-  List<ProductDetails> _products = [];
-  StreamSubscription<List<PurchaseDetails>>? _subscription;
+  String _selectedProductId = BillingService.lifetimeProductId;
+  late final BillingService _billing;
+  late final int _grantCountAtOpen;
+  bool _restoring = false;
   Timer? _restoreTimer;
-  bool _purchaseHandled = false;
+  bool _closing = false;
 
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -32,7 +32,10 @@ class _PaywallScreenState extends State<PaywallScreen>
   void initState() {
     super.initState();
     _initAnimations();
-    _initStore();
+    _billing = context.read<BillingService>();
+    _grantCountAtOpen = _billing.grantCount;
+    _billing.addListener(_onBillingChanged);
+    if (_billing.products.isEmpty) _billing.loadProducts();
   }
 
   void _initAnimations() {
@@ -49,191 +52,60 @@ class _PaywallScreenState extends State<PaywallScreen>
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    _billing.removeListener(_onBillingChanged);
     _restoreTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _initStore() async {
-    final bool isAvailable = await _iap.isAvailable();
-    if (!isAvailable) {
-      if (mounted) setState(() => _available = false);
-      return;
-    }
-    if (AdManager.instance.products.isNotEmpty) {
-      if (mounted) {
-        setState(() => _products = AdManager.instance.products);
-      }
-    }
-    _subscription = _iap.purchaseStream.listen(
-      (data) => _listenToPurchaseUpdated(data),
-      onDone: () => _subscription?.cancel(),
-      onError: (error) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Store Error: $error'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      },
-    );
-    if (_products.isEmpty) {
-      final ProductDetailsResponse response = await _iap.queryProductDetails({
-        AdManager.productId,
-        AdManager.yearlyProductId,
-        AdManager.monthlyProductId,
-      });
-      if (mounted) {
-        setState(() {
-          _products = response.productDetails;
-          AdManager.instance.products = _products;
-        });
-      }
-    }
-  }
-
-  ProductDetails? _getProduct(String productId) {
-    try {
-      return _products.firstWhere((p) => p.id == productId);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  void _listenToPurchaseUpdated(List<PurchaseDetails> list) async {
-    for (final purchase in list) {
-      if (purchase.status == PurchaseStatus.pending) {
-        if (mounted) setState(() => _isLoading = true);
-      } else {
-        if (purchase.status == PurchaseStatus.error) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Purchase Failed: ${purchase.error?.message ?? 'Unknown error'}',
-                ),
-                backgroundColor: Colors.red,
-              ),
-            );
-            setState(() => _isLoading = false);
-          }
-        } else if (purchase.status == PurchaseStatus.purchased ||
-            purchase.status == PurchaseStatus.restored) {
-          final knownIds = {
-            AdManager.productId,
-            AdManager.yearlyProductId,
-            AdManager.monthlyProductId,
-            AdManager.legacyProductId,
-          };
-          if (knownIds.contains(purchase.productID)) {
-            _restoreTimer?.cancel();
-            if (!_purchaseHandled) {
-              _purchaseHandled = true;
-              await _grantPremium();
-            }
-          } else {
-            if (mounted) setState(() => _isLoading = false);
-          }
-        }
-        if (purchase.pendingCompletePurchase) {
-          await _iap.completePurchase(purchase);
-        }
-      }
-    }
-  }
-
-  Future<void> _grantPremium() async {
-    try {
-      await AdManager.instance.enableProVersion();
-    } catch (e) {
-      debugPrint('Paywall: enableProVersion error: $e');
-    }
-    if (mounted) {
-      setState(() => _isLoading = false);
-      final messenger = ScaffoldMessenger.of(context);
+  void _onBillingChanged() {
+    if (!mounted || _closing) return;
+    final messenger = ScaffoldMessenger.of(context);
+    if (_billing.grantCount > _grantCountAtOpen && _billing.isPro) {
+      _closing = true;
+      _restoreTimer?.cancel();
       Navigator.pop(context);
       messenger.showSnackBar(
         const SnackBar(
-          content: Text(
-            'Invoice Maker Pro Activated! All Pro features unlocked.',
-          ),
-          backgroundColor: Colors.green,
+          content: Text('Pro is active. Thank you!'),
           behavior: SnackBarBehavior.floating,
         ),
       );
+      return;
     }
+    final error = _billing.errorMessage;
+    if (error != null) {
+      _billing.clearError();
+      _restoreTimer?.cancel();
+      setState(() => _restoring = false);
+      messenger.showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    setState(() {});
   }
 
-  Future<void> _buyProduct() async {
-    if (_products.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Product not found. Please try again later.'),
-        ),
-      );
-      return;
-    }
-    final selectedId = _selectedProductId;
-    final product = _getProduct(selectedId);
-    if (product == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selected product not available. Please try again.'),
-        ),
-      );
-      return;
-    }
-    _purchaseHandled = false;
-    try {
-      await _iap.buyNonConsumable(
-        purchaseParam: PurchaseParam(productDetails: product),
-      );
-    } catch (error) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Purchase Error: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
+  ProductDetails? _getProduct(String productId) => _billing.productFor(productId);
+
+  Future<void> _buyProduct() => _billing.buy(_selectedProductId);
 
   Future<void> _restorePurchases() async {
-    if (mounted) setState(() => _isLoading = true);
+    setState(() => _restoring = true);
     _restoreTimer?.cancel();
-    _purchaseHandled = false;
-    try {
-      await _iap.restorePurchases();
-      _restoreTimer = Timer(const Duration(seconds: 5), () {
-        if (mounted && _isLoading) {
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No previous purchases found for this account.'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      });
-    } catch (e) {
-      _restoreTimer?.cancel();
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Restore failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    await _billing.restorePurchases();
+    _restoreTimer = Timer(const Duration(seconds: 6), () {
+      if (!mounted || _closing) return;
+      setState(() => _restoring = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No Pro purchase was found for this Google account.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    });
   }
+
+  bool get _isLoading => _billing.isLoading || _restoring;
+  bool get _available => _billing.storeAvailable;
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -241,8 +113,13 @@ class _PaywallScreenState extends State<PaywallScreen>
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
+    // The header is dark navy in both themes, so the status bar icons are light.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+      backgroundColor: AppColors.canvas,
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: Column(
@@ -267,6 +144,7 @@ class _PaywallScreenState extends State<PaywallScreen>
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -292,28 +170,18 @@ class _PaywallScreenState extends State<PaywallScreen>
 
           _buildFeatureRow(
             Icons.receipt_long_rounded,
-            'Unlimited Invoices',
-            'Create and send invoices with no limits.',
-          ),
-          _buildFeatureRow(
-            Icons.branding_watermark_rounded,
-            'Custom Branding & Logo',
-            'Clean PDF exports, no watermark.',
-          ),
-          _buildFeatureRow(
-            Icons.palette_rounded,
-            '10 Premium PDF Themes',
-            'Modern, Minimalist, Corporate & more.',
+            'Unlimited Invoices & Estimates',
+            'The free plan includes ${FreeLimits.invoicesPerMonth} of each per calendar month.',
           ),
           _buildFeatureRow(
             Icons.people_alt_rounded,
-            'Client & Inventory Manager',
-            'Save clients, items & quick search.',
+            'Unlimited Clients',
+            'The free plan saves up to ${FreeLimits.savedClients} clients.',
           ),
           _buildFeatureRow(
-            Icons.support_agent_rounded,
-            'Priority Support',
-            'Fast-track help & automatic backups.',
+            Icons.branding_watermark_rounded,
+            'No Watermark',
+            'Removes "Generated by Invoice Maker Pro" from your PDFs.',
           ),
         ],
       ),
@@ -372,7 +240,7 @@ class _PaywallScreenState extends State<PaywallScreen>
   Widget _buildBottomCta(double bottomPadding) {
     return Container(
       padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPadding > 0 ? bottomPadding : 16),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.canvas,
         border: Border(
           top: BorderSide(color: AppColors.hairline, width: 1),
@@ -388,12 +256,12 @@ class _PaywallScreenState extends State<PaywallScreen>
                 child: _buildPlanCard(
                   label: 'Monthly',
                   price:
-                      _getProduct(AdManager.monthlyProductId)?.price ?? '₹299',
+                      _getProduct(BillingService.monthlyProductId)?.price ?? '—',
                   period: '/month',
                   isSelected:
-                      _selectedProductId == AdManager.monthlyProductId,
+                      _selectedProductId == BillingService.monthlyProductId,
                   onTap: () => setState(
-                    () => _selectedProductId = AdManager.monthlyProductId,
+                    () => _selectedProductId = BillingService.monthlyProductId,
                   ),
                 ),
               ),
@@ -402,12 +270,12 @@ class _PaywallScreenState extends State<PaywallScreen>
                 child: _buildPlanCard(
                   label: 'Lifetime',
                   price:
-                      _getProduct(AdManager.productId)?.price ?? '₹2,999',
+                      _getProduct(BillingService.lifetimeProductId)?.price ?? '—',
                   period: 'one-time',
                   badge: 'BEST VALUE',
-                  isSelected: _selectedProductId == AdManager.productId,
+                  isSelected: _selectedProductId == BillingService.lifetimeProductId,
                   onTap: () => setState(
-                    () => _selectedProductId = AdManager.productId,
+                    () => _selectedProductId = BillingService.lifetimeProductId,
                   ),
                 ),
               ),
@@ -431,16 +299,16 @@ class _PaywallScreenState extends State<PaywallScreen>
                 ),
               ),
               child: _isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: AppColors.onPrimary,
                       ),
                     )
                   : Text(
-                      _selectedProductId == AdManager.productId
+                      _selectedProductId == BillingService.lifetimeProductId
                           ? 'Unlock Lifetime Access'
                           : 'Subscribe for ${_getProduct(_selectedProductId)?.price ?? 'Pro'}',
                       style: GoogleFonts.inter(
@@ -452,37 +320,28 @@ class _PaywallScreenState extends State<PaywallScreen>
             ),
           ),
 
+          const SizedBox(height: 10),
+          Text(
+            _selectedProductId == BillingService.monthlyProductId
+                ? 'Renews every month at the price above until you cancel. Cancel anytime in Google Play > Payments & subscriptions.'
+                : 'One payment. Pro stays active on this Google account for good.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.35),
+          ),
+          const SizedBox(height: 6),
           // Footer links
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               GestureDetector(
                 onTap: _restorePurchases,
-                child: const Text(
+                child: Text(
                   'Restore purchase',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  '·',
-                  style: TextStyle(
-                    color: AppColors.slate400,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              const Text(
-                'Privacy Policy',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -508,8 +367,8 @@ class _PaywallScreenState extends State<PaywallScreen>
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.primary.withValues(alpha: 0.04)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+              : AppColors.canvas,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.cardBorder,
             width: isSelected ? 2.0 : 1.0,
@@ -526,7 +385,7 @@ class _PaywallScreenState extends State<PaywallScreen>
                   label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: isSelected
                         ? AppColors.primary
                         : AppColors.textSecondary,
@@ -544,7 +403,7 @@ class _PaywallScreenState extends State<PaywallScreen>
                     ),
                   ),
                   child: isSelected
-                      ? const Icon(Icons.check, size: 12, color: Colors.white)
+                      ? Icon(Icons.check, size: 12, color: AppColors.onPrimary)
                       : null,
                 ),
               ],
@@ -554,16 +413,16 @@ class _PaywallScreenState extends State<PaywallScreen>
             // Price
             Text(
               price,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
                 letterSpacing: -0.5,
               ),
             ),
             Text(
               period,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11.5,
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
@@ -582,13 +441,13 @@ class _PaywallScreenState extends State<PaywallScreen>
                   color: isSelected
                       ? AppColors.proGold.withValues(alpha: 0.12)
                       : AppColors.slate100,
-                  borderRadius: BorderRadius.circular(50),
+                  borderRadius: BorderRadius.circular(9999),
                 ),
                 child: Text(
                   badge,
                   style: TextStyle(
                     fontSize: 9,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     color: isSelected ? AppColors.proGold : AppColors.slate500,
                     letterSpacing: 0.4,
                   ),

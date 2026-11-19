@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+import '../../../core/utils/number_text.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/currency_provider.dart';
@@ -46,7 +48,7 @@ class ItemListScreenState extends State<ItemListScreen> {
   Future<void> _loadItems() async {
     setState(() => _isLoading = true);
 
-    final items = await ItemService.getAllItems(orderBy: 'name ASC');
+    final items = await ItemService.getAllItems(orderBy: 'name COLLATE NOCASE ASC');
     final cats = await ItemService.getCategories();
 
     if (mounted) {
@@ -54,6 +56,14 @@ class ItemListScreenState extends State<ItemListScreen> {
         _items = items;
         _categories = cats;
         _isLoading = false;
+        // The filtered category may no longer exist (renamed or its last
+        // item deleted): fall back to all items rather than an empty list.
+        final stillThere = switch (_filterCategory) {
+          'all' => true,
+          'uncategorized' => items.any((i) => (i.category ?? '').isEmpty),
+          final c => cats.contains(c),
+        };
+        if (!stillThere) _filterCategory = 'all';
       });
     }
   }
@@ -115,7 +125,7 @@ class ItemListScreenState extends State<ItemListScreen> {
   Future<void> _duplicateItemDirect(SavedItemModel item) async {
     final now = DateTime.now();
     final copy = SavedItemModel(
-      id: '${now.millisecondsSinceEpoch}',
+      id: const Uuid().v4(),
       name: '${item.name} (Copy)',
       description: item.description,
       unitPrice: item.unitPrice,
@@ -123,6 +133,8 @@ class ItemListScreenState extends State<ItemListScreen> {
       hsnCode: item.hsnCode,
       category: item.category,
       isTaxable: item.isTaxable,
+      taxRate: item.taxRate,
+      discountRate: item.discountRate,
       defaultQuantity: item.defaultQuantity,
       createdAt: now,
       updatedAt: now,
@@ -166,7 +178,7 @@ class ItemListScreenState extends State<ItemListScreen> {
         backgroundColor: AppColors.canvas,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
         ),
@@ -174,18 +186,18 @@ class ItemListScreenState extends State<ItemListScreen> {
             ? TextField(
                 controller: _searchCtrl,
                 autofocus: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Search items, HSN, category...',
                   border: InputBorder.none,
                   hintStyle: TextStyle(color: AppColors.mutedSoft, fontSize: 15),
                 ),
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.ink,
                   fontSize: 16,
                 ),
                 onChanged: (val) => setState(() => _searchQuery = val.trim()),
               )
-            : const Text(
+            : Text(
                 'Items',
                 style: TextStyle(
                   fontSize: 20,
@@ -220,7 +232,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                 icon: Container(
                   width: 32,
                   height: 32,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.surfaceDark,
                     shape: BoxShape.circle,
                   ),
@@ -281,7 +293,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                     children: [
                       Text(
                         '${filtered.length} item${filtered.length != 1 ? 's' : ''}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w500,
                           color: AppColors.muted,
@@ -290,7 +302,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                       if (_filterCategory != 'all' ||
                           _searchQuery.isNotEmpty) ...[
                         const SizedBox(width: 6),
-                        const Text(
+                        Text(
                           '(filtered)',
                           style: TextStyle(
                             fontSize: 12,
@@ -305,7 +317,7 @@ class ItemListScreenState extends State<ItemListScreen> {
               ),
 
             if (_isLoading)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 child: Center(
                   child:
                       CircularProgressIndicator(color: AppColors.primary),
@@ -337,7 +349,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                             ),
                             child: Text(
                               groupKey,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.muted,
@@ -425,7 +437,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.hairline),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.search_off_rounded,
                   size: 28,
                   color: AppColors.muted,
@@ -435,14 +447,14 @@ class ItemListScreenState extends State<ItemListScreen> {
               Text(
                 'No items found for "$_searchQuery"',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: AppColors.ink,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'Try a different search term',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: AppColors.muted),
@@ -460,7 +472,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                 label: const Text('Clear Search'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.ink,
-                  side: const BorderSide(color: AppColors.hairline),
+                  side: BorderSide(color: AppColors.hairline),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -535,7 +547,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                     children: [
                       Text(
                         item.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
                           color: AppColors.ink,
@@ -551,7 +563,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                               item.unitPrice,
                               currencyCode: currencyCode,
                             ),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: AppColors.primary,
@@ -559,7 +571,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                           ),
                           Text(
                             ' / ${item.unit}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               color: AppColors.slate500,
                             ),
@@ -576,7 +588,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                               ),
                               child: Text(
                                 'HSN: ${item.hsnCode}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.slate600,
@@ -602,9 +614,9 @@ class ItemListScreenState extends State<ItemListScreen> {
                               ),
                               child: Text(
                                 item.category!,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w600,
                                   color: AppColors.squirclePurpleIcon,
                                 ),
                               ),
@@ -614,28 +626,28 @@ class ItemListScreenState extends State<ItemListScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 7, vertical: 2.5),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3C7),
+                                color: AppColors.statusPartiallyPaidBg,
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: const Color(0xFFFDE68A),
+                                  color: AppColors.statusPartiallyPaid.withValues(alpha: 0.35),
                                   width: 0.8,
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.local_offer_rounded,
                                     size: 10,
-                                    color: Color(0xFFD97706),
+                                    color: AppColors.statusPartiallyPaid,
                                   ),
                                   const SizedBox(width: 3),
                                   Text(
-                                    '${item.discountRate.toString().replaceAll('.0', '')}% OFF',
-                                    style: const TextStyle(
+                                    '${NumberText.trim(item.discountRate)}% OFF',
+                                    style: TextStyle(
                                       fontSize: 10.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFFB45309),
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.statusPartiallyPaid,
                                     ),
                                   ),
                                 ],
@@ -649,15 +661,15 @@ class ItemListScreenState extends State<ItemListScreen> {
                                 color: AppColors.squircleGreen,
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: const Color(0xFFA7F3D0),
+                                  color: AppColors.statusPaid.withValues(alpha: 0.35),
                                   width: 0.8,
                                 ),
                               ),
                               child: Text(
-                                'Tax ${item.taxRate.toString().replaceAll('.0', '')}%',
-                                style: const TextStyle(
+                                'Tax ${NumberText.trim(item.taxRate)}%',
+                                style: TextStyle(
                                   fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w600,
                                   color: AppColors.squircleGreenIcon,
                                 ),
                               ),
@@ -670,7 +682,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                                 color: AppColors.slate100,
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'Tax Exempt',
                                 style: TextStyle(
                                   fontSize: 10.5,
@@ -687,7 +699,7 @@ class ItemListScreenState extends State<ItemListScreen> {
 
                 // Popup menu
                 PopupMenuButton<String>(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.more_vert_rounded,
                     color: AppColors.slate500,
                     size: 20,

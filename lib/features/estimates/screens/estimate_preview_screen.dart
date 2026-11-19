@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import '../services/estimate_actions.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
@@ -19,7 +19,6 @@ import '../../invoices/services/pdf_generator_service.dart';
 import '../../invoices/widgets/invoice_customizer_studio_sheet.dart';
 import '../models/estimate_model.dart';
 import 'create_estimate_screen.dart';
-import '../../../shared_widgets/app_dialog.dart';
 
 class EstimatePreviewScreen extends StatefulWidget {
   final EstimateModel estimate;
@@ -52,57 +51,21 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
     super.dispose();
   }
 
-  Future<BusinessProfile> _getBusinessProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    return BusinessProfile(
-      businessName: prefs.getString('biz_name') ?? 'My Business',
-      address: prefs.getString('biz_address'),
-      phone: prefs.getString('biz_phone'),
-      email: prefs.getString('biz_email'),
-      gstin: prefs.getString('biz_gstin'),
-      bankName: prefs.getString('biz_bank_name'),
-      accountNumber: prefs.getString('biz_account'),
-      ifscCode: prefs.getString('biz_ifsc'),
-      upiId: prefs.getString('biz_upi'),
-      logoPath: prefs.getString('biz_logo_path'),
-      signaturePath: prefs.getString('biz_signature_path'),
-      currency: _estimate.currency,
-      invoiceTitleOverride: 'ESTIMATE',
-    );
-  }
+  Future<BusinessProfile> _getBusinessProfile() => EstimateActions.profileFor(_estimate);
 
   Future<void> _loadThemeAndRender() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedConfigJson = prefs.getString('estimate_customization_${_estimate.id}') ??
-        prefs.getString('default_invoice_customization');
-    if (savedConfigJson != null) {
-      final parsed = InvoiceCustomizationConfig.tryFromJsonString(savedConfigJson);
-      if (parsed != null) {
-        _customConfig = parsed;
-        _currentTheme = parsed.toPdfTheme();
-      }
-    } else {
-      final savedThemeId = prefs.getString('estimate_theme_${_estimate.id}') ??
-          prefs.getString('default_pdf_theme');
-      if (savedThemeId != null) {
-        _currentTheme = PdfTheme.fromId(savedThemeId);
-        _customConfig = InvoiceCustomizationConfig.fromTheme(_currentTheme);
-      }
-    }
+    _customConfig = await EstimateActions.designForEstimate(_estimate.id);
+    _currentTheme = _customConfig.toPdfTheme();
     await _generateAndRasterizePdf();
   }
 
   Future<void> _generateAndRasterizePdf() async {
     setState(() => _isLoading = true);
     try {
-      final isPro = context.read<BillingService>().isPro;
-      final profile = await _getBusinessProfile();
-
-      final bytes = await PdfGeneratorService.generateEstimatePdf(
-        estimate: _estimate,
-        businessProfile: profile,
-        isPro: isPro,
-        customizationConfig: _customConfig,
+      final bytes = await EstimateActions.render(
+        _estimate,
+        isPro: context.read<BillingService>().isPro,
+        design: _customConfig,
       );
 
       final images = <MemoryImage>[];
@@ -119,10 +82,11 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
         });
       }
     } catch (e) {
+      debugPrint('Render estimate failed: $e');
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to render PDF preview: $e')),
+          const SnackBar(content: Text('Could not show the preview. Please try again.')),
         );
       }
     }
@@ -164,9 +128,10 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
         ),
       );
     } catch (e) {
+      debugPrint('Share estimate failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to share PDF: $e')),
+          const SnackBar(content: Text('Could not share the estimate. Please try again.')),
         );
       }
     }
@@ -181,10 +146,16 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
   }
 
   Future<void> _updateStatus(EstimateStatus status) async {
+    if (EstimateActions.isLocked(_estimate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A converted estimate keeps its status. Delete its invoice to change it.')),
+      );
+      return;
+    }
     final updated = _estimate.copyWith(status: status, updatedAt: DateTime.now());
     await DbProvider.update(
       DbProvider.tableEstimates,
-      updated.toMap(),
+      {'status': status.value, 'updated_at': updated.updatedAt.millisecondsSinceEpoch},
       'id = ?',
       [updated.id],
     );
@@ -197,11 +168,14 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
   }
 
   void _showStatusPicker() {
+    if (EstimateActions.isLocked(_estimate)) {
+      _updateStatus(_estimate.status);
+      return;
+    }
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -214,7 +188,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.slate300,
-                  borderRadius: BorderRadius.circular(99),
+                  borderRadius: BorderRadius.circular(9999),
                 ),
               ),
               const SizedBox(height: 18),
@@ -224,18 +198,18 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Update Status',
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Estimate ${_estimate.estimateNumber}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: AppColors.slate500,
@@ -244,7 +218,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.slate400),
+                    icon: Icon(Icons.close_rounded, color: AppColors.slate400),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -284,7 +258,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                 subtitle: 'Estimate was not accepted',
                 icon: EstimateStatus.declined.icon,
                 iconColor: EstimateStatus.declined.color,
-                bgColor: const Color(0xFFFEE2E2),
+                bgColor: AppColors.statusOverdueBg,
                 isSelected: _estimate.status == EstimateStatus.declined,
                 onTap: () {
                   Navigator.pop(ctx);
@@ -341,14 +315,14 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                     title,
                     style: TextStyle(
                       fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: isSelected ? AppColors.primary : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.slate500,
                     ),
@@ -357,7 +331,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22),
+              Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22),
           ],
         ),
       ),
@@ -365,96 +339,22 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
   }
 
   Future<void> _convertToInvoice() async {
-    final confirm = await AppDialog.showConvertEstimate(
-      context: context,
-      estimateNumber: _estimate.estimateNumber,
-      clientName: _estimate.clientName,
-    );
-
-    if (confirm != true) return;
-
-    try {
-      final nextInvNumber = await DbProvider.getNextInvoiceNumber();
-      final newInvoiceId = const Uuid().v4();
-
-      final invoice = _estimate.toInvoiceModel(
-        newInvoiceId: newInvoiceId,
-        newInvoiceNumber: nextInvNumber,
-      );
-
-      // Save Invoice to DB
-      await DbProvider.insert(DbProvider.tableInvoices, invoice.toMap());
-      for (int i = 0; i < invoice.lineItems.length; i++) {
-        final item = invoice.lineItems[i];
-        await DbProvider.insert(DbProvider.tableLineItems, {
-          'id': item.id,
-          'invoice_id': invoice.id,
-          'description': item.description,
-          'quantity': item.quantity,
-          'unit_price': item.unitPrice,
-          'total': item.total,
-          'sort_order': i,
-        });
-      }
-
-      // Mark estimate as Converted
-      final updatedEstimate = _estimate.copyWith(
+    final invoice = await EstimateActions.convert(context, _estimate);
+    if (invoice == null || !mounted) return;
+    setState(() {
+      _estimate = _estimate.copyWith(
         status: EstimateStatus.converted,
-        convertedInvoiceId: newInvoiceId,
+        convertedInvoiceId: invoice.id,
         updatedAt: DateTime.now(),
       );
-      await DbProvider.update(
-        DbProvider.tableEstimates,
-        updatedEstimate.toMap(),
-        'id = ?',
-        [updatedEstimate.id],
-      );
-
-      final prefs = await SharedPreferences.getInstance();
-      final estimateCustomization = prefs.getString('estimate_customization_${_estimate.id}');
-      if (estimateCustomization != null) {
-        await prefs.setString('invoice_customization_$newInvoiceId', estimateCustomization);
-      }
-      final estimateTheme = prefs.getString('estimate_theme_${_estimate.id}');
-      if (estimateTheme != null) {
-        await prefs.setString('invoice_theme_$newInvoiceId', estimateTheme);
-      }
-
-      setState(() => _estimate = updatedEstimate);
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Converted to Invoice $nextInvNumber!'),
-          action: SnackBarAction(
-            label: 'VIEW INVOICE',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => InvoicePreviewScreen(invoice: invoice),
-                ),
-              );
-            },
-          ),
-        ),
-      );
-
-      // Navigate to the newly created invoice preview
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => InvoicePreviewScreen(invoice: invoice),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to convert estimate: $e')),
-        );
-      }
-    }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Converted to Invoice ${invoice.invoiceNumber}')),
+    );
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => InvoicePreviewScreen(invoice: invoice)),
+    );
   }
 
   Future<void> _editEstimate() async {
@@ -497,10 +397,14 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F172A),
         foregroundColor: Colors.white,
+        // This screen is dark in both themes.
+        systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
+          statusBarColor: Colors.transparent,
+        ),
         elevation: 0,
         title: Text(
           _estimate.estimateNumber,
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
         actions: [
           // Theme switch pill
@@ -517,7 +421,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.palette_rounded, size: 14, color: AppColors.primaryMuted),
+                  Icon(Icons.palette_rounded, size: 14, color: AppColors.primaryMuted),
                   const SizedBox(width: 4),
                   Text(
                     _currentTheme.name,
@@ -560,7 +464,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                           _estimate.status.label.toUpperCase(),
                           style: TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                             color: _estimate.status.color,
                           ),
                         ),
@@ -578,7 +482,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         color: _estimate.isExpired ? AppColors.accentRed : AppColors.slate300,
-                        fontWeight: _estimate.isExpired ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: _estimate.isExpired ? FontWeight.w600 : FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -591,7 +495,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                   ),
                   style: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
@@ -602,7 +506,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
           // Main PDF Preview Canvas
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                ? Center(child: CircularProgressIndicator(color: AppColors.primary))
                 : _rasterPages == null || _rasterPages!.isEmpty
                     ? const Center(child: Text('Could not render preview', style: TextStyle(color: Colors.white70)))
                     : LayoutBuilder(
@@ -648,9 +552,9 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
           // Bottom Action Bar
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            decoration: BoxDecoration(
+              color: AppColors.canvas,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: SafeArea(
               top: false,
@@ -668,13 +572,13 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF10B981), // Emerald
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             elevation: 2,
                           ),
                           icon: const Icon(Icons.transform_rounded, size: 20),
                           label: const Text(
                             'Convert to Invoice',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                           ),
                           onPressed: _convertToInvoice,
                         ),
@@ -688,11 +592,11 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: const BorderSide(color: AppColors.primary),
+                            side: BorderSide(color: AppColors.primary),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          icon: const Icon(Icons.share_rounded, size: 18, color: AppColors.primary),
-                          label: const Text('Share PDF', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary)),
+                          icon: Icon(Icons.share_rounded, size: 18, color: AppColors.primary),
+                          label: Text('Share PDF', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary)),
                           onPressed: _sharePdf,
                         ),
                       ),
@@ -701,11 +605,11 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: const BorderSide(color: AppColors.slate300),
+                            side: BorderSide(color: AppColors.slate300),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          icon: const Icon(Icons.print_rounded, size: 18, color: AppColors.slate600),
-                          label: const Text('Print', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.slate700)),
+                          icon: Icon(Icons.print_rounded, size: 18, color: AppColors.slate600),
+                          label: Text('Print', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.slate700)),
                           onPressed: _printPdf,
                         ),
                       ),

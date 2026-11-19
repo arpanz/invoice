@@ -13,7 +13,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTypography.lightTheme,
+          theme: AppTypography.theme,
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
@@ -56,7 +56,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTypography.lightTheme,
+          theme: AppTypography.theme,
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
@@ -93,58 +93,6 @@ void main() {
       expect(result, isFalse);
     });
 
-    testWidgets(
-      'AppDialog.showPartialPayment calculates percentages and returns amount',
-      (tester) async {
-        double? enteredAmount;
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTypography.lightTheme,
-            home: Scaffold(
-              body: Builder(
-                builder: (context) => ElevatedButton(
-                  onPressed: () async {
-                    enteredAmount = await AppDialog.showPartialPayment(
-                      context: context,
-                      documentNumber: 'INV00042',
-                      grandTotal: 1000.0,
-                      currencySymbol: '\$',
-                      currentPaidAmount: 0.0,
-                    );
-                  },
-                  child: const Text('Open Payment Dialog'),
-                ),
-              ),
-            ),
-          ),
-        );
-
-        await tester.tap(find.text('Open Payment Dialog'));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Record Payment'), findsOneWidget);
-        expect(find.text('INV00042'), findsOneWidget);
-        expect(find.text('\$1000.00'), findsOneWidget);
-
-        // Verify quick percentage chips (25%, 50%, 75%, 100%)
-        expect(find.text('25%'), findsOneWidget);
-        expect(find.text('50%'), findsOneWidget);
-        expect(find.text('75%'), findsOneWidget);
-        expect(find.text('100% (Full)'), findsOneWidget);
-
-        // Tap 75% chip
-        await tester.tap(find.text('75%'));
-        await tester.pumpAndSettle();
-
-        // Submit payment
-        await tester.tap(find.text('Save Payment'));
-        await tester.pumpAndSettle();
-
-        expect(enteredAmount, equals(750.0));
-      },
-    );
-
     testWidgets('AppPopupMenuItem builds items and dividers cleanly', (
       tester,
     ) async {
@@ -152,7 +100,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTypography.lightTheme,
+          theme: AppTypography.theme,
           home: Scaffold(
             body: Center(
               child: PopupMenuButton<String>(

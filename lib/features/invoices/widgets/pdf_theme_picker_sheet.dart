@@ -12,9 +12,20 @@ import '../services/dummy_invoice_data.dart';
 import '../services/pdf_generator_service.dart';
 import 'invoice_customizer_studio_sheet.dart';
 
+/// What the picker returns: a template, or a fully customised design.
+class PdfThemeChoice {
+  final PdfTheme theme;
+
+  /// The full design (fonts, density, layout, toggles, footer, colours) when
+  /// the user customised it in the studio; null for a plain template.
+  final InvoiceCustomizationConfig? customConfig;
+
+  const PdfThemeChoice(this.theme, [this.customConfig]);
+}
+
 class PdfThemePickerSheet extends StatefulWidget {
   final PdfTheme currentTheme;
-  final Function(PdfTheme theme, bool setAsDefault) onThemeSelected;
+  final Function(PdfThemeChoice choice, bool setAsDefault) onThemeSelected;
   final bool showSetAsDefault;
 
   const PdfThemePickerSheet({
@@ -24,25 +35,29 @@ class PdfThemePickerSheet extends StatefulWidget {
     this.showSetAsDefault = true,
   });
 
-  static Future<PdfTheme?> show(
+  static Future<PdfThemeChoice?> show(
     BuildContext context, {
     required PdfTheme currentTheme,
     bool showSetAsDefault = true,
   }) async {
-    return showModalBottomSheet<PdfTheme>(
+    return showModalBottomSheet<PdfThemeChoice>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => PdfThemePickerSheet(
         currentTheme: currentTheme,
         showSetAsDefault: showSetAsDefault,
-        onThemeSelected: (selectedTheme, setAsDefault) async {
+        onThemeSelected: (choice, setAsDefault) async {
           if (setAsDefault) {
             final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('default_pdf_theme', selectedTheme.id.value);
+            await prefs.setString('default_pdf_theme', choice.theme.id.value);
+            if (choice.customConfig == null) {
+              // A plain template as the default replaces a custom default.
+              await prefs.remove('default_invoice_customization');
+            }
           }
           if (ctx.mounted) {
-            Navigator.pop(ctx, selectedTheme);
+            Navigator.pop(ctx, choice);
           }
         },
       ),
@@ -102,9 +117,9 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.88,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.canvas,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: SafeArea(
         top: false,
@@ -156,7 +171,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.muted, size: 20),
+                    icon: Icon(Icons.close_rounded, color: AppColors.muted, size: 20),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -176,7 +191,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                     showSetAsDefault: widget.showSetAsDefault,
                   );
                   if (saved != null && context.mounted) {
-                    widget.onThemeSelected(saved.toPdfTheme(), _setAsDefault);
+                    widget.onThemeSelected(PdfThemeChoice(saved.toPdfTheme(), saved), _setAsDefault);
                   }
                 },
                 borderRadius: BorderRadius.circular(12),
@@ -224,7 +239,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                           ],
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right_rounded,
                         size: 20,
                         color: AppColors.muted,
@@ -235,7 +250,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+            Divider(height: 1, thickness: 1, color: AppColors.hairline),
 
             // Grid of live theme mockups
             Expanded(
@@ -261,7 +276,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
             // Bottom action & default checkbox
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.canvas,
                 border: Border(
                   top: BorderSide(color: AppColors.hairline),
@@ -315,7 +330,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                     height: 48,
                     child: ElevatedButton(
                       onPressed: () {
-                        widget.onThemeSelected(_selectedTheme, _setAsDefault);
+                        widget.onThemeSelected(PdfThemeChoice(_selectedTheme), _setAsDefault);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -358,7 +373,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? theme.previewPrimary : AppColors.cardBorder,
             width: isSelected ? 2.5 : 1.0,

@@ -128,14 +128,14 @@ class _EmptyStateViewState extends State<EmptyStateView> {
                       Container(
                         width: 14,
                         height: 14,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppColors.primary,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.add,
                           size: 10,
-                          color: Colors.white,
+                          color: AppColors.onPrimary,
                         ),
                       ),
                     ],
@@ -232,7 +232,7 @@ class _EmptyStateViewState extends State<EmptyStateView> {
                         color: AppColors.surfaceCard,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.lightbulb_outline_rounded,
                         size: 14,
                         color: AppColors.ink,
@@ -257,11 +257,11 @@ class _EmptyStateViewState extends State<EmptyStateView> {
                       behavior: HitTestBehavior.opaque,
                       child: Container(
                         padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppColors.surfaceCard,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.close,
                           size: 12,
                           color: AppColors.muted,

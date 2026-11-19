@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/number_text.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -25,9 +26,8 @@ class CreateEditItemSheet extends StatefulWidget {
     return showModalBottomSheet<SavedItemModel>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (_) => CreateEditItemSheet(existingItem: existingItem),
     );
@@ -101,21 +101,21 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
     _nameCtrl = TextEditingController(text: item?.name ?? '');
     _descCtrl = TextEditingController(text: item?.description ?? '');
     _priceCtrl = TextEditingController(
-      text: item != null ? item.unitPrice.toString().replaceAll('.0', '') : '',
+      text: item != null ? NumberText.trim(item.unitPrice) : '',
     );
     _qtyCtrl = TextEditingController(
       text: item != null
-          ? item.defaultQuantity.toString().replaceAll('.0', '')
+          ? NumberText.trim(item.defaultQuantity)
           : '1',
     );
     _discountRateCtrl = TextEditingController(
       text: item != null && item.discountRate > 0
-          ? item.discountRate.toString().replaceAll('.0', '')
+          ? NumberText.trim(item.discountRate)
           : '',
     );
     _taxRateCtrl = TextEditingController(
       text: item != null && item.taxRate > 0
-          ? item.taxRate.toString().replaceAll('.0', '')
+          ? NumberText.trim(item.taxRate)
           : '',
     );
     _hsnCtrl = TextEditingController(text: item?.hsnCode ?? '');
@@ -143,6 +143,13 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
     super.dispose();
   }
 
+  static String? _percentValidator(String? val) {
+    if (val == null || val.trim().isEmpty) return null;
+    final v = NumberText.parse(val, fallback: double.nan);
+    if (v.isNaN || v < 0 || v > 100) return '0 to 100';
+    return null;
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
@@ -153,16 +160,16 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
       name: _nameCtrl.text.trim(),
       description:
           _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-      unitPrice: double.tryParse(_priceCtrl.text) ?? 0,
+      unitPrice: NumberText.parse(_priceCtrl.text),
       unit: _selectedUnit,
       hsnCode:
           _hsnCtrl.text.trim().isEmpty ? null : _hsnCtrl.text.trim(),
       category:
           _categoryCtrl.text.trim().isEmpty ? null : _categoryCtrl.text.trim(),
       isTaxable: _isTaxable,
-      taxRate: _isTaxable ? (double.tryParse(_taxRateCtrl.text) ?? 0) : 0,
-      discountRate: double.tryParse(_discountRateCtrl.text) ?? 0,
-      defaultQuantity: double.tryParse(_qtyCtrl.text) ?? 1,
+      taxRate: _isTaxable ? (NumberText.parse(_taxRateCtrl.text)) : 0,
+      discountRate: NumberText.parse(_discountRateCtrl.text),
+      defaultQuantity: NumberText.parse(_qtyCtrl.text, fallback: 1),
       createdAt: widget.existingItem?.createdAt ?? now,
       updatedAt: now,
     );
@@ -185,12 +192,13 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
     final currencySymbol = currencyProvider.currencySymbol;
     final currencyCode = currencyProvider.selectedCurrency.code;
 
-    final price = double.tryParse(_priceCtrl.text) ?? 0;
-    final qty = double.tryParse(_qtyCtrl.text) ?? 1;
-    final discountPercent = double.tryParse(_discountRateCtrl.text) ?? 0;
-    final taxPercent = _isTaxable ? (double.tryParse(_taxRateCtrl.text) ?? 0) : 0;
+    final price = NumberText.parse(_priceCtrl.text);
+    final qty = NumberText.parse(_qtyCtrl.text, fallback: 1);
+    final discountPercent = NumberText.parse(_discountRateCtrl.text);
+    final taxPercent = _isTaxable ? (NumberText.parse(_taxRateCtrl.text)) : 0;
 
-    final baseSubtotal = price * qty;
+    // Clamped so a half-typed negative value can't break the preview.
+    final baseSubtotal = (price * qty).clamp(0.0, double.infinity).toDouble();
     final discountAmount = ((baseSubtotal * discountPercent / 100).clamp(0.0, baseSubtotal)).toDouble();
     final taxableBase = ((baseSubtotal - discountAmount).clamp(0.0, double.infinity)).toDouble();
     final taxAmount = _isTaxable ? (taxableBase * taxPercent / 100) : 0.0;
@@ -217,7 +225,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                   height: 4,
                   decoration: BoxDecoration(
                     color: AppColors.slate300,
-                    borderRadius: BorderRadius.circular(99),
+                    borderRadius: BorderRadius.circular(9999),
                   ),
                 ),
               ),
@@ -229,14 +237,14 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                 children: [
                   Text(
                     _isEditing ? 'Edit Item' : 'New Item',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 20,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       color: AppColors.slate400,
                     ),
@@ -289,9 +297,9 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                         if (val == null || val.trim().isEmpty) {
                           return 'Required';
                         }
-                        if (double.tryParse(val) == null) {
-                          return 'Invalid';
-                        }
+                        final v = NumberText.parse(val, fallback: double.nan);
+                        if (v.isNaN) return 'Invalid';
+                        if (v < 0) return 'Must be 0 or more';
                         return null;
                       },
                       onChanged: (_) => setState(() {}),
@@ -306,6 +314,11 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                       controller: _qtyCtrl,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
+                      validator: (val) => (val == null || val.trim().isEmpty)
+                          ? null
+                          : NumberText.parse(val, fallback: double.nan) > 0
+                              ? null
+                              : 'More than 0',
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
@@ -320,17 +333,17 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
+                  color: AppColors.canvas,
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.cardBorder),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedUnit,
                     isExpanded: true,
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                    icon: Icon(Icons.keyboard_arrow_down_rounded,
                         color: AppColors.slate500),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
@@ -379,8 +392,8 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                             u,
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                              color: isSel ? Colors.white : AppColors.slate700,
+                              fontWeight: isSel ? FontWeight.w600 : FontWeight.w500,
+                              color: isSel ? AppColors.onPrimary : AppColors.slate700,
                             ),
                           ),
                         ),
@@ -411,9 +424,6 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                 },
                 fieldViewBuilder:
                     (context, textController, focusNode, onFieldSubmitted) {
-                  textController.addListener(() {
-                    _categoryCtrl.text = textController.text;
-                  });
                   if (textController.text != _categoryCtrl.text) {
                     textController.text = _categoryCtrl.text;
                   }
@@ -422,6 +432,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                     controller: textController,
                     focusNode: focusNode,
                     textCapitalization: TextCapitalization.sentences,
+                    onChanged: (v) => _categoryCtrl.text = v,
                     onSubmitted: (_) => onFieldSubmitted(),
                   );
                 },
@@ -442,8 +453,8 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                 title: 'Item Discount',
                 subtitle: 'Set a default percentage discount for this item',
                 icon: Icons.local_offer_outlined,
-                iconBg: const Color(0xFFFEF3C7),
-                iconColor: const Color(0xFFD97706),
+                iconBg: AppColors.statusPartiallyPaidBg,
+                iconColor: AppColors.statusPartiallyPaid,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -452,6 +463,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                       hint: '0',
                       controller: _discountRateCtrl,
                       suffixText: '%',
+                      validator: _percentValidator,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() {}),
                     ),
@@ -461,20 +473,20 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                       child: Row(
                         children: _quickDiscountRates.map((rate) {
                           final label = rate == 0 ? 'None (0%)' : '${rate.toInt()}%';
-                          final isSelected = (double.tryParse(_discountRateCtrl.text) ?? 0) == rate;
+                          final isSelected = (NumberText.parse(_discountRateCtrl.text)) == rate;
                           return Padding(
                             padding: const EdgeInsets.only(right: 6),
                             child: ChoiceChip(
-                              label: Text(label, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500)),
+                              label: Text(label, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500)),
                               selected: isSelected,
                               onSelected: (_) {
                                 setState(() {
-                                  _discountRateCtrl.text = rate == 0 ? '' : rate.toString().replaceAll('.0', '');
+                                  _discountRateCtrl.text = rate == 0 ? '' : NumberText.trim(rate);
                                 });
                               },
-                              selectedColor: const Color(0xFFFEF3C7),
+                              selectedColor: AppColors.statusPartiallyPaidBg,
                               backgroundColor: AppColors.slate100,
-                              labelStyle: TextStyle(color: isSelected ? const Color(0xFFB45309) : AppColors.slate700),
+                              labelStyle: TextStyle(color: isSelected ? AppColors.statusPartiallyPaid : AppColors.slate700),
                             ),
                           );
                         }).toList(),
@@ -498,11 +510,11 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Apply Tax to this Item',
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.textPrimary,
                           ),
                         ),
@@ -520,6 +532,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                         hint: 'e.g. 18',
                         controller: _taxRateCtrl,
                         suffixText: '%',
+                        validator: _percentValidator,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         onChanged: (_) => setState(() {}),
                       ),
@@ -529,15 +542,15 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                         child: Row(
                           children: _quickTaxRates.map((rate) {
                             final label = rate == 0 ? '0% (Exempt)' : '${rate.toInt()}%';
-                            final isSelected = (double.tryParse(_taxRateCtrl.text) ?? 0) == rate;
+                            final isSelected = (NumberText.parse(_taxRateCtrl.text)) == rate;
                             return Padding(
                               padding: const EdgeInsets.only(right: 6),
                               child: ChoiceChip(
-                                label: Text(label, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500)),
+                                label: Text(label, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500)),
                                 selected: isSelected,
                                 onSelected: (_) {
                                   setState(() {
-                                    _taxRateCtrl.text = rate == 0 ? '0' : rate.toString().replaceAll('.0', '');
+                                    _taxRateCtrl.text = rate == 0 ? '0' : NumberText.trim(rate);
                                   });
                                 },
                                 selectedColor: AppColors.squircleGreen,
@@ -565,7 +578,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
                         Icon(Icons.calculate_outlined, size: 18, color: AppColors.primary),
                         SizedBox(width: 6),
@@ -573,7 +586,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                           'Estimated Item Total',
                           style: TextStyle(
                             fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.textPrimary,
                           ),
                         ),
@@ -584,8 +597,8 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Base (${qty.toString().replaceAll(".0", "")} × ${CurrencyFormatter.format(price, currencyCode: currencyCode)})',
-                          style: const TextStyle(fontSize: 13, color: AppColors.slate600),
+                          'Base (${NumberText.trim(qty)} × ${CurrencyFormatter.format(price, currencyCode: currencyCode)})',
+                          style: TextStyle(fontSize: 13, color: AppColors.slate600),
                         ),
                         Text(
                           CurrencyFormatter.format(baseSubtotal, currencyCode: currencyCode),
@@ -599,12 +612,12 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Item Discount (${discountPercent.toString().replaceAll(".0", "")}%)',
-                            style: const TextStyle(fontSize: 13, color: Color(0xFFD97706)),
+                            'Item Discount (${NumberText.trim(discountPercent)}%)',
+                            style: TextStyle(fontSize: 13, color: AppColors.statusPartiallyPaid),
                           ),
                           Text(
                             '-${CurrencyFormatter.format(discountAmount, currencyCode: currencyCode)}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFD97706)),
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.statusPartiallyPaid),
                           ),
                         ],
                       ),
@@ -615,29 +628,29 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Tax (${taxPercent.toString().replaceAll(".0", "")}%)',
-                            style: const TextStyle(fontSize: 13, color: AppColors.squircleGreenIcon),
+                            'Tax (${NumberText.trim(taxPercent)}%)',
+                            style: TextStyle(fontSize: 13, color: AppColors.squircleGreenIcon),
                           ),
                           Text(
                             '+${CurrencyFormatter.format(taxAmount, currencyCode: currencyCode)}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.squircleGreenIcon),
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.squircleGreenIcon),
                           ),
                         ],
                       ),
                     ],
-                    const Divider(height: 16, color: AppColors.cardBorder),
+                    Divider(height: 16, color: AppColors.cardBorder),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Net Item Total:',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                         ),
                         Text(
                           CurrencyFormatter.format(netTotal, currencyCode: currencyCode),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 17,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.primary,
                           ),
                         ),
@@ -656,7 +669,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                   onPressed: _isSaving ? null : _save,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppColors.onPrimary,
                     disabledBackgroundColor:
                         AppColors.primary.withValues(alpha: 0.5),
                     shape: RoundedRectangleBorder(
@@ -665,19 +678,19 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                     elevation: 0,
                   ),
                   child: _isSaving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 22,
                           height: 22,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            color: Colors.white,
+                            color: AppColors.onPrimary,
                           ),
                         )
                       : Text(
                           _isEditing ? 'Update Item' : 'Save Item',
                           style: const TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                 ),
@@ -701,7 +714,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.canvas,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.cardBorder),
       ),
@@ -726,15 +739,15 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                       ),
                     ),
                     Text(
                       subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         color: AppColors.slate500,
                       ),
@@ -754,7 +767,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
   Widget _buildSectionLabel(String text) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
         color: AppColors.slate500,

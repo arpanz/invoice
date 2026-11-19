@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 import '../models/currency_model.dart';
+import 'number_text.dart';
 
 class CurrencyFormatter {
   CurrencyFormatter._();
@@ -83,8 +84,5 @@ class CurrencyFormatter {
     return currency?.symbol ?? code.trim();
   }
 
-  static double parseAmount(String value) {
-    final cleaned = value.replaceAll(RegExp(r'[^\d.]'), '');
-    return double.tryParse(cleaned) ?? 0.0;
-  }
+  static double parseAmount(String value) => NumberText.parse(value);
 }

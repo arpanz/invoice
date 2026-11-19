@@ -7,7 +7,6 @@ import 'package:invoice/features/invoices/models/invoice_model.dart';
 import 'package:invoice/features/invoices/models/line_item_model.dart';
 import 'package:invoice/features/invoices/models/pdf_theme.dart';
 import 'package:invoice/features/invoices/screens/create_invoice_screen.dart';
-import 'package:invoice/features/invoices/screens/invoice_history_screen.dart';
 import 'package:invoice/features/invoices/screens/invoice_preview_screen.dart';
 import 'package:invoice/features/invoices/services/pdf_generator_service.dart';
 import 'package:provider/provider.dart';
@@ -90,26 +89,19 @@ void main() {
     expect(find.text('Overdue'), findsOneWidget);
   });
 
-  testWidgets('InvoiceHistoryScreen renders AppBar, search button, and filter chips', (
+  testWidgets('Invoices tab search opens and closes (History was merged here)', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(wrapWithProviders(const InvoiceHistoryScreen()));
+    await tester.pumpWidget(wrapWithProviders(const DashboardScreen()));
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('History'), findsOneWidget);
-    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
-    expect(find.text('All'), findsOneWidget);
-    expect(find.text('Unpaid'), findsOneWidget);
-    expect(find.text('Partially Paid'), findsOneWidget);
-    expect(find.text('Overdue'), findsOneWidget);
-    expect(find.text('Paid'), findsOneWidget);
-
-    // Tap search icon to toggle search bar
     await tester.tap(find.byIcon(Icons.search_rounded));
     await tester.pump(const Duration(milliseconds: 100));
-
     expect(find.byType(TextField), findsOneWidget);
-    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.close_rounded).first);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(TextField), findsNothing);
   });
 
   testWidgets('CreateInvoiceScreen renders modular cards and bottom bar', (
@@ -140,7 +132,8 @@ void main() {
       invoiceNumber: 'INV00099',
       clientName: 'Acme Corporation',
       invoiceDate: DateTime(2026, 8, 14),
-      dueDate: DateTime(2026, 8, 21),
+      // Not yet due, so it shows as part-paid rather than overdue.
+      dueDate: DateTime.now().add(const Duration(days: 30)),
       subtotal: 500.0,
       grandTotal: 500.0,
       paidAmount: 200.0,
