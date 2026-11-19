@@ -21,6 +21,7 @@ import '../../invoices/models/invoice_model.dart';
 import '../../invoices/models/line_item_model.dart';
 import '../../invoices/models/invoice_customization_config.dart';
 import '../../invoices/models/pdf_theme.dart';
+import '../../invoices/services/invoice_render_service.dart';
 import '../../invoices/widgets/pdf_theme_picker_sheet.dart';
 import '../../items/screens/item_picker_sheet.dart';
 import '../models/estimate_model.dart';
@@ -135,6 +136,15 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
         prefs.getString('default_pdf_theme');
     if (savedThemeId != null) {
       _selectedTheme = PdfTheme.fromId(savedThemeId);
+    }
+    if (widget.existingEstimate == null) {
+      // A new estimate inherits the custom default design in full, not just
+      // its template, until a template is picked in this editor.
+      final inherited = await InvoiceRenderService.defaultCustomDesign();
+      if (inherited != null) {
+        _customDesign = inherited;
+        _selectedTheme = PdfTheme.fromId(inherited.themeId.value);
+      }
     }
     _initialThemeId = _selectedTheme.id;
 
@@ -557,12 +567,20 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
       context,
       currentTheme: _selectedTheme,
     );
-    if (chosen != null) {
-      setState(() {
-        _selectedTheme = chosen.theme;
-        _customDesign = chosen.customConfig;
-      });
+    if (chosen == null || !mounted) return;
+    // Re-applying the template a new estimate started with keeps the custom
+    // default design (as an existing estimate keeps its own design), unless
+    // the picker has just replaced that default with the plain template.
+    InvoiceCustomizationConfig? inherited;
+    if (widget.existingEstimate == null && chosen.customConfig == null && chosen.theme.id == _initialThemeId) {
+      final def = await InvoiceRenderService.defaultCustomDesign();
+      if (def?.themeId == chosen.theme.id) inherited = def;
+      if (!mounted) return;
     }
+    setState(() {
+      _selectedTheme = chosen.theme;
+      _customDesign = chosen.customConfig ?? inherited;
+    });
   }
 
   /// What the user has entered, to tell whether leaving would lose work.

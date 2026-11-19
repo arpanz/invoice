@@ -156,6 +156,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final design = await InvoiceRenderService.designForInvoice(widget.existingInvoice?.id);
     _selectedTheme = PdfTheme.fromId(design.themeId.value);
     _initialThemeId = _selectedTheme.id;
+    if (widget.existingInvoice == null) {
+      // A new invoice inherits the custom default design in full, not just
+      // its template, until a template is picked in this editor.
+      _customDesign = await InvoiceRenderService.defaultCustomDesign();
+    }
 
     if (widget.existingInvoice != null) {
       final inv = widget.existingInvoice!;
@@ -373,9 +378,20 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     }
   }
 
-  /// Stores the template picked in the editor. An invoice whose design was
-  /// customised in the preview keeps that design unless a different template
-  /// was picked here.
+  /// Re-applying the template a new invoice started with keeps the custom
+  /// default design (as an existing invoice keeps its own design), unless
+  /// the picker has just replaced that default with the plain template.
+  Future<InvoiceCustomizationConfig?> _inheritedDesignFor(PdfThemeChoice choice) async {
+    if (widget.existingInvoice != null || choice.customConfig != null) return null;
+    if (choice.theme.id != _initialThemeId) return null;
+    final inherited = await InvoiceRenderService.defaultCustomDesign();
+    return inherited?.themeId == choice.theme.id ? inherited : null;
+  }
+
+  /// Stores the template picked in the editor. A new invoice with no pick
+  /// stores the custom default design it started from. An invoice whose
+  /// design was customised in the preview keeps that design unless a
+  /// different template was picked here.
   Future<void> _persistThemeChoice(String invoiceId) async {
     if (_customDesign != null) {
       await InvoiceRenderService.saveDesignForInvoice(invoiceId, _customDesign!);
@@ -1964,12 +1980,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             currentTheme: _selectedTheme,
                             showSetAsDefault: true,
                           );
-                          if (selected != null && mounted) {
-                            setState(() {
-                              _selectedTheme = selected.theme;
-                              _customDesign = selected.customConfig;
-                            });
-                          }
+                          if (selected == null || !mounted) return;
+                          final inherited = await _inheritedDesignFor(selected);
+                          if (!mounted) return;
+                          setState(() {
+                            _selectedTheme = selected.theme;
+                            _customDesign = selected.customConfig ?? inherited;
+                          });
                         },
                         borderRadius: BorderRadius.circular(16),
                         child: Row(

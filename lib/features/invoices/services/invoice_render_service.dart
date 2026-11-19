@@ -120,6 +120,16 @@ class InvoiceRenderService {
     );
   }
 
+  /// The custom design saved as the default (Design Studio's "set as
+  /// default"), or null when the default is a plain template or nothing is
+  /// saved. A new invoice or estimate starts from it and stores it on its
+  /// first save; storing only the template id would outrank this default
+  /// and drop its fonts, colours and layout.
+  static Future<InvoiceCustomizationConfig?> defaultCustomDesign() async {
+    final prefs = await SharedPreferences.getInstance();
+    return InvoiceCustomizationConfig.tryFromJsonString(prefs.getString('default_invoice_customization'));
+  }
+
   /// Pure form of [designForInvoice].
   static InvoiceCustomizationConfig designFrom({
     String? ownConfig,

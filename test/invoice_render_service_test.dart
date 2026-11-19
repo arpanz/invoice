@@ -4,6 +4,7 @@ import 'package:invoice/core/utils/payment_terms.dart';
 import 'package:invoice/features/invoices/models/invoice_customization_config.dart';
 import 'package:invoice/features/invoices/models/pdf_theme.dart';
 import 'package:invoice/features/invoices/services/invoice_render_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('F59: design resolution order', () {
@@ -38,6 +39,70 @@ void main() {
 
     test('F55: the old enum-name theme ids still resolve', () {
       expect(PdfTheme.fromId('emeraldExecutive').id, PdfThemeId.emeraldExecutive);
+    });
+  });
+
+  group('custom default design reaches new documents', () {
+    // A default that differs from its plain template in more than the id.
+    const customDefault = InvoiceCustomizationConfig(
+      themeId: PdfThemeId.slateElegance,
+      showQuantity: false,
+      customFooterMessage: 'Thank you',
+    );
+
+    test('no custom default when the default is a plain template or unset', () async {
+      SharedPreferences.setMockInitialValues({});
+      expect(await InvoiceRenderService.defaultCustomDesign(), isNull);
+
+      SharedPreferences.setMockInitialValues({'default_pdf_theme': PdfThemeId.leftRibbon.value});
+      expect(await InvoiceRenderService.defaultCustomDesign(), isNull);
+
+      SharedPreferences.setMockInitialValues({'default_invoice_customization': 'not json'});
+      expect(await InvoiceRenderService.defaultCustomDesign(), isNull);
+    });
+
+    test('a new invoice that stores only the template id loses the custom default', () async {
+      // What the editor did before: this is why it must store the full design.
+      SharedPreferences.setMockInitialValues({
+        'default_invoice_customization': customDefault.toJsonString(),
+        'default_pdf_theme': customDefault.themeId.value,
+      });
+      await InvoiceRenderService.saveThemeForInvoice('inv-1', PdfTheme.fromId(customDefault.themeId.value));
+      final d = await InvoiceRenderService.designForInvoice('inv-1');
+      expect(d.themeId, PdfThemeId.slateElegance);
+      expect(d.customFooterMessage, isNull);
+      expect(d.showQuantity, isTrue);
+    });
+
+    test('a new invoice that stores the inherited design keeps it, also after the default changes', () async {
+      SharedPreferences.setMockInitialValues({
+        'default_invoice_customization': customDefault.toJsonString(),
+        'default_pdf_theme': customDefault.themeId.value,
+      });
+      final inherited = await InvoiceRenderService.defaultCustomDesign();
+      expect(inherited, isNotNull);
+      expect(inherited!.toJsonString(), customDefault.toJsonString());
+
+      await InvoiceRenderService.saveDesignForInvoice('inv-1', inherited);
+      var d = await InvoiceRenderService.designForInvoice('inv-1');
+      expect(d.toJsonString(), customDefault.toJsonString());
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('default_invoice_customization');
+      await prefs.setString('default_pdf_theme', PdfThemeId.leftRibbon.value);
+      d = await InvoiceRenderService.designForInvoice('inv-1');
+      expect(d.toJsonString(), customDefault.toJsonString());
+    });
+
+    test('picking a plain template for the invoice still replaces the inherited design', () async {
+      SharedPreferences.setMockInitialValues({
+        'default_invoice_customization': customDefault.toJsonString(),
+      });
+      await InvoiceRenderService.saveDesignForInvoice('inv-1', customDefault);
+      await InvoiceRenderService.saveThemeForInvoice('inv-1', PdfTheme.fromId(PdfThemeId.nordicFrame.value));
+      final d = await InvoiceRenderService.designForInvoice('inv-1');
+      expect(d.themeId, PdfThemeId.nordicFrame);
+      expect(d.customFooterMessage, isNull);
     });
   });
 
