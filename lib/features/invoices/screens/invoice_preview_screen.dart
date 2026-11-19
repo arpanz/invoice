@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../paywall/paywall_screen.dart';
 import '../models/invoice_customization_config.dart';
@@ -192,9 +193,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     children: [
                       Text(
                         'Change Invoice Status',
-                        style: TextStyle(
+                        style: AppTypography.serif(
                           fontSize: 18,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.textPrimary,
                         ),
                       ),
@@ -385,9 +386,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 children: [
                   Text(
                     'More Actions',
-                    style: TextStyle(
+                    style: AppTypography.serif(
                       fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: AppColors.textPrimary,
                     ),
                   ),
@@ -406,28 +407,15 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 iconColor: AppColors.squirclePurpleIcon,
                 bgColor: AppColors.squirclePurple,
                 title: 'Change PDF Theme',
-                subtitle: 'Customize typography, colors & layout',
+                subtitle: '${_currentTheme.name} · typography, colours & layout',
+                // The template's accent as a swatch; the text stays readable.
                 trailing: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
+                  width: 14,
+                  height: 14,
                   decoration: BoxDecoration(
-                    color: _currentTheme.previewBg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: _currentTheme.previewPrimary.withValues(
-                        alpha: 0.3,
-                      ),
-                    ),
-                  ),
-                  child: Text(
-                    _currentTheme.name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _currentTheme.previewPrimary,
-                    ),
+                    color: _currentTheme.previewPrimary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.hairline),
                   ),
                 ),
                 onTap: () {
@@ -680,9 +668,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         ),
         title: Text(
           _invoice.invoiceNumber,
-          style: GoogleFonts.inter(
+          style: AppTypography.serif(
             fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
             color: AppColors.ink,
             letterSpacing: -0.3,
           ),
@@ -965,9 +953,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                   currencyCode: _invoice.currency,
                                   currencySymbol: currencySymbol,
                                 ),
-                                style: GoogleFonts.inter(
+                                style: AppTypography.serif(
                                   fontSize: 18,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w500,
                                   color: AppColors.ink,
                                 ),
                               ),
@@ -1092,9 +1080,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             currencyCode: _invoice.currency,
                             currencySymbol: currencySymbol,
                           ),
-                          style: GoogleFonts.inter(
+                          style: AppTypography.serif(
                             fontSize: 24,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: AppColors.ink,
                             letterSpacing: -0.6,
                           ),
@@ -1151,7 +1139,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             style: GoogleFonts.inter(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.statusPartiallyPaid,
+                              color: _invoice.balanceDue > 0 ? AppColors.statusPartiallyPaid : AppColors.muted,
                             ),
                           ),
                         ],
@@ -1193,9 +1181,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                           backgroundColor: AppColors.primary,
                           foregroundColor: AppColors.onPrimary,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8), // rounded.md
-                          ),
+                          shape: const StadiumBorder(),
                         ),
                       ),
                     ),

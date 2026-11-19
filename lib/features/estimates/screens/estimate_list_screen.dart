@@ -9,17 +9,18 @@ import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_animations.dart';
+import '../../../core/theme/app_typography.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared_widgets/empty_state_view.dart';
 import '../../invoices/models/line_item_model.dart';
 import '../../invoices/screens/invoice_preview_screen.dart';
 import '../../invoices/services/pdf_generator_service.dart';
-import '../../paywall/paywall_screen.dart';
 import '../models/estimate_model.dart';
 import 'create_estimate_screen.dart';
 import 'estimate_preview_screen.dart';
-import '../../../shared_widgets/app_popup_menu.dart';
+import '../../../shared_widgets/paper.dart';
+import '../../../shared_widgets/tab_chrome.dart';
 
 class EstimateListScreen extends StatefulWidget {
   const EstimateListScreen({super.key});
@@ -33,8 +34,6 @@ class EstimateListScreenState extends State<EstimateListScreen> {
   bool _isLoading = true;
   String _selectedFilter = 'all'; // 'all', 'pending', 'accepted', 'declined', 'converted'
   String _searchQuery = '';
-  bool _isSearching = false;
-  final _searchCtrl = TextEditingController();
 
   double _totalEstimated = 0.0;
   double _totalAccepted = 0.0;
@@ -47,17 +46,18 @@ class EstimateListScreenState extends State<EstimateListScreen> {
     _loadData();
   }
 
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
   /// Public entry-point so the navigation shell can trigger a refresh via GlobalKey.
   void reload() => _loadData();
 
+  /// Called by the shell's search bar.
+  void setSearch(String query) {
+    final q = query.trim();
+    if (q == _searchQuery) return;
+    setState(() => _searchQuery = q);
+  }
+
+  // Only the first load shows a spinner; reloads swap the list in place.
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
     final currencyProvider = context.read<CurrencyProvider>();
     _currency = currencyProvider.currencyCode;
 
@@ -181,6 +181,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Converted to Invoice ${invoice.invoiceNumber}'),
+        persist: false,
         action: SnackBarAction(
           label: 'VIEW',
           onPressed: () {
@@ -226,28 +227,13 @@ class EstimateListScreenState extends State<EstimateListScreen> {
     if (await EstimateActions.confirmAndDelete(context, estimate)) await _loadData();
   }
 
-  Color _getAvatarColor(String name) {
-    final colors = [
-      AppColors.badgeOrange,
-      AppColors.badgePink,
-      AppColors.badgeViolet,
-      AppColors.badgeEmerald,
-      AppColors.badgeBlue,
-    ];
-    if (name.isEmpty) return colors[0];
-    final hash = name.codeUnits.fold(0, (prev, elem) => prev + elem);
-    return colors[hash % colors.length];
-  }
-
-  String _getInitials(String name) {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) return '?';
-    final parts = trimmed.split(RegExp(r'\s+'));
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
-  }
+  bool _matches(EstimateModel est, String filter) => switch (filter) {
+    'pending' => est.status == EstimateStatus.pending,
+    'accepted' => est.status == EstimateStatus.accepted,
+    'declined' => est.status == EstimateStatus.declined,
+    'converted' => est.status == EstimateStatus.converted,
+    _ => true,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -256,527 +242,278 @@ class EstimateListScreenState extends State<EstimateListScreen> {
     final currencySymbol = currencyProvider.currencySymbol;
     final isPro = context.watch<BillingService>().isPro;
     final filtered = _filteredEstimates;
+    String money(double v) =>
+        CurrencyFormatter.formatCompact(v, currencyCode: currencyCode, currencySymbol: currencySymbol);
+
+    Widget pill(String key, String label, {bool counted = true}) => FilterPill(
+      label: label,
+      selected: _selectedFilter == key,
+      count: counted ? _allEstimates.where((e) => _matches(e, key)).length : null,
+      onTap: () => setState(() => _selectedFilter = key),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.canvas,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
-        ),
-        title: _isSearching
-            ? TextField(
-                controller: _searchCtrl,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Search estimate or client...',
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(color: AppColors.mutedSoft, fontSize: 15),
-                ),
-                style: TextStyle(
-                  color: AppColors.ink,
-                  fontSize: 16,
-                ),
-                onChanged: (val) => setState(() => _searchQuery = val.trim()),
-              )
-            : Text(
-                'Estimates',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.ink,
-                  letterSpacing: -0.5,
+      body: SafeArea(
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          color: AppColors.primary,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: TabHeader(
+                  title: 'Estimates',
+                  caption: _allEstimates.isEmpty
+                      ? 'Quotes & proposals'
+                      : '${_allEstimates.length} ${_allEstimates.length == 1 ? 'quote' : 'quotes'}',
+                  showPro: !isPro,
                 ),
               ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isSearching ? Icons.close_rounded : Icons.search_rounded,
-              color: AppColors.ink,
-              size: 20,
-            ),
-            onPressed: () {
-              setState(() {
-                if (_isSearching) {
-                  _isSearching = false;
-                  _searchQuery = '';
-                  _searchCtrl.clear();
-                } else {
-                  _isSearching = true;
-                }
-              });
-            },
-          ),
-          if (!isPro)
-            Padding(
-              padding: const EdgeInsets.only(right: 14),
-              child: GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PaywallScreen()),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceDark,
-                    borderRadius: BorderRadius.circular(9999),
-                    border: Border.all(color: AppColors.proBadgeBorder),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.star_rounded, size: 13, color: Color(0xFFFBBF24)),
-                      SizedBox(width: 4),
-                      Text(
-                        'PRO',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          else
-            const SizedBox(width: 12),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        color: AppColors.primary,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Summary Cards: Total Estimated / Pending / Accepted
-                    Row(
+              if (_allEstimates.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                    child: Row(
                       children: [
-                        // Card 1: Total Estimated
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.canvas,
-                              borderRadius: BorderRadius.circular(12), // rounded.lg
-                              border: Border.all(color: AppColors.hairline),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Estimated',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.muted),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  CurrencyFormatter.formatCompact(
-                                    _totalEstimated,
-                                    currencyCode: currencyCode,
-                                    currencySymbol: currencySymbol,
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.ink,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Card 2: Pending
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.canvas,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.hairline),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Pending',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.muted),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  CurrencyFormatter.formatCompact(
-                                    _totalPending,
-                                    currencyCode: currencyCode,
-                                    currencySymbol: currencySymbol,
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.statusOverdue,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Card 3: Accepted
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.canvas,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.hairline),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Accepted',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.muted),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  CurrencyFormatter.formatCompact(
-                                    _totalAccepted,
-                                    currencyCode: currencyCode,
-                                    currencySymbol: currencySymbol,
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.statusPaid,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        _stat('Pending', money(_totalPending), AppColors.ink),
+                        _stat('Accepted', money(_totalAccepted), AppColors.statusPaid),
+                        _stat('Estimated', money(_totalEstimated), AppColors.muted),
                       ],
                     ),
-                    const SizedBox(height: 14),
-
-                    // Filter Chips Row (nav-pill container)
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColors.canvas,
-                          borderRadius: BorderRadius.circular(9999),
-                          border: Border.all(color: AppColors.hairline),
-                        ),
-                        child: Row(
-                          children: [
-                            _buildFilterChip('all', 'All'),
-                            _buildFilterChip('pending', 'Pending'),
-                            _buildFilterChip('accepted', 'Accepted'),
-                            _buildFilterChip('converted', 'Converted'),
-                            _buildFilterChip('declined', 'Declined'),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Estimates List or Clean Empty State
-            if (_isLoading)
-              SliverFillRemaining(
-                child: Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                ),
-              )
-            else if (filtered.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: EmptyStateView(
-                  icon: Icons.request_quote_outlined,
-                  title: _searchQuery.isEmpty ? 'No Estimates Yet' : 'No Results Found',
-                  subtitle: _searchQuery.isEmpty
-                      ? 'Create and send quotes or proposals to prospective clients'
-                      : 'Try adjusting your search query or filter',
-                  actionLabel: _searchQuery.isEmpty ? 'Create Estimate' : null,
-                  onAction: _searchQuery.isEmpty ? _createNewEstimate : null,
-                  isDarkBackground: false,
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final est = filtered[index];
-                      return StaggeredEntrance(
-                        index: index,
-                        child: _buildEstimateCard(est),
-                      );
-                    },
-                    childCount: filtered.length,
                   ),
                 ),
-              ),
-          ],
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: PinnedBarDelegate(
+                    child: FilterRow(
+                      children: [
+                        pill('all', 'All', counted: false),
+                        pill('pending', 'Pending'),
+                        pill('accepted', 'Accepted'),
+                        pill('converted', 'Converted'),
+                        pill('declined', 'Declined'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              if (_isLoading)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                )
+              else if (filtered.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 100),
+                    child: EmptyStateView(
+                      icon: Icons.request_quote_outlined,
+                      title: _allEstimates.isEmpty ? 'No Estimates Yet' : 'No Results Found',
+                      subtitle: _allEstimates.isEmpty
+                          ? 'Send a price before you bill. Accepted quotes turn into invoices in one tap.'
+                          : 'Try another search or filter',
+                      actionLabel: _allEstimates.isEmpty ? 'Create Estimate' : null,
+                      onAction: _allEstimates.isEmpty ? _createNewEstimate : null,
+                      isDarkBackground: false,
+                    ),
+                  ),
+                )
+              else ...[
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  sliver: SliverList.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) => _buildEstimateCard(filtered[index]),
+                  ),
+                ),
+                const SliverToBoxAdapter(child: ListFootnote('Swipe right to convert · hold for more')),
+              ],
+            ],
+          ),
         ),
       ),
-      floatingActionButton: filtered.isEmpty
-          ? null
-          : Padding(
-              padding: const EdgeInsets.only(bottom: 86),
-              child: FloatingActionButton.extended(
-                heroTag: 'estimate_list_fab',
-                onPressed: _createNewEstimate,
-                icon: Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 18),
-                label: Text(
-                  'New Estimate',
-                  style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.onPrimary, fontSize: 13),
-                ),
-                backgroundColor: AppColors.primary,
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-              ),
-            ),
     );
   }
 
-  Widget _buildFilterChip(String key, String label) {
-    final isSelected = _selectedFilter == key;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        setState(() => _selectedFilter = key);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(9999), // pill
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected ? AppColors.onPrimary : AppColors.body,
+  Widget _stat(String label, String value, Color color) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.muted)),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value, style: AppTypography.money(fontSize: 24, color: color, letterSpacing: -0.6)),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  /// Everything you can do to one estimate, on a long press.
+  void _showActions(EstimateModel estimate) {
+    Haptics.confirm();
+    final locked = EstimateActions.isLocked(estimate);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        Widget action(IconData icon, String label, VoidCallback f, {Color? color}) {
+          final c = color ?? AppColors.ink;
+          return ListTile(
+            dense: true,
+            visualDensity: VisualDensity.compact,
+            leading: Icon(icon, color: c, size: 20),
+            title: Text(label, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500, color: c)),
+            onTap: () {
+              Navigator.pop(ctx);
+              f();
+            },
+          );
+        }
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 14, 8, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(color: AppColors.hairline, borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(
+                    estimate.clientName.isEmpty ? estimate.estimateNumber : estimate.clientName,
+                    style: AppTypography.serif(fontSize: 20, color: AppColors.ink),
+                  ),
+                ),
+                if (estimate.canConvert)
+                  action(Icons.transform_rounded, 'Convert to Invoice', () => _convertToInvoice(estimate),
+                      color: AppColors.statusPaid),
+                action(Icons.visibility_outlined, 'View details', () => _openEstimatePreview(estimate)),
+                action(Icons.ios_share_rounded, 'Share PDF', () => _sharePdf(estimate)),
+                if (!locked) ...[
+                  if (estimate.status != EstimateStatus.accepted)
+                    action(Icons.check_circle_outline_rounded, 'Mark accepted',
+                        () => _quickUpdateStatus(estimate, EstimateStatus.accepted)),
+                  if (estimate.status != EstimateStatus.declined)
+                    action(Icons.cancel_outlined, 'Mark declined',
+                        () => _quickUpdateStatus(estimate, EstimateStatus.declined)),
+                  if (estimate.status != EstimateStatus.pending)
+                    action(Icons.schedule_rounded, 'Mark pending',
+                        () => _quickUpdateStatus(estimate, EstimateStatus.pending)),
+                ],
+                Divider(color: AppColors.hairline, height: 12),
+                action(Icons.delete_outline_rounded, 'Delete estimate', () => _deleteEstimate(estimate),
+                    color: AppColors.error),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildEstimateCard(EstimateModel estimate) {
-    final dateFormat = DateFormat('dd MMM yyyy');
-    final avatarColor = _getAvatarColor(estimate.clientName);
-    final initials = _getInitials(estimate.clientName);
+    final status = estimate.status;
+    final amount = CurrencyFormatter.format(
+      estimate.grandTotal,
+      currencyCode: estimate.currency.isNotEmpty ? estimate.currency : _currency,
+    );
+    final settled = status == EstimateStatus.converted || status == EstimateStatus.declined;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: AppColors.canvas,
-        borderRadius: BorderRadius.circular(12), // rounded.lg
-        border: Border.all(color: AppColors.hairline),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => _openEstimatePreview(estimate),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
+    final slip = PaperSlip(
+      onTap: () {
+        Haptics.tap();
+        _openEstimatePreview(estimate);
+      },
+      onLongPress: () => _showActions(estimate),
+      dimmed: settled,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Avatar circle
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: avatarColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      initials,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ),
+                Text(
+                  estimate.clientName.isEmpty ? 'No client' : estimate.clientName,
+                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 12),
-
-                // Left: Client Name & Estimate Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        estimate.clientName,
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.ink,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${estimate.estimateNumber} • ${dateFormat.format(estimate.estimateDate)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Right: Amount + Status Pill + 3-dots Menu
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      CurrencyFormatter.format(
-                        estimate.grandTotal,
-                        currencyCode: estimate.currency.isNotEmpty
-                            ? estimate.currency
-                            : _currency,
-                      ),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: estimate.status.backgroundColor,
-                        borderRadius: BorderRadius.circular(9999), // pill
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(estimate.status.icon, size: 10, color: estimate.status.color),
-                          const SizedBox(width: 3),
-                          Text(
-                            estimate.status.label,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
-                              color: estimate.status.color,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(width: 4),
-                PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert_rounded, size: 18, color: AppColors.muted),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onSelected: (val) {
-                    switch (val) {
-                      case 'convert':
-                        _convertToInvoice(estimate);
-                        break;
-                      case 'preview':
-                        _openEstimatePreview(estimate);
-                        break;
-                      case 'share':
-                        _sharePdf(estimate);
-                        break;
-                      case 'accepted':
-                        _quickUpdateStatus(estimate, EstimateStatus.accepted);
-                        break;
-                      case 'declined':
-                        _quickUpdateStatus(estimate, EstimateStatus.declined);
-                        break;
-                      case 'pending':
-                        _quickUpdateStatus(estimate, EstimateStatus.pending);
-                        break;
-                      case 'delete':
-                        _deleteEstimate(estimate);
-                        break;
-                    }
-                  },
-                  itemBuilder: (ctx) => [
-                    if (estimate.canConvert)
-                      AppPopupMenuItem.item(
-                        value: 'convert',
-                        title: 'Convert to Invoice',
-                        icon: Icons.transform_rounded,
-                        iconColor: AppColors.statusPaid,
-                        iconBgColor: AppColors.statusPaidBg,
-                      ),
-                    AppPopupMenuItem.item(
-                      value: 'preview',
-                      title: 'View Details',
-                      icon: Icons.visibility_outlined,
-                    ),
-                    AppPopupMenuItem.item(
-                      value: 'share',
-                      title: 'Share PDF',
-                      icon: Icons.share_outlined,
-                    ),
-                    if (!EstimateActions.isLocked(estimate)) ...[
-                    AppPopupMenuItem.divider(),
-                    AppPopupMenuItem.item(
-                      value: 'accepted',
-                      title: 'Mark Accepted',
-                      icon: Icons.check_circle_outline_rounded,
-                      iconColor: AppColors.statusPaid,
-                      iconBgColor: AppColors.statusPaidBg,
-                    ),
-                    AppPopupMenuItem.item(
-                      value: 'declined',
-                      title: 'Mark Declined',
-                      icon: Icons.cancel_outlined,
-                      iconColor: AppColors.statusOverdue,
-                      iconBgColor: AppColors.statusOverdueBg,
-                    ),
-                    ],
-                    AppPopupMenuItem.divider(),
-                    AppPopupMenuItem.item(
-                      value: 'delete',
-                      title: 'Delete Estimate',
-                      icon: Icons.delete_outline_rounded,
-                      isDestructive: true,
-                    ),
-                  ],
+                const SizedBox(height: 3),
+                Text(
+                  '${estimate.estimateNumber} · ${DateFormat('d MMM yyyy').format(estimate.estimateDate)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.muted),
                 ),
               ],
             ),
           ),
-        ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(amount, style: AppTypography.money(fontSize: 17, color: AppColors.ink, letterSpacing: -0.3)),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: StampMark(label: status.stamp, color: status.color, fontSize: 9.5),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Dismissible(
+        key: ValueKey('est-${estimate.id}'),
+        direction: estimate.canConvert ? DismissDirection.horizontal : DismissDirection.endToStart,
+        dismissThresholds: const {DismissDirection.startToEnd: 0.3, DismissDirection.endToStart: 0.3},
+        confirmDismiss: (direction) async {
+          Haptics.tap();
+          if (direction == DismissDirection.startToEnd) {
+            _convertToInvoice(estimate);
+          } else {
+            _sharePdf(estimate);
+          }
+          return false;
+        },
+        background: _swipeBackground(true, AppColors.statusPaidBg, AppColors.statusPaid, Icons.transform_rounded, 'Convert'),
+        secondaryBackground: _swipeBackground(false, AppColors.surfaceCard, AppColors.ink, Icons.ios_share_rounded, 'Share'),
+        child: slip,
       ),
     );
   }
-}
 
+  Widget _swipeBackground(bool left, Color bg, Color fg, IconData icon, String label) {
+    final children = [
+      Icon(icon, color: fg, size: 20),
+      const SizedBox(width: 8),
+      Text(label, style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w600, color: fg)),
+    ];
+    return Container(
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      alignment: left ? Alignment.centerLeft : Alignment.centerRight,
+      child: Row(mainAxisSize: MainAxisSize.min, children: left ? children : children.reversed.toList()),
+    );
+  }
+
+  /// For the shell's create sheet.
+  Future<void> createNew() => _createNewEstimate();
+}

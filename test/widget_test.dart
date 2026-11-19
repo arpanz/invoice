@@ -36,7 +36,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('Workspace'), findsOneWidget);
+    expect(find.text('WORKSPACE'), findsOneWidget);
     expect(find.text('Default Design & Typography'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Rate Us on Play Store'), 100);
     expect(find.text('Rate Us on Play Store'), findsOneWidget);
@@ -113,7 +113,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('Workspace'), findsOneWidget);
+    expect(find.text('WORKSPACE'), findsOneWidget);
 
     // Tap back button to return to dashboard
     final backButton = find.byIcon(Icons.arrow_back_rounded);

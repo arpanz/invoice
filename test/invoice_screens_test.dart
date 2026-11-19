@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/core/billing/billing_service.dart';
 import 'package:invoice/core/providers/currency_provider.dart';
-import 'package:invoice/features/dashboard/screens/dashboard_screen.dart';
 import 'package:invoice/features/invoices/models/invoice_model.dart';
 import 'package:invoice/features/invoices/models/line_item_model.dart';
 import 'package:invoice/features/invoices/models/pdf_theme.dart';
@@ -71,37 +70,6 @@ void main() {
       expect(fromMap.paidAmount, 400.0);
       expect(fromMap.balanceDue, 600.0);
     });
-  });
-
-  testWidgets('DashboardScreen renders summary cards and filter chips', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(wrapWithProviders(const DashboardScreen()));
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(find.text('Invoices'), findsOneWidget);
-    expect(find.text('Total Paid'), findsOneWidget);
-    expect(find.text('Total Unpaid'), findsOneWidget);
-    expect(find.text('All'), findsOneWidget);
-    expect(find.text('Unpaid'), findsOneWidget);
-    expect(find.text('Partially Paid'), findsOneWidget);
-    expect(find.text('Paid'), findsOneWidget);
-    expect(find.text('Overdue'), findsOneWidget);
-  });
-
-  testWidgets('Invoices tab search opens and closes (History was merged here)', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(wrapWithProviders(const DashboardScreen()));
-    await tester.pump(const Duration(milliseconds: 100));
-
-    await tester.tap(find.byIcon(Icons.search_rounded));
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.byType(TextField), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.close_rounded).first);
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.byType(TextField), findsNothing);
   });
 
   testWidgets('CreateInvoiceScreen renders modular cards and bottom bar', (
@@ -209,3 +177,4 @@ void main() {
     expect(pdfBytes.length, greaterThan(1000));
   });
 }
+

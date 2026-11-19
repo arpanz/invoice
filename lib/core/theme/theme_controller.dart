@@ -81,7 +81,7 @@ class ThemeController extends ChangeNotifier with WidgetsBindingObserver {
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
       statusBarBrightness: dark ? Brightness.dark : Brightness.light,
-      systemNavigationBarColor: AppColors.canvas,
+      systemNavigationBarColor: AppColors.background,
       systemNavigationBarIconBrightness: dark
           ? Brightness.light
           : Brightness.dark,

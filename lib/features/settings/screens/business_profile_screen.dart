@@ -189,8 +189,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
-          children: const [
-            Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+          children: [
+            Icon(Icons.check_circle_rounded, color: AppColors.onPrimary, size: 20),
             SizedBox(width: 10),
             Text(
               'Business profile saved successfully!',
@@ -256,9 +256,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 children: [
                   Text(
                     'Business Logo',
-                    style: TextStyle(
+                    style: AppTypography.serif(
                       fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: AppColors.textPrimary,
                     ),
                   ),
@@ -379,9 +379,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 children: [
                   Text(
                     'Authorized Signature',
-                    style: TextStyle(
+                    style: AppTypography.serif(
                       fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: AppColors.textPrimary,
                     ),
                   ),
@@ -589,15 +589,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
             icon: Icon(Icons.arrow_back_rounded, color: AppColors.ink),
             onPressed: () => Navigator.maybePop(context),
           ),
-          title: Text(
-            'Business Profile',
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w600,
-              fontSize: 18,
-              letterSpacing: -0.3,
-              color: AppColors.ink,
-            ),
-          ),
+          title: const Text('Business Profile'),
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 12),
@@ -838,8 +830,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               _buildSectionHeader(
                 title: 'Bank & Payment Details',
                 icon: Icons.account_balance_rounded,
-                iconColor: AppColors.squircleGreenIcon,
-                iconBg: AppColors.squircleGreen,
+                iconColor: AppColors.ink,
+                iconBg: AppColors.surfaceCard,
                 trailing: InkWell(
                   borderRadius: BorderRadius.circular(8),
                   onTap: () => CurrencyPickerSheet.show(context),
@@ -849,10 +841,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.squircleGreen,
+                      color: AppColors.surfaceCard,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: AppColors.squircleGreenIcon.withValues(
+                        color: AppColors.hairline.withValues(
                           alpha: 0.2,
                         ),
                       ),
@@ -870,14 +862,14 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.squircleGreenIcon,
+                            color: AppColors.ink,
                           ),
                         ),
                         const SizedBox(width: 2),
                         Icon(
                           Icons.arrow_drop_down_rounded,
                           size: 16,
-                          color: AppColors.squircleGreenIcon,
+                          color: AppColors.ink,
                         ),
                       ],
                     ),
@@ -1088,9 +1080,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               name.isNotEmpty
                                   ? name.substring(0, 1).toUpperCase()
                                   : 'B',
-                              style: GoogleFonts.inter(
+                              style: AppTypography.serif(
                                 fontSize: 22,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
                                 color: AppColors.ink,
                               ),
                             ),

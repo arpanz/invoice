@@ -6,6 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../core/theme/app_colors.dart';
 
+// The pad is always white paper, in both themes, so its guide marks use
+// fixed paper colours rather than theme tokens that flip in dark mode.
+const _padHint = Color(0xFF6B6253);
+const _padLine = Color(0xFFE3DACA);
+const _padFaint = Color(0xFF9A8F7C);
+
 class SignaturePadSheet extends StatefulWidget {
   const SignaturePadSheet({super.key});
 
@@ -279,7 +285,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                                 Icon(
                                   Icons.edit_outlined,
                                   size: 16,
-                                  color: AppColors.slate400,
+                                  color: _padHint,
                                 ),
                                 SizedBox(width: 6),
                                 Text(
@@ -287,7 +293,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
-                                    color: AppColors.slate400,
+                                    color: _padHint,
                                   ),
                                 ),
                               ],
@@ -297,7 +303,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Container(
                             height: 1,
-                            color: AppColors.slate200,
+                            color: _padLine,
                           ),
                         ),
                         Padding(
@@ -313,7 +319,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.slate400,
+                                  color: _padHint,
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -322,7 +328,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.slate300,
+                                  color: _padFaint,
                                 ),
                               ),
                             ],

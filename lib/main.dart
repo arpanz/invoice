@@ -1,9 +1,9 @@
-import 'dart:ui';
 import 'core/utils/image_store.dart';
 import 'core/utils/pdf_script_fonts.dart';
 import 'features/invoices/services/invoice_render_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,9 +22,12 @@ import 'features/estimates/screens/estimate_list_screen.dart';
 import 'features/invoices/screens/create_invoice_screen.dart';
 import 'features/items/screens/item_list_screen.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
+import 'shared_widgets/paper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Inter and Fraunces are bundled in assets/fonts; never fetch at run time.
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   // Lock to portrait
   await SystemChrome.setPreferredOrientations([
@@ -316,72 +319,182 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     );
   }
 
+  // ---- Search: one bar in the dock, applied to whichever tab is open ----
+  bool _searching = false;
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+
+  static const _searchHints = ['Search invoices', 'Search estimates', 'Search clients', 'Search items'];
+
+  void _applySearch(int index, String q) {
+    switch (index) {
+      case 0:
+        _dashboardKey.currentState?.setSearch(q);
+      case 1:
+        _estimatesKey.currentState?.setSearch(q);
+      case 2:
+        _clientsKey.currentState?.setSearch(q);
+      case 3:
+        _itemsKey.currentState?.setSearch(q);
+    }
+  }
+
+  void _openSearch() {
+    Haptics.tap();
+    setState(() => _searching = true);
+    _searchFocus.requestFocus();
+  }
+
+  void _closeSearch() {
+    _searchCtrl.clear();
+    _applySearch(_currentIndex, '');
+    _searchFocus.unfocus();
+    setState(() => _searching = false);
+  }
+
+  void _selectTab(int index) {
+    if (index == _currentIndex) return;
+    Haptics.tap();
+    if (_searching) _closeSearch();
+    setState(() => _currentIndex = index);
+    if (index == 0) _dashboardKey.currentState?.reload();
+    if (index == 1) _estimatesKey.currentState?.reload();
+    if (index == 2) _clientsKey.currentState?.reload();
+    if (index == 3) _itemsKey.currentState?.reload();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      extendBody: true,
-      body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(9999), // Cal.com nav-pill-group
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(
-                height: 66,
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.canvas.withValues(alpha: 0.90),
-                  borderRadius: BorderRadius.circular(9999),
-                  border: Border.all(
-                    color: AppColors.hairline.withValues(alpha: 0.85),
-                    width: 1,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color.fromRGBO(0, 0, 0, 0.08),
-                      blurRadius: 20,
-                      offset: Offset(0, 6),
-                      spreadRadius: 0,
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildNavItem(
-                      index: 0,
-                      icon: Icons.receipt_long_outlined,
-                      activeIcon: Icons.receipt_long_rounded,
-                      label: 'Invoices',
-                    ),
-                    _buildNavItem(
-                      index: 1,
-                      icon: Icons.request_quote_outlined,
-                      activeIcon: Icons.request_quote_rounded,
-                      label: 'Estimates',
-                    ),
-                    _buildCenterActionButton(),
-                    _buildNavItem(
-                      index: 2,
-                      icon: Icons.people_outline_rounded,
-                      activeIcon: Icons.people_rounded,
-                      label: 'Clients',
-                    ),
-                    _buildNavItem(
-                      index: 3,
-                      icon: Icons.inventory_2_outlined,
-                      activeIcon: Icons.inventory_2_rounded,
-                      label: 'Items',
-                    ),
-                  ],
-                ),
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    return PopScope(
+      // Back closes search, then returns to Invoices, before it leaves the app.
+      canPop: !_searching && _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_searching) {
+          _closeSearch();
+        } else if (_currentIndex != 0) {
+          _selectTab(0);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        extendBody: true,
+        body: IndexedStack(index: _currentIndex, children: _screens),
+        // The dock rides on top of the keyboard while searching.
+        bottomNavigationBar: Padding(
+          padding: EdgeInsets.only(bottom: keyboard),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+              child: Row(
+                children: [
+                  Expanded(child: _buildDock()),
+                  const SizedBox(width: 10),
+                  _buildCenterActionButton(),
+                ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDock() {
+    return Container(
+      height: 62,
+      decoration: BoxDecoration(
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(9999),
+        border: Border.all(color: AppColors.hairline),
+        boxShadow: AppColors.isDark
+            ? null
+            : const [BoxShadow(color: Color.fromRGBO(60, 45, 20, 0.10), blurRadius: 18, offset: Offset(0, 6))],
+      ),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, anim) => FadeTransition(
+          opacity: anim,
+          child: ScaleTransition(scale: Tween(begin: 0.96, end: 1.0).animate(anim), child: child),
+        ),
+        child: _searching ? _buildSearchField() : _buildTabs(),
+      ),
+    );
+  }
+
+  Widget _buildTabs() {
+    return Padding(
+      key: const ValueKey('tabs'),
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      child: Row(
+        children: [
+          _buildNavItem(index: 0, icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, label: 'Invoices'),
+          _buildNavItem(index: 1, icon: Icons.request_quote_outlined, activeIcon: Icons.request_quote_rounded, label: 'Estimates'),
+          _buildNavItem(index: 2, icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, label: 'Clients'),
+          _buildNavItem(index: 3, icon: Icons.inventory_2_outlined, activeIcon: Icons.inventory_2_rounded, label: 'Items'),
+          Tooltip(
+            message: 'Search',
+            child: InkResponse(
+              onTap: _openSearch,
+              radius: 24,
+              child: SizedBox(
+                width: 42,
+                height: 52,
+                child: Icon(Icons.search_rounded, color: AppColors.ink, size: 22),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Padding(
+      key: const ValueKey('search'),
+      padding: const EdgeInsets.only(left: 18, right: 4),
+      child: Row(
+        children: [
+          Icon(Icons.search_rounded, color: AppColors.muted, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              focusNode: _searchFocus,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              onChanged: (v) => _applySearch(_currentIndex, v),
+              style: GoogleFonts.inter(fontSize: 15.5, fontWeight: FontWeight.w500, color: AppColors.ink),
+              cursorColor: AppColors.ink,
+              decoration: InputDecoration(
+                hintText: _searchHints[_currentIndex],
+                hintStyle: GoogleFonts.inter(fontSize: 15.5, color: AppColors.mutedSoft),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                filled: false,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Close search',
+            onPressed: _closeSearch,
+            icon: Icon(Icons.close_rounded, color: AppColors.ink, size: 20),
+          ),
+        ],
       ),
     );
   }
@@ -393,271 +506,231 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     required String label,
   }) {
     final isSelected = _currentIndex == index;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        setState(() => _currentIndex = index);
-        if (index == 0) _dashboardKey.currentState?.reload();
-        if (index == 1) _estimatesKey.currentState?.reload();
-        if (index == 2) _clientsKey.currentState?.reload();
-        if (index == 3) _itemsKey.currentState?.reload();
-      },
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.surfaceCard : Colors.transparent,
-          borderRadius: BorderRadius.circular(9999), // pill-in-pill
-          border: isSelected
-              ? Border.all(color: AppColors.hairline, width: 1)
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              color: isSelected ? AppColors.ink : AppColors.muted,
-              size: 20,
+    return Expanded(
+      child: Semantics(
+        selected: isSelected,
+        button: true,
+        child: GestureDetector(
+          onTap: () => _selectTab(index),
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 1),
+            decoration: BoxDecoration(
+              color: isSelected ? AppColors.surfaceCard : Colors.transparent,
+              borderRadius: BorderRadius.circular(9999),
             ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? AppColors.ink : AppColors.muted,
-                letterSpacing: 0,
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(isSelected ? activeIcon : icon, color: isSelected ? AppColors.ink : AppColors.muted, size: 21),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: GoogleFonts.inter(
+                    fontSize: 10.5,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected ? AppColors.ink : AppColors.muted,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildCenterActionButton() {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        _showCreateChoiceSheet();
-      },
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: AppColors.primary, // signature Cal.com black
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Color.fromRGBO(0, 0, 0, 0.18),
-              blurRadius: 8,
-              offset: Offset(0, 3),
+    return Semantics(
+      button: true,
+      label: 'Create',
+      child: PressScale(
+        pressedScale: 0.9,
+        child: GestureDetector(
+          onTap: () {
+            Haptics.confirm();
+            if (_searching) _closeSearch();
+            _showCreateChoiceSheet();
+          },
+          child: Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+              boxShadow: AppColors.isDark
+                  ? null
+                  : const [BoxShadow(color: Color.fromRGBO(60, 45, 20, 0.22), blurRadius: 14, offset: Offset(0, 6))],
             ),
-          ],
+            child: Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 28),
+          ),
         ),
-        child: Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 28),
       ),
     );
+  }
+
+  Future<void> _newInvoice() async {
+    if (!await CreateInvoiceScreen.canCreateNewInvoice(context)) return;
+    if (!mounted) return;
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()));
+    if (mounted) {
+      _dashboardKey.currentState?.reload();
+      _itemsKey.currentState?.reload();
+    }
+  }
+
+  Future<void> _newEstimate() async {
+    if (!await CreateEstimateScreen.canCreateNewEstimate(context)) return;
+    if (!mounted) return;
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateEstimateScreen()));
+    if (mounted) _estimatesKey.currentState?.reload();
   }
 
   void _showCreateChoiceSheet() {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.hairline,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Create New Document',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.ink,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: AppColors.muted,
-                      size: 20,
-                    ),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Option 1: New Invoice
-              InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  if (await CreateInvoiceScreen.canCreateNewInvoice(context)) {
-                    if (!mounted) return;
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const CreateInvoiceScreen(),
-                      ),
-                    );
-                    if (mounted) {
-                      _dashboardKey.currentState?.reload();
-                      _itemsKey.currentState?.reload();
-                    }
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceCard,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.hairline),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.receipt_long_rounded,
-                          color: AppColors.onPrimary,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'New Invoice',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.ink,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Bill a client for completed services or items',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.muted,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        void go(VoidCallback action) {
+          Navigator.pop(ctx);
+          action();
+        }
 
-              // Option 2: New Estimate
-              InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  if (await CreateEstimateScreen.canCreateNewEstimate(
-                    context,
-                  )) {
-                    if (!mounted) return;
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const CreateEstimateScreen(),
-                      ),
-                    );
-                    if (mounted) {
-                      _estimatesKey.currentState?.reload();
-                    }
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.canvas,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.hairline),
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(color: AppColors.hairline, borderRadius: BorderRadius.circular(2)),
                   ),
-                  child: Row(
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Text('Create New Document', style: AppTypography.serif(fontSize: 22, color: AppColors.ink)),
+                ),
+                const SizedBox(height: 14),
+                _CreateOption(
+                  primary: true,
+                  icon: Icons.receipt_long_rounded,
+                  title: 'New Invoice',
+                  subtitle: 'Bill a client for work or items',
+                  onTap: () => go(_newInvoice),
+                ),
+                const SizedBox(height: 8),
+                _CreateOption(
+                  icon: Icons.request_quote_rounded,
+                  title: 'New Estimate / Quote',
+                  subtitle: 'Send a price before you bill',
+                  onTap: () => go(_newEstimate),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _CreateOption(
+                        compact: true,
+                        icon: Icons.person_add_alt_1_rounded,
+                        title: 'Client',
+                        onTap: () => go(() {
+                          _selectTab(2);
+                          _clientsKey.currentState?.createNew();
+                        }),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _CreateOption(
+                        compact: true,
+                        icon: Icons.add_box_outlined,
+                        title: 'Item',
+                        onTap: () => go(() {
+                          _selectTab(3);
+                          _itemsKey.currentState?.createNew();
+                        }),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// One choice in the create sheet. The invoice choice is inked, since
+/// it is what people make most.
+class _CreateOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+  final bool primary;
+  final bool compact;
+
+  const _CreateOption({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+    this.primary = false,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = primary ? AppColors.onPrimary : AppColors.ink;
+    return PressScale(
+      child: Material(
+        color: primary ? AppColors.primary : AppColors.canvas,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: primary ? BorderSide.none : BorderSide(color: AppColors.hairline),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: compact ? 14 : 16),
+            child: Row(
+              children: [
+                Icon(icon, color: fg, size: 22),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceCard,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.request_quote_rounded,
-                          color: AppColors.ink,
-                          size: 22,
-                        ),
+                      Text(
+                        compact ? 'New $title' : title,
+                        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: fg),
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'New Estimate / Quote',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.ink,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Send a pricing quote or proposal before billing',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                          ],
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle!,
+                          style: GoogleFonts.inter(fontSize: 12.5, color: primary ? fg.withValues(alpha: 0.72) : AppColors.muted),
                         ),
-                      ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.muted,
-                      ),
+                      ],
                     ],
                   ),
                 ),
-              ),
-            ],
+                if (!compact) Icon(Icons.arrow_forward_rounded, color: fg.withValues(alpha: 0.8), size: 18),
+              ],
+            ),
           ),
         ),
       ),
@@ -722,9 +795,9 @@ class _StartupUpdateSheet extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 'Update available',
-                style: TextStyle(
+                style: AppTypography.serif(
                   fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.ink,
                   letterSpacing: -0.3,
                 ),
@@ -749,9 +822,7 @@ class _StartupUpdateSheet extends StatelessWidget {
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: AppColors.hairline),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          shape: const StadiumBorder(),
                           foregroundColor: AppColors.ink,
                         ),
                         child: const Text('Later'),
@@ -768,9 +839,7 @@ class _StartupUpdateSheet extends StatelessWidget {
                           backgroundColor: AppColors.primary,
                           foregroundColor: AppColors.onPrimary,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          shape: const StadiumBorder(),
                         ),
                         child: const Text('Update now'),
                       ),

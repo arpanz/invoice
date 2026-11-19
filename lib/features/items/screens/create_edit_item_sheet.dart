@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../models/saved_item_model.dart';
@@ -237,9 +238,9 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                 children: [
                   Text(
                     _isEditing ? 'Edit Item' : 'New Item',
-                    style: TextStyle(
+                    style: AppTypography.serif(
                       fontSize: 20,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: AppColors.textPrimary,
                     ),
                   ),
@@ -453,8 +454,8 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                 title: 'Item Discount',
                 subtitle: 'Set a default percentage discount for this item',
                 icon: Icons.local_offer_outlined,
-                iconBg: AppColors.statusPartiallyPaidBg,
-                iconColor: AppColors.statusPartiallyPaid,
+                iconBg: AppColors.surfaceCard,
+                iconColor: AppColors.ink,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -484,9 +485,6 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                                   _discountRateCtrl.text = rate == 0 ? '' : NumberText.trim(rate);
                                 });
                               },
-                              selectedColor: AppColors.statusPartiallyPaidBg,
-                              backgroundColor: AppColors.slate100,
-                              labelStyle: TextStyle(color: isSelected ? AppColors.statusPartiallyPaid : AppColors.slate700),
                             ),
                           );
                         }).toList(),
@@ -502,8 +500,8 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                 title: 'Tax Configuration',
                 subtitle: 'Specify whether tax applies and the item tax rate',
                 icon: Icons.receipt_long_rounded,
-                iconBg: _isTaxable ? AppColors.squircleGreen : AppColors.slate100,
-                iconColor: _isTaxable ? AppColors.squircleGreenIcon : AppColors.slate400,
+                iconBg: AppColors.surfaceCard,
+                iconColor: _isTaxable ? AppColors.ink : AppColors.mutedSoft,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -553,9 +551,6 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                                     _taxRateCtrl.text = rate == 0 ? '0' : NumberText.trim(rate);
                                   });
                                 },
-                                selectedColor: AppColors.squircleGreen,
-                                backgroundColor: AppColors.slate100,
-                                labelStyle: TextStyle(color: isSelected ? AppColors.squircleGreenIcon : AppColors.slate700),
                               ),
                             );
                           }).toList(),
@@ -648,9 +643,9 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                         ),
                         Text(
                           CurrencyFormatter.format(netTotal, currencyCode: currencyCode),
-                          style: TextStyle(
+                          style: AppTypography.serif(
                             fontSize: 17,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: AppColors.primary,
                           ),
                         ),

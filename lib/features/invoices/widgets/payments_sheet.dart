@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/number_text.dart';
 import '../../../shared_widgets/app_dialog.dart';
@@ -117,7 +118,7 @@ class _PaymentsSheetState extends State<PaymentsSheet> {
                 const SizedBox(height: 16),
                 Text(
                   'Payments',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.ink),
+                  style: AppTypography.serif(fontSize: 18, fontWeight: FontWeight.w500, color: AppColors.ink),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -307,7 +308,7 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
               children: [
                 Text(
                   'Record payment',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.ink),
+                  style: AppTypography.serif(fontSize: 18, fontWeight: FontWeight.w500, color: AppColors.ink),
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(

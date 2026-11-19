@@ -194,9 +194,7 @@ class _EmptyStateViewState extends State<EmptyStateView> {
                     horizontal: 20,
                     vertical: 13,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8), // rounded.md
-                  ),
+                  shape: const StadiumBorder(),
                   elevation: 0,
                 ),
               ),

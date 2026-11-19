@@ -255,6 +255,29 @@ void main() {
       expect(stored.status, InvoiceStatus.unpaid);
     });
 
+    test('swipe-to-paid Undo: markPaidInFull returns the new payment, deleting it restores the invoice', () async {
+      final inv = invoice('INV00001', price: 1000);
+      await DbProvider.saveInvoice(inv);
+      await DbProvider.addPayment(pay(inv.id, 300));
+
+      final paymentId = await DbProvider.markPaidInFull(inv.id);
+      expect(paymentId, isNotNull);
+      expect((await load(inv.id)).status, InvoiceStatus.paid);
+      final added = (await DbProvider.paymentsFor(inv.id)).singleWhere((p) => p.id == paymentId);
+      expect(added.amount, 700);
+
+      // Undo removes exactly that payment and the earlier one stays.
+      await DbProvider.deletePayment(paymentId!);
+      final stored = await load(inv.id);
+      expect(stored.paidAmount, 300);
+      expect(stored.status, InvoiceStatus.partiallyPaid);
+      expect((await DbProvider.paymentsFor(inv.id)).map((p) => p.amount), [300]);
+
+      // Nothing owed: no payment is made and no id comes back.
+      await DbProvider.markPaidInFull(inv.id);
+      expect(await DbProvider.markPaidInFull(inv.id), isNull);
+    });
+
     test('an editor save never overwrites recorded payments', () async {
       final inv = invoice('INV00001', price: 1000);
       await DbProvider.saveInvoice(inv);

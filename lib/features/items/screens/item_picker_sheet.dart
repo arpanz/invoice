@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../invoices/models/line_item_model.dart';
 import '../models/saved_item_model.dart';
@@ -154,9 +155,9 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                   children: [
                     Text(
                       'Pick from Catalog',
-                      style: TextStyle(
+                      style: AppTypography.serif(
                         fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: AppColors.textPrimary,
                       ),
                     ),

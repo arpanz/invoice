@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/theme/app_colors.dart';
 import '../../invoices/models/invoice_model.dart';
 import '../../invoices/models/line_item_model.dart';
 
@@ -36,31 +38,27 @@ extension EstimateStatusExtension on EstimateStatus {
     }
   }
 
-  Color get color {
-    switch (this) {
-      case EstimateStatus.pending:
-        return const Color(0xFFF59E0B); // Amber
-      case EstimateStatus.accepted:
-        return const Color(0xFF10B981); // Emerald Green
-      case EstimateStatus.declined:
-        return const Color(0xFFEF4444); // Red
-      case EstimateStatus.converted:
-        return const Color(0xFF3B82F6); // Blue
-    }
-  }
+  Color get color => switch (this) {
+    EstimateStatus.pending => AppColors.statusPartiallyPaid,
+    EstimateStatus.accepted => AppColors.statusPaid,
+    EstimateStatus.declined => AppColors.statusOverdue,
+    EstimateStatus.converted => AppColors.brandAccent,
+  };
 
-  Color get backgroundColor {
-    switch (this) {
-      case EstimateStatus.pending:
-        return const Color(0xFFFEF3C7);
-      case EstimateStatus.accepted:
-        return const Color(0xFFD1FAE5);
-      case EstimateStatus.declined:
-        return const Color(0xFFFEE2E2);
-      case EstimateStatus.converted:
-        return const Color(0xFFDBEAFE);
-    }
-  }
+  Color get backgroundColor => switch (this) {
+    EstimateStatus.pending => AppColors.statusPartiallyPaidBg,
+    EstimateStatus.accepted => AppColors.statusPaidBg,
+    EstimateStatus.declined => AppColors.statusOverdueBg,
+    EstimateStatus.converted => AppColors.brandAccent.withValues(alpha: 0.12),
+  };
+
+  /// The word stamped on the estimate in lists.
+  String get stamp => switch (this) {
+    EstimateStatus.pending => 'SENT',
+    EstimateStatus.accepted => 'ACCEPTED',
+    EstimateStatus.declined => 'DECLINED',
+    EstimateStatus.converted => 'INVOICED',
+  };
 
   IconData get icon {
     switch (this) {

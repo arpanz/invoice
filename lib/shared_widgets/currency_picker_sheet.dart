@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/models/currency_model.dart';
 import '../core/providers/currency_provider.dart';
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_typography.dart';
 
 class CurrencyPickerSheet extends StatefulWidget {
   final Function(Currency)? onCurrencySelected;
@@ -102,9 +103,9 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                     children: [
                       Text(
                         'Select Country & Currency',
-                        style: GoogleFonts.inter(
+                        style: AppTypography.serif(
                           fontSize: 17,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.ink,
                           letterSpacing: -0.3,
                         ),

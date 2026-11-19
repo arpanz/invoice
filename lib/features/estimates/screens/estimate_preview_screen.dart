@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../invoices/models/invoice_customization_config.dart';
 import '../../invoices/models/line_item_model.dart';
@@ -200,9 +201,9 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                     children: [
                       Text(
                         'Update Status',
-                        style: TextStyle(
+                        style: AppTypography.serif(
                           fontSize: 18,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.textPrimary,
                         ),
                       ),
@@ -393,19 +394,9 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
     final currencySymbol = CurrencyFormatter.getCurrencySymbol(_estimate.currency);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
-        foregroundColor: Colors.white,
-        // This screen is dark in both themes.
-        systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
-          statusBarColor: Colors.transparent,
-        ),
-        elevation: 0,
-        title: Text(
-          _estimate.estimateNumber,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
-        ),
+        title: Text(_estimate.estimateNumber),
         actions: [
           // Theme switch pill
           GestureDetector(
@@ -414,18 +405,18 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
               margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white24),
+                color: AppColors.canvas,
+                borderRadius: BorderRadius.circular(9999),
+                border: Border.all(color: AppColors.hairline),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.palette_rounded, size: 14, color: AppColors.primaryMuted),
+                  Icon(Icons.palette_rounded, size: 14, color: AppColors.ink),
                   const SizedBox(width: 4),
                   Text(
                     _currentTheme.name,
-                    style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 11.5, color: AppColors.ink, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -433,7 +424,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
           ),
           IconButton(
             tooltip: 'Edit',
-            icon: const Icon(Icons.edit_rounded, color: Colors.white),
+            icon: Icon(Icons.edit_rounded, color: AppColors.ink),
             onPressed: _editEstimate,
           ),
         ],
@@ -443,7 +434,10 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
           // Top Info Pill (Status, Valid Until, Grand Total)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            color: const Color(0xFF0F172A),
+            decoration: BoxDecoration(
+              color: AppColors.canvas,
+              border: Border(bottom: BorderSide(color: AppColors.hairline)),
+            ),
             child: Row(
               children: [
                 // Status Chip
@@ -481,7 +475,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                       'Valid: ${DateFormat('dd MMM yyyy').format(_estimate.expiryDate!)}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: _estimate.isExpired ? AppColors.accentRed : AppColors.slate300,
+                        color: _estimate.isExpired ? AppColors.statusOverdue : AppColors.muted,
                         fontWeight: _estimate.isExpired ? FontWeight.w600 : FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -493,11 +487,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                     currencyCode: _estimate.currency,
                     currencySymbol: currencySymbol,
                   ),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+                  style: AppTypography.money(fontSize: 18, color: AppColors.ink),
                 ),
               ],
             ),
@@ -508,7 +498,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
             child: _isLoading
                 ? Center(child: CircularProgressIndicator(color: AppColors.primary))
                 : _rasterPages == null || _rasterPages!.isEmpty
-                    ? const Center(child: Text('Could not render preview', style: TextStyle(color: Colors.white70)))
+                    ? Center(child: Text('Could not render preview', style: TextStyle(color: AppColors.muted)))
                     : LayoutBuilder(
                         builder: (context, constraints) {
                           return InteractiveViewer(
@@ -529,7 +519,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                                         borderRadius: BorderRadius.circular(8),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.4),
+                                            color: const Color.fromRGBO(60, 45, 20, 0.16),
                                             blurRadius: 16,
                                             offset: const Offset(0, 6),
                                           ),
@@ -570,10 +560,10 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                         height: 48,
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF10B981), // Emerald
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 2,
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: AppColors.onPrimary,
+                            shape: const StadiumBorder(),
+                            elevation: 0,
                           ),
                           icon: const Icon(Icons.transform_rounded, size: 20),
                           label: const Text(
@@ -593,7 +583,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             side: BorderSide(color: AppColors.primary),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: const StadiumBorder(),
                           ),
                           icon: Icon(Icons.share_rounded, size: 18, color: AppColors.primary),
                           label: Text('Share PDF', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary)),
@@ -606,7 +596,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             side: BorderSide(color: AppColors.slate300),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: const StadiumBorder(),
                           ),
                           icon: Icon(Icons.print_rounded, size: 18, color: AppColors.slate600),
                           label: Text('Print', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.slate700)),

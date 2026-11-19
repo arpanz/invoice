@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../models/invoice_customization_config.dart';
 import '../models/pdf_theme.dart';
 import '../services/dummy_invoice_data.dart';
@@ -152,9 +153,9 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                       children: [
                         Text(
                           'Choose Invoice Style',
-                          style: GoogleFonts.inter(
+                          style: AppTypography.serif(
                             fontSize: 18,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: AppColors.ink,
                             letterSpacing: -0.3,
                           ),
@@ -336,9 +337,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.onPrimary,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8), // rounded.md
-                        ),
+                        shape: const StadiumBorder(),
                       ),
                       child: Text(
                         'Apply Selected Style',

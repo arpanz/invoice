@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/utils/number_text.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_animations.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared_widgets/empty_state_view.dart';
 import '../../../shared_widgets/app_dialog.dart';
-import '../../../shared_widgets/app_popup_menu.dart';
+import '../../../shared_widgets/paper.dart';
+import '../../../shared_widgets/tab_chrome.dart';
+import '../../../core/theme/app_typography.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/saved_item_model.dart';
 import '../services/item_service.dart';
 import 'create_edit_item_sheet.dart';
@@ -27,8 +28,6 @@ class ItemListScreenState extends State<ItemListScreen> {
   bool _isLoading = true;
   String _filterCategory = 'all';
   String _searchQuery = '';
-  bool _isSearching = false;
-  final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -36,17 +35,21 @@ class ItemListScreenState extends State<ItemListScreen> {
     _loadItems();
   }
 
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
   /// Public entry-point so the nav shell can trigger a refresh via GlobalKey.
   void reload() => _loadItems();
 
+  /// Called by the shell's search bar.
+  void setSearch(String query) {
+    final q = query.trim();
+    if (q == _searchQuery) return;
+    setState(() => _searchQuery = q);
+  }
+
+  /// For the shell's create sheet.
+  Future<void> createNew() => _createItem();
+
+  // Only the first load shows a spinner; reloads swap the list in place.
   Future<void> _loadItems() async {
-    setState(() => _isLoading = true);
 
     final items = await ItemService.getAllItems(orderBy: 'name COLLATE NOCASE ASC');
     final cats = await ItemService.getCategories();
@@ -92,21 +95,6 @@ class ItemListScreenState extends State<ItemListScreen> {
 
       return true;
     }).toList();
-  }
-
-  // Group items alphabetically by first letter
-  Map<String, List<SavedItemModel>> _groupAlphabetically(
-      List<SavedItemModel> list) {
-    final Map<String, List<SavedItemModel>> grouped = {};
-    for (final item in list) {
-      final key = item.name.isNotEmpty
-          ? item.name[0].toUpperCase()
-          : '#';
-      grouped.putIfAbsent(key, () => []).add(item);
-    }
-    return Map.fromEntries(
-      grouped.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
-    );
   }
 
   Future<void> _createItem() async {
@@ -170,251 +158,82 @@ class ItemListScreenState extends State<ItemListScreen> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredItems;
-    final grouped = _groupAlphabetically(filtered);
+    final rows = <Object>[];
+    String? letter;
+    for (final item in filtered) {
+      final l = item.name.trim().isEmpty ? '#' : item.name.trim()[0].toUpperCase();
+      if (l != letter) {
+        rows.add(l);
+        letter = l;
+      }
+      rows.add(item);
+    }
+    final hasUncategorized = _items.any((i) => (i.category ?? '').isEmpty);
+
+    Widget pill(String label, String value) => FilterPill(
+      label: label,
+      selected: _filterCategory == value,
+      onTap: () => setState(() => _filterCategory = value),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.canvas,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
-        ),
-        title: _isSearching
-            ? TextField(
-                controller: _searchCtrl,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Search items, HSN, category...',
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(color: AppColors.mutedSoft, fontSize: 15),
-                ),
-                style: TextStyle(
-                  color: AppColors.ink,
-                  fontSize: 16,
-                ),
-                onChanged: (val) => setState(() => _searchQuery = val.trim()),
-              )
-            : Text(
-                'Items',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.ink,
-                  letterSpacing: -0.5,
-                ),
-              ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isSearching ? Icons.close_rounded : Icons.search_rounded,
-              color: AppColors.ink,
-              size: 20,
-            ),
-            onPressed: () {
-              setState(() {
-                if (_isSearching) {
-                  _isSearching = false;
-                  _searchQuery = '';
-                  _searchCtrl.clear();
-                } else {
-                  _isSearching = true;
-                }
-              });
-            },
-          ),
-          if (!_isSearching)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: IconButton(
-                icon: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceDark,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.add_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-                onPressed: () {
-                  HapticFeedback.mediumImpact();
-                  _createItem();
-                },
-              ),
-            ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadItems,
-        color: AppColors.primary,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            // Category filter chips
-            if (_categories.isNotEmpty)
+      body: SafeArea(
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: _loadItems,
+          color: AppColors.primary,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: AppColors.canvas,
-                        borderRadius: BorderRadius.circular(9999),
-                        border: Border.all(color: AppColors.hairline),
-                      ),
-                      child: Row(
-                        children: [
-                          _buildFilterChip('All', 'all'),
-                          ..._categories.map(
-                            (cat) => _buildFilterChip(cat, cat),
-                          ),
-                          _buildFilterChip('Uncategorized', 'uncategorized'),
-                        ],
-                      ),
+                child: TabHeader(
+                  title: 'Items',
+                  caption: _items.isEmpty
+                      ? 'Products & services'
+                      : '${_items.length} saved ${_items.length == 1 ? 'item' : 'items'}',
+                ),
+              ),
+              if (_categories.isNotEmpty)
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: PinnedBarDelegate(
+                    child: FilterRow(
+                      children: [
+                        pill('All', 'all'),
+                        ..._categories.map((cat) => pill(cat, cat)),
+                        if (hasUncategorized) pill('Uncategorized', 'uncategorized'),
+                      ],
                     ),
                   ),
-                ),
-              ),
-
-            // Summary strip
-            if (!_isLoading && _items.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
-                  child: Row(
-                    children: [
-                      Text(
-                        '${filtered.length} item${filtered.length != 1 ? 's' : ''}',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.muted,
-                        ),
-                      ),
-                      if (_filterCategory != 'all' ||
-                          _searchQuery.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          '(filtered)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.ink,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-
-            if (_isLoading)
-              SliverFillRemaining(
-                child: Center(
-                  child:
-                      CircularProgressIndicator(color: AppColors.primary),
-                ),
-              )
-            else if (filtered.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _buildEmptyState(),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 160),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final groupKey = grouped.keys.elementAt(index);
-                      final itemsInGroup = grouped[groupKey]!;
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Group Header
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              top: 14,
-                              bottom: 8,
-                              left: 4,
-                            ),
-                            child: Text(
-                              groupKey,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                          ),
-                          ...itemsInGroup.asMap().entries.map(
-                                (entry) => StaggeredEntrance(
-                                  index: entry.key,
-                                  child: _buildItemCard(entry.value),
-                                ),
-                              ),
-                        ],
-                      );
+                )
+              else
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
+              if (_isLoading)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                )
+              else if (filtered.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(padding: const EdgeInsets.only(bottom: 100), child: _buildEmptyState()),
+                )
+              else ...[
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  sliver: SliverList.builder(
+                    itemCount: rows.length,
+                    itemBuilder: (context, i) {
+                      final row = rows[i];
+                      if (row is String) return ListSectionLabel(row);
+                      return _buildItemCard(row as SavedItemModel);
                     },
-                    childCount: grouped.keys.length,
                   ),
                 ),
-              ),
-          ],
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80),
-        child: FloatingActionButton.extended(
-          heroTag: 'item_list_fab',
-          onPressed: () {
-            HapticFeedback.mediumImpact();
-            _createItem();
-          },
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.onPrimary,
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text(
-            'Add Item',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String value) {
-    final isSelected = _filterCategory == value;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        setState(() => _filterCategory = value);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(9999), // pill
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected ? AppColors.onPrimary : AppColors.body,
+                const SliverToBoxAdapter(child: ListFootnote('Tap to edit · hold for more')),
+              ],
+            ],
           ),
         ),
       ),
@@ -423,67 +242,13 @@ class ItemListScreenState extends State<ItemListScreen> {
 
   Widget _buildEmptyState() {
     if (_searchQuery.isNotEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceCard,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.hairline),
-                ),
-                child: Icon(
-                  Icons.search_off_rounded,
-                  size: 28,
-                  color: AppColors.muted,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No items found for "$_searchQuery"',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Try a different search term',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppColors.muted),
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _searchQuery = '';
-                    _searchCtrl.clear();
-                    _isSearching = false;
-                  });
-                },
-                icon: const Icon(Icons.clear_rounded, size: 16),
-                label: const Text('Clear Search'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.ink,
-                  side: BorderSide(color: AppColors.hairline),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      return EmptyStateView(
+        icon: Icons.search_off_rounded,
+        title: 'No Results',
+        subtitle: 'No items match "$_searchQuery"',
+        isDarkBackground: false,
       );
     }
-
     return EmptyStateView(
       icon: Icons.inventory_2_rounded,
       title: 'No Items Yet',
@@ -496,250 +261,111 @@ class ItemListScreenState extends State<ItemListScreen> {
     );
   }
 
-  Widget _buildItemCard(SavedItemModel item) {
-    final currencyProvider = context.read<CurrencyProvider>();
-    final currencyCode = currencyProvider.selectedCurrency.code;
+  void _showItemActions(SavedItemModel item) {
+    Haptics.confirm();
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        Widget action(IconData icon, String label, VoidCallback f, {Color? color}) {
+          final c = color ?? AppColors.ink;
+          return ListTile(
+            dense: true,
+            visualDensity: VisualDensity.compact,
+            leading: Icon(icon, color: c, size: 20),
+            title: Text(label, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500, color: c)),
+            onTap: () {
+              Navigator.pop(ctx);
+              f();
+            },
+          );
+        }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: AppColors.canvas,
-        borderRadius: BorderRadius.circular(12), // rounded.lg
-        border: Border.all(color: AppColors.hairline),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => _editItem(item),
+        return SafeArea(
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
+            padding: const EdgeInsets.fromLTRB(8, 14, 8, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Icon tile
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: item.isTaxable
-                        ? AppColors.statusPaidBg
-                        : AppColors.surfaceCard,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    item.isTaxable
-                        ? Icons.sell_rounded
-                        : Icons.sell_outlined,
-                    color: item.isTaxable
-                        ? AppColors.statusPaid
-                        : AppColors.ink,
-                    size: 18,
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(color: AppColors.hairline, borderRadius: BorderRadius.circular(2)),
                   ),
                 ),
-                const SizedBox(width: 12),
-
-                // Name + details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.name,
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.ink,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Text(
-                            CurrencyFormatter.format(
-                              item.unitPrice,
-                              currencyCode: currencyCode,
-                            ),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          Text(
-                            ' / ${item.unit}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.slate500,
-                            ),
-                          ),
-                          if (item.hsnCode != null &&
-                              item.hsnCode!.isNotEmpty) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.slate100,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                'HSN: ${item.hsnCode}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.slate600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          if (item.category != null &&
-                              item.category!.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2.5),
-                              decoration: BoxDecoration(
-                                color: AppColors.squirclePurple,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                item.category!,
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.squirclePurpleIcon,
-                                ),
-                              ),
-                            ),
-                          if (item.discountRate > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2.5),
-                              decoration: BoxDecoration(
-                                color: AppColors.statusPartiallyPaidBg,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: AppColors.statusPartiallyPaid.withValues(alpha: 0.35),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.local_offer_rounded,
-                                    size: 10,
-                                    color: AppColors.statusPartiallyPaid,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    '${NumberText.trim(item.discountRate)}% OFF',
-                                    style: TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.statusPartiallyPaid,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          if (item.isTaxable && item.taxRate > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2.5),
-                              decoration: BoxDecoration(
-                                color: AppColors.squircleGreen,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: AppColors.statusPaid.withValues(alpha: 0.35),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Text(
-                                'Tax ${NumberText.trim(item.taxRate)}%',
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.squircleGreenIcon,
-                                ),
-                              ),
-                            )
-                          else if (!item.isTaxable)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2.5),
-                              decoration: BoxDecoration(
-                                color: AppColors.slate100,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                'Tax Exempt',
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.slate500,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(item.name, style: AppTypography.serif(fontSize: 20, color: AppColors.ink)),
                 ),
-
-                // Popup menu
-                PopupMenuButton<String>(
-                  icon: Icon(
-                    Icons.more_vert_rounded,
-                    color: AppColors.slate500,
-                    size: 20,
-                  ),
-                  onSelected: (action) {
-                    switch (action) {
-                      case 'edit':
-                        _editItem(item);
-                        break;
-                      case 'duplicate':
-                        _duplicateItemDirect(item);
-                        break;
-                      case 'delete':
-                        _deleteItem(item);
-                        break;
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    AppPopupMenuItem.item(
-                      value: 'edit',
-                      title: 'Edit Item',
-                      icon: Icons.edit_outlined,
-                    ),
-                    AppPopupMenuItem.item(
-                      value: 'duplicate',
-                      title: 'Duplicate',
-                      icon: Icons.copy_rounded,
-                    ),
-                    AppPopupMenuItem.divider(),
-                    AppPopupMenuItem.item(
-                      value: 'delete',
-                      title: 'Delete',
-                      icon: Icons.delete_outline_rounded,
-                      isDestructive: true,
-                    ),
-                  ],
-                ),
+                action(Icons.edit_outlined, 'Edit item', () => _editItem(item)),
+                action(Icons.copy_rounded, 'Duplicate', () => _duplicateItemDirect(item)),
+                Divider(color: AppColors.hairline, height: 12),
+                action(Icons.delete_outline_rounded, 'Delete item', () => _deleteItem(item), color: AppColors.error),
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildItemCard(SavedItemModel item) {
+    final currencyCode = context.read<CurrencyProvider>().selectedCurrency.code;
+    final meta = <String>[
+      if ((item.category ?? '').isNotEmpty) item.category!,
+      if ((item.hsnCode ?? '').isNotEmpty) 'HSN ${item.hsnCode}',
+      if (item.isTaxable && item.taxRate > 0) 'Tax ${NumberText.trim(item.taxRate)}%',
+      if (!item.isTaxable) 'Tax exempt',
+      if (item.discountRate > 0) '${NumberText.trim(item.discountRate)}% off',
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: PaperSlip(
+        onTap: () {
+          Haptics.tap();
+          _editItem(item);
+        },
+        onLongPress: () => _showItemActions(item),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
+                  ),
+                  if (meta.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      meta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.muted),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  CurrencyFormatter.format(item.unitPrice, currencyCode: currencyCode),
+                  style: AppTypography.money(fontSize: 17, color: AppColors.ink, letterSpacing: -0.3),
+                ),
+                const SizedBox(height: 2),
+                Text('per ${item.unit}', style: GoogleFonts.inter(fontSize: 11.5, color: AppColors.mutedSoft)),
+              ],
+            ),
+          ],
         ),
       ),
     );

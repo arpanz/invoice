@@ -15,6 +15,8 @@ import '../../../core/database/db_provider.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared_widgets/paper.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../shared_widgets/currency_picker_sheet.dart';
 import '../../invoices/models/invoice_customization_config.dart';
@@ -85,15 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           icon: Icon(Icons.arrow_back_rounded, color: AppColors.ink),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Settings',
-          style: GoogleFonts.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
-            letterSpacing: -0.3,
-            color: AppColors.ink,
-          ),
-        ),
+        title: const Text('Settings'),
         centerTitle: true,
       ),
       body: ListView(
@@ -197,70 +191,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildProUpsellCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.proBadgeBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceDarkElevated,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.star_rounded,
-                color: Color(0xFFFBBF24),
-                size: 22,
-              ),
+    void open() {
+      Haptics.tap();
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const PaywallScreen()));
+    }
+
+    return PaperSlip(
+      onTap: open,
+      padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+      child: Row(
+        children: [
+          ExcludeSemantics(child: StampMark(label: 'PRO', color: AppColors.brandAccent, fontSize: 14)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Upgrade to Pro', style: AppTypography.serif(fontSize: 19, color: AppColors.ink)),
+                const SizedBox(height: 2),
+                Text(
+                  'Unlimited invoices & clients, no watermark',
+                  style: GoogleFonts.inter(color: AppColors.muted, fontSize: 12.5),
+                ),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Upgrade to Pro',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Unlimited invoices, custom logo & clean PDF',
-                    style: GoogleFonts.inter(
-                      color: const Color(0xFF999999),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: open,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 38),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PaywallScreen()),
-              ),
-              style: ElevatedButton.styleFrom(
-                // The card stays dark in both themes.
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF111111),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: Text('Go Pro', style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
+            child: Text('Go Pro', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }
@@ -311,12 +276,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
-        title,
+        title.toUpperCase(),
         style: GoogleFonts.inter(
-          fontSize: 12.5,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: AppColors.muted,
-          letterSpacing: 0.2,
+          color: AppColors.mutedSoft,
+          letterSpacing: 1.1,
         ),
       ),
     );
@@ -338,11 +303,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         leading: Container(
           width: 38,
           height: 38,
+          // One quiet tile style for every row; colour is kept for meaning.
           decoration: BoxDecoration(
-            color: iconBg,
+            color: AppColors.surfaceCard,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, size: 20, color: iconColor),
+          child: Icon(icon, size: 20, color: AppColors.ink),
         ),
         title: Text(
           title,
@@ -362,7 +328,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             (onTap != null
                 ? Icon(
                     Icons.chevron_right_rounded,
-                    color: AppColors.slate400,
+                    color: AppColors.mutedSoft,
                   )
                 : null),
         onTap: onTap,
@@ -406,9 +372,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Text(
                   'Appearance',
-                  style: TextStyle(
+                  style: AppTypography.serif(
                     fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.ink,
                   ),
                 ),
@@ -449,13 +415,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: AppColors.squircleGreen,
+            color: AppColors.surfaceCard,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
             Icons.currency_exchange_rounded,
             size: 20,
-            color: AppColors.squircleGreenIcon,
+            color: AppColors.ink,
           ),
         ),
         title: Text(
@@ -489,16 +455,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: _defaultTheme.previewBg,
+            color: AppColors.surfaceCard,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: _defaultTheme.previewPrimary.withValues(alpha: 0.3),
-            ),
           ),
           child: Icon(
             Icons.auto_fix_high_rounded,
             size: 20,
-            color: _defaultTheme.previewPrimary,
+            color: AppColors.ink,
           ),
         ),
         title: Text(
@@ -516,34 +479,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: _defaultTheme.previewBg,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: _defaultTheme.previewPrimary.withValues(alpha: 0.2),
+        // The template's accent as a small swatch; text stays readable.
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: _defaultTheme.previewPrimary,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.hairline),
+              ),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _defaultTheme.name,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _defaultTheme.previewPrimary,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 16,
-                color: AppColors.slate400,
-              ),
-            ],
-          ),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right_rounded, color: AppColors.mutedSoft),
+          ],
         ),
         onTap: () async {
           final updated = await InvoiceCustomizerStudioSheet.show(
@@ -552,7 +503,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Everything saved here is the default, so the checkbox would
             // only mislead.
             showSetAsDefault: false,
-            title: 'Default Invoice Design Studio',
+            title: 'Default invoice design',
           );
           if (updated != null && mounted) {
             final prefs = await SharedPreferences.getInstance();
@@ -659,9 +610,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 16),
               Text(
                 'Edit ${currencyProvider.defaultTax.shortName} Rate',
-                style: GoogleFonts.inter(
+                style: AppTypography.serif(
                   fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.ink,
                   letterSpacing: -0.3,
                 ),
@@ -706,9 +657,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               side: BorderSide(
                                 color: isSel ? AppColors.primary : AppColors.hairline,
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                              shape: const StadiumBorder(),
                               onPressed: () {
                                 setSheetState(() {
                                   controller.text = NumberText.trim(rate);
@@ -752,9 +701,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.error,
                           side: BorderSide(color: AppColors.hairline),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          shape: const StadiumBorder(),
                         ),
                         child: const Text('Reset'),
                       ),
@@ -767,9 +714,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.ink,
                         side: BorderSide(color: AppColors.hairline),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        shape: const StadiumBorder(),
                       ),
                       child: const Text('Cancel'),
                     ),
@@ -786,9 +731,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.onPrimary,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        shape: const StadiumBorder(),
                       ),
                       child: const Text('Save'),
                     ),

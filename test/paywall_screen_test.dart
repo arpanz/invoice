@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/core/billing/billing_service.dart';
 import 'package:invoice/core/providers/currency_provider.dart';
 import 'package:invoice/features/paywall/paywall_screen.dart';
-import 'package:invoice/features/paywall/widgets/paywall_skyline_header.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -25,9 +24,10 @@ void main() {
     await tester.pumpWidget(wrapWithProviders(const PaywallScreen()));
     await tester.pump(const Duration(milliseconds: 200));
 
-    // Verify header content
-    expect(find.byIcon(Icons.workspace_premium_rounded), findsOneWidget);
+    // Headline, and the receipt of what Pro includes with its stamp
+    expect(find.text('Bill without\nlimits.'), findsOneWidget);
     expect(find.text('Invoice Maker Pro'), findsOneWidget);
+    expect(find.text('PRO'), findsOneWidget);
 
     // Verify section label and feature items
     expect(find.text('WHAT\'S INCLUDED'), findsOneWidget);
@@ -72,29 +72,32 @@ void main() {
     expect(find.text('Unlock Lifetime Access'), findsOneWidget);
   });
 
-  testWidgets('PaywallSkylineHeader renders branding and triggers close', (
-    WidgetTester tester,
-  ) async {
-    bool closed = false;
+  testWidgets('PaywallScreen close button pops the page', (WidgetTester tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: PaywallSkylineHeader(
-            onClose: () => closed = true,
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => CurrencyProvider()),
+          ChangeNotifierProvider(create: (_) => BillingService()),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaywallScreen())),
+                child: const Text('open'),
+              ),
+            ),
           ),
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Restore purchase'), findsOneWidget);
 
-    // Verify Enterprise badge, Title and Pro icon
-    expect(find.text('ENTERPRISE SUITE'), findsOneWidget);
-    expect(find.text('Invoice Maker Pro'), findsOneWidget);
-    expect(find.byIcon(Icons.workspace_premium_rounded), findsOneWidget);
-
-    // Tap Close Button
     await tester.tap(find.byIcon(Icons.close_rounded));
-    await tester.pump();
-    expect(closed, isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Restore purchase'), findsNothing);
+    expect(find.text('open'), findsOneWidget);
   });
 }

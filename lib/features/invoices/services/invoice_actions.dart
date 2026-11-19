@@ -102,6 +102,7 @@ class InvoiceActions {
         SnackBar(
           behavior: SnackBarBehavior.floating,
           content: Text('Saved $name to ${saved.placeLabel}'),
+          persist: false,
           action: SnackBarAction(
             label: 'View',
             onPressed: () async {

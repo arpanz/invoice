@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../models/invoice_customization_config.dart';
 import '../models/invoice_model.dart';
 import '../models/pdf_theme.dart';
@@ -204,9 +205,9 @@ class _InvoiceCustomizerStudioSheetState
                           widget.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: AppTypography.serif(
                             fontSize: 18,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: AppColors.textPrimary,
                             letterSpacing: -0.3,
                           ),
@@ -309,7 +310,7 @@ class _InvoiceCustomizerStudioSheetState
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E293B),
+                          color: AppColors.ink,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
@@ -318,7 +319,7 @@ class _InvoiceCustomizerStudioSheetState
                             ),
                           ],
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             SizedBox(
@@ -326,7 +327,7 @@ class _InvoiceCustomizerStudioSheetState
                               height: 10,
                               child: CircularProgressIndicator(
                                 strokeWidth: 1.8,
-                                color: Colors.white,
+                                color: AppColors.onPrimary,
                               ),
                             ),
                             SizedBox(width: 6),
@@ -334,7 +335,7 @@ class _InvoiceCustomizerStudioSheetState
                               'Updating...',
                               style: TextStyle(
                                 fontSize: 10,
-                                color: Colors.white,
+                                color: AppColors.onPrimary,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -611,25 +612,14 @@ class _InvoiceCustomizerStudioSheetState
                   width: 84,
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: isSelected ? theme.previewBg : AppColors.canvas,
+                    // App-coloured card so it reads in both themes; the
+                    // swatch carries the template's own colours.
+                    color: isSelected ? AppColors.surfaceCard : AppColors.canvas,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isSelected
-                          ? theme.previewPrimary
-                          : AppColors.cardBorder,
+                      color: isSelected ? AppColors.ink : AppColors.cardBorder,
                       width: isSelected ? 2 : 1,
                     ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: theme.previewPrimary.withValues(
-                                alpha: 0.2,
-                              ),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -640,6 +630,7 @@ class _InvoiceCustomizerStudioSheetState
                         decoration: BoxDecoration(
                           color: theme.previewPrimary,
                           shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.hairline),
                         ),
                         child: Center(
                           child: Container(
@@ -662,9 +653,7 @@ class _InvoiceCustomizerStudioSheetState
                           fontWeight: isSelected
                               ? FontWeight.w600
                               : FontWeight.w500,
-                          color: isSelected
-                              ? theme.previewPrimary
-                              : AppColors.textPrimary,
+                          color: isSelected ? AppColors.ink : AppColors.textSecondary,
                           height: 1.1,
                         ),
                       ),
@@ -702,12 +691,10 @@ class _InvoiceCustomizerStudioSheetState
                   vertical: 7,
                 ),
                 decoration: BoxDecoration(
-                  color: isMatch
-                      ? preset.primary.withValues(alpha: 0.08)
-                      : AppColors.canvas,
-                  borderRadius: BorderRadius.circular(12),
+                  color: isMatch ? AppColors.surfaceCard : AppColors.canvas,
+                  borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: isMatch ? preset.primary : AppColors.cardBorder,
+                    color: isMatch ? AppColors.ink : AppColors.cardBorder,
                     width: isMatch ? 1.8 : 1.0,
                   ),
                 ),
@@ -720,6 +707,7 @@ class _InvoiceCustomizerStudioSheetState
                       decoration: BoxDecoration(
                         color: preset.primary,
                         shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.hairline),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -729,6 +717,7 @@ class _InvoiceCustomizerStudioSheetState
                       decoration: BoxDecoration(
                         color: preset.accent,
                         shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.hairline),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -742,7 +731,7 @@ class _InvoiceCustomizerStudioSheetState
                           fontWeight: isMatch
                               ? FontWeight.w600
                               : FontWeight.w500,
-                          color: isMatch ? preset.primary : AppColors.slate700,
+                          color: isMatch ? AppColors.ink : AppColors.slate700,
                         ),
                       ),
                     ),
@@ -1192,27 +1181,14 @@ class _InvoiceCustomizerStudioSheetState
   }
 
   Widget _buildSectionTitle(String text) {
-    return Row(
-      children: [
-        Container(
-          width: 3,
-          height: 14,
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          text.toUpperCase(),
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.slate500,
-            letterSpacing: 0.8,
-          ),
-        ),
-      ],
+    return Text(
+      text.toUpperCase(),
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: AppColors.mutedSoft,
+        letterSpacing: 1.1,
+      ),
     );
   }
 

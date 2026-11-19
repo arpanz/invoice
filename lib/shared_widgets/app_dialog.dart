@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_typography.dart';
 
 enum AppDialogVariant {
   danger,
@@ -81,7 +82,7 @@ class AppDialog extends StatelessWidget {
           border: Border.all(color: AppColors.hairline, width: 1),
           boxShadow: const [
             BoxShadow(
-              color: Color.fromRGBO(0, 0, 0, 0.10),
+              color: Color.fromRGBO(60, 45, 20, 0.14),
               blurRadius: 24,
               offset: Offset(0, 8),
             ),
@@ -96,7 +97,7 @@ class AppDialog extends StatelessWidget {
               // Icon Badge Header
               Container(
                 width: 44,
-                height: 44,
+                height: 48,
                 decoration: BoxDecoration(
                   color: _badgeBg,
                   borderRadius: BorderRadius.circular(12),
@@ -111,15 +112,9 @@ class AppDialog extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // Title in Cal Sans / Inter 600
               Text(
                 title,
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.ink,
-                  letterSpacing: -0.3,
-                ),
+                style: AppTypography.serif(fontSize: 22, color: AppColors.ink, letterSpacing: -0.4),
               ),
               const SizedBox(height: 8),
 
@@ -149,14 +144,12 @@ class AppDialog extends StatelessWidget {
                   if (showCancel) ...[
                     Expanded(
                       child: SizedBox(
-                        height: 44,
+                        height: 48,
                         child: OutlinedButton(
                           onPressed: onCancel ?? () => Navigator.pop(context, false),
                           style: OutlinedButton.styleFrom(
                             side: BorderSide(color: AppColors.hairline, width: 1.0),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8), // rounded.md
-                            ),
+                            shape: const StadiumBorder(),
                             foregroundColor: AppColors.ink,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             elevation: 0,
@@ -175,16 +168,14 @@ class AppDialog extends StatelessWidget {
                   ],
                   Expanded(
                     child: SizedBox(
-                      height: 44,
+                      height: 48,
                       child: ElevatedButton(
                         onPressed: onConfirm ?? () => Navigator.pop(context, true),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _confirmBg,
                           foregroundColor: AppColors.onPrimary,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8), // rounded.md
-                          ),
+                          shape: const StadiumBorder(),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
                         child: Text(

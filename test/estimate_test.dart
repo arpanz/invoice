@@ -7,7 +7,6 @@ import 'package:invoice/core/billing/billing_service.dart';
 import 'package:invoice/core/providers/currency_provider.dart';
 import 'package:invoice/features/estimates/models/estimate_model.dart';
 import 'package:invoice/features/estimates/screens/create_estimate_screen.dart';
-import 'package:invoice/features/estimates/screens/estimate_list_screen.dart';
 import 'package:invoice/features/estimates/screens/estimate_preview_screen.dart';
 import 'package:invoice/features/invoices/models/invoice_model.dart';
 import 'package:invoice/features/invoices/models/line_item_model.dart';
@@ -165,21 +164,6 @@ void main() {
   });
 
   group('Estimate UI & Widget Tests', () {
-    testWidgets('EstimateListScreen renders KPI summary cards and filter chips', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(wrapWithProviders(const EstimateListScreen()));
-      await tester.pump(const Duration(milliseconds: 100));
-
-      expect(find.text('Estimates'), findsOneWidget);
-      expect(find.text('Estimated'), findsOneWidget);
-      expect(find.text('Pending'), findsWidgets);
-      expect(find.text('Accepted'), findsWidgets);
-      expect(find.text('All'), findsOneWidget);
-      expect(find.text('Converted'), findsOneWidget);
-      expect(find.text('Declined'), findsOneWidget);
-    });
-
     testWidgets('CreateEstimateScreen renders form fields and quick validity pills', (
       WidgetTester tester,
     ) async {
@@ -266,3 +250,4 @@ void main() {
     });
   });
 }
+

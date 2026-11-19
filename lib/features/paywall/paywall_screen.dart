@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:provider/provider.dart';
 import '../../core/billing/billing_service.dart';
 import '../../core/billing/free_limits.dart';
 import '../../core/theme/app_colors.dart';
-import 'widgets/paywall_skyline_header.dart';
+import '../../core/theme/app_typography.dart';
+import '../../shared_widgets/paper.dart';
 
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
@@ -16,45 +16,31 @@ class PaywallScreen extends StatefulWidget {
   State<PaywallScreen> createState() => _PaywallScreenState();
 }
 
-class _PaywallScreenState extends State<PaywallScreen>
-    with SingleTickerProviderStateMixin {
+class _PaywallScreenState extends State<PaywallScreen> {
   String _selectedProductId = BillingService.lifetimeProductId;
   late final BillingService _billing;
   late final int _grantCountAtOpen;
   bool _restoring = false;
   Timer? _restoreTimer;
   bool _closing = false;
-
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
+  Timer? _stampTimer;
 
   @override
   void initState() {
     super.initState();
-    _initAnimations();
+    // The PRO stamp lands once as the page opens; the thud follows it.
+    _stampTimer = Timer(const Duration(milliseconds: 520), Haptics.stamp);
     _billing = context.read<BillingService>();
     _grantCountAtOpen = _billing.grantCount;
     _billing.addListener(_onBillingChanged);
     if (_billing.products.isEmpty) _billing.loadProducts();
   }
 
-  void _initAnimations() {
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    _controller.forward();
-  }
-
   @override
   void dispose() {
     _billing.removeListener(_onBillingChanged);
     _restoreTimer?.cancel();
-    _controller.dispose();
+    _stampTimer?.cancel();
     super.dispose();
   }
 
@@ -92,6 +78,7 @@ class _PaywallScreenState extends State<PaywallScreen>
     setState(() => _restoring = true);
     _restoreTimer?.cancel();
     await _billing.restorePurchases();
+    if (!mounted) return;
     _restoreTimer = Timer(const Duration(seconds: 6), () {
       if (!mounted || _closing) return;
       setState(() => _restoring = false);
@@ -109,128 +96,269 @@ class _PaywallScreenState extends State<PaywallScreen>
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
+  bool get _lifetime => _selectedProductId == BillingService.lifetimeProductId;
+  String _price(String id) => _getProduct(id)?.price ?? '—';
+
+  void _select(String id) {
+    if (_selectedProductId == id) return;
+    Haptics.tap();
+    setState(() => _selectedProductId = id);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-
-    // The header is dark navy in both themes, so the status bar icons are light.
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
-      child: Scaffold(
-      backgroundColor: AppColors.canvas,
-      body: FadeTransition(
-        opacity: _fadeAnimation,
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            // ── Scrollable content ───────────────────────────────────
+            _buildTopBar(),
             Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    PaywallSkylineHeader(
-                      onClose: () => Navigator.pop(context),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                children: [
+                  _buildHeadline(),
+                  const SizedBox(height: 22),
+                  _buildReceipt(),
+                  if (!_available && !_billing.isLoading) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      'Google Play purchases are not available right now. Check your connection and try again.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.statusOverdue, height: 1.4),
                     ),
-                    _buildFeaturesList(),
                   ],
-                ),
+                ],
               ),
             ),
-
-            // ── Bottom CTA area ──────────────────────────────────────
-            _buildBottomCta(bottomPadding),
+            _buildBottomCta(MediaQuery.paddingOf(context).bottom),
           ],
         ),
       ),
-    ),
     );
   }
 
-  // ── Features list ────────────────────────────────────────────────────────
-
-  Widget _buildFeaturesList() {
+  Widget _buildTopBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
+      child: Row(
         children: [
-          // Section label
-          Text(
-            'WHAT\'S INCLUDED',
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.muted,
-              letterSpacing: 0.8,
-            ),
+          IconButton(
+            tooltip: 'Close',
+            onPressed: () => Navigator.pop(context),
+            icon: Icon(Icons.close_rounded, color: AppColors.ink, size: 24),
           ),
-          const SizedBox(height: 18),
-
-          _buildFeatureRow(
-            Icons.receipt_long_rounded,
-            'Unlimited Invoices & Estimates',
-            'The free plan includes ${FreeLimits.invoicesPerMonth} of each per calendar month.',
-          ),
-          _buildFeatureRow(
-            Icons.people_alt_rounded,
-            'Unlimited Clients',
-            'The free plan saves up to ${FreeLimits.savedClients} clients.',
-          ),
-          _buildFeatureRow(
-            Icons.branding_watermark_rounded,
-            'No Watermark',
-            'Removes "Generated by Invoice Maker Pro" from your PDFs.',
-          ),
+          const Spacer(),
+          Text('UPGRADE', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.1, color: AppColors.mutedSoft)),
+          const Spacer(),
+          const SizedBox(width: 48),
         ],
       ),
     );
   }
 
-  Widget _buildFeatureRow(IconData icon, String title, String subtitle) {
+  Widget _buildHeadline() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Bill without\nlimits.',
+          style: AppTypography.serif(fontSize: 38, color: AppColors.ink, letterSpacing: -1.2, height: 1.05),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'One upgrade unlocks every invoice, every client, and clean PDFs with only your brand on them.',
+          style: GoogleFonts.inter(fontSize: 14.5, color: AppColors.muted, height: 1.45),
+        ),
+      ],
+    );
+  }
+
+  /// What Pro includes, laid out like a receipt, with the PRO stamp on it.
+  Widget _buildReceipt() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          decoration: BoxDecoration(
+            color: AppColors.canvas,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.hairline),
+            boxShadow: AppColors.isDark
+                ? null
+                : const [BoxShadow(color: Color.fromRGBO(60, 45, 20, 0.07), blurRadius: 20, offset: Offset(0, 8))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Invoice Maker Pro', style: AppTypography.serif(fontSize: 20, color: AppColors.ink)),
+              const SizedBox(height: 2),
+              Text('WHAT\'S INCLUDED', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.1, color: AppColors.mutedSoft)),
+              const SizedBox(height: 12),
+              _dashedRule(),
+              const SizedBox(height: 4),
+              _buildFeatureRow(
+                'Unlimited Invoices & Estimates',
+                'The free plan includes ${FreeLimits.invoicesPerMonth} of each per calendar month.',
+              ),
+              _buildFeatureRow(
+                'Unlimited Clients',
+                'The free plan saves up to ${FreeLimits.savedClients} clients.',
+              ),
+              _buildFeatureRow(
+                'No Watermark',
+                'Removes "Generated by Invoice Maker Pro" from your PDFs.',
+              ),
+              const SizedBox(height: 4),
+              _dashedRule(),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('TOTAL', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1.1, color: AppColors.muted)),
+                  const Spacer(),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      _lifetime
+                          ? _price(BillingService.lifetimeProductId)
+                          : '${_price(BillingService.monthlyProductId)} / month',
+                      key: ValueKey(_selectedProductId),
+                      style: AppTypography.money(fontSize: 22, color: AppColors.ink),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          top: 14,
+          right: 16,
+          child: ExcludeSemantics(
+            child: StampMark(label: 'PRO', color: AppColors.brandAccent, fontSize: 20, animate: true),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _dashedRule() {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final n = (c.maxWidth / 8).floor();
+        return Row(
+          children: List.generate(
+            n,
+            (_) => Expanded(
+              child: Container(
+                height: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                color: AppColors.hairline,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFeatureRow(String title, String subtitle) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceCard,
-              borderRadius: BorderRadius.circular(8), // rounded.md
-              border: Border.all(color: AppColors.hairline),
-            ),
-            child: Icon(icon, color: AppColors.ink, size: 18),
-          ),
-          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.ink,
-                    letterSpacing: -0.2,
+                Text(title, style: GoogleFonts.inter(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.ink)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.muted, height: 1.35)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(Icons.check_rounded, color: AppColors.statusPaid, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanRow({
+    required String id,
+    required String label,
+    required String note,
+    required String price,
+    required String period,
+    String? badge,
+  }) {
+    final selected = _selectedProductId == id;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: PressScale(
+        child: GestureDetector(
+          onTap: () => _select(id),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
+            decoration: BoxDecoration(
+              color: AppColors.canvas,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: selected ? AppColors.ink : AppColors.hairline, width: selected ? 2 : 1),
+            ),
+            child: Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? AppColors.ink : Colors.transparent,
+                    border: Border.all(color: selected ? AppColors.ink : AppColors.mutedSoft, width: 1.5),
+                  ),
+                  child: selected ? Icon(Icons.check_rounded, size: 14, color: AppColors.onPrimary) : null,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(label, style: GoogleFonts.inter(fontSize: 15.5, fontWeight: FontWeight.w600, color: AppColors.ink)),
+                          if (badge != null) ...[
+                            const SizedBox(width: 10),
+                            StampMark(label: badge, color: AppColors.statusPaid, fontSize: 8.5),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(note, style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.muted)),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.inter(
-                    fontSize: 12.5,
-                    color: AppColors.muted,
-                    height: 1.3,
-                  ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(price, style: AppTypography.money(fontSize: 19, color: AppColors.ink)),
+                    Text(period, style: GoogleFonts.inter(fontSize: 11.5, color: AppColors.mutedSoft)),
+                  ],
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -239,223 +367,79 @@ class _PaywallScreenState extends State<PaywallScreen>
 
   Widget _buildBottomCta(double bottomPadding) {
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPadding > 0 ? bottomPadding : 16),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, bottomPadding > 0 ? bottomPadding : 14),
       decoration: BoxDecoration(
-        color: AppColors.canvas,
-        border: Border(
-          top: BorderSide(color: AppColors.hairline, width: 1),
-        ),
+        color: AppColors.background,
+        border: Border(top: BorderSide(color: AppColors.hairline)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Pricing cards
-          Row(
-            children: [
-              Expanded(
-                child: _buildPlanCard(
-                  label: 'Monthly',
-                  price:
-                      _getProduct(BillingService.monthlyProductId)?.price ?? '—',
-                  period: '/month',
-                  isSelected:
-                      _selectedProductId == BillingService.monthlyProductId,
-                  onTap: () => setState(
-                    () => _selectedProductId = BillingService.monthlyProductId,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildPlanCard(
-                  label: 'Lifetime',
-                  price:
-                      _getProduct(BillingService.lifetimeProductId)?.price ?? '—',
-                  period: 'one-time',
-                  badge: 'BEST VALUE',
-                  isSelected: _selectedProductId == BillingService.lifetimeProductId,
-                  onTap: () => setState(
-                    () => _selectedProductId = BillingService.lifetimeProductId,
-                  ),
-                ),
-              ),
-            ],
+          _buildPlanRow(
+            id: BillingService.lifetimeProductId,
+            label: 'Lifetime',
+            note: 'Pay once, keep Pro for good',
+            price: _price(BillingService.lifetimeProductId),
+            period: 'one-time',
+            badge: 'BEST VALUE',
           ),
-          const SizedBox(height: 16),
-
-          // CTA button
+          const SizedBox(height: 8),
+          _buildPlanRow(
+            id: BillingService.monthlyProductId,
+            label: 'Monthly',
+            note: 'Cancel any time in Google Play',
+            price: _price(BillingService.monthlyProductId),
+            period: '/month',
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            height: 48,
+            height: 54,
             child: ElevatedButton(
-              onPressed: _available && !_isLoading ? _buyProduct : null,
+              onPressed: _available && !_isLoading
+                  ? () {
+                      Haptics.confirm();
+                      _buyProduct();
+                    }
+                  : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.onPrimary,
                 disabledBackgroundColor: AppColors.surfaceCard,
+                disabledForegroundColor: AppColors.mutedSoft,
                 elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8), // rounded.md
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
               ),
               child: _isLoading
                   ? SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.onPrimary,
-                      ),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.muted),
                     )
                   : Text(
-                      _selectedProductId == BillingService.lifetimeProductId
-                          ? 'Unlock Lifetime Access'
-                          : 'Subscribe for ${_getProduct(_selectedProductId)?.price ?? 'Pro'}',
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.1,
-                      ),
+                      _lifetime ? 'Unlock Lifetime Access' : 'Subscribe for ${_getProduct(_selectedProductId)?.price ?? 'Pro'}',
+                      style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
             ),
           ),
-
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
-            _selectedProductId == BillingService.monthlyProductId
-                ? 'Renews every month at the price above until you cancel. Cancel anytime in Google Play > Payments & subscriptions.'
-                : 'One payment. Pro stays active on this Google account for good.',
+            _lifetime
+                ? 'One payment. Pro stays active on this Google account for good.'
+                : 'Renews every month at the price above until you cancel. Cancel anytime in Google Play > Payments & subscriptions.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.35),
+            style: GoogleFonts.inter(fontSize: 11.5, color: AppColors.muted, height: 1.35),
           ),
-          const SizedBox(height: 6),
-          // Footer links
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              GestureDetector(
-                onTap: _restorePurchases,
-                child: Text(
-                  'Restore purchase',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
+          TextButton(
+            onPressed: _isLoading ? null : _restorePurchases,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.ink,
+              minimumSize: const Size(0, 40),
+              textStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            child: const Text('Restore purchase'),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPlanCard({
-    required String label,
-    required String price,
-    required String period,
-    String? badge,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.04)
-              : AppColors.canvas,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.cardBorder,
-            width: isSelected ? 2.0 : 1.0,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Label + radio
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected
-                        ? AppColors.primary
-                        : AppColors.textSecondary,
-                  ),
-                ),
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isSelected ? AppColors.primary : Colors.transparent,
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : AppColors.slate300,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: isSelected
-                      ? Icon(Icons.check, size: 12, color: AppColors.onPrimary)
-                      : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // Price
-            Text(
-              price,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-                letterSpacing: -0.5,
-              ),
-            ),
-            Text(
-              period,
-              style: TextStyle(
-                fontSize: 11.5,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-
-            // Badge
-            if (badge != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.proGold.withValues(alpha: 0.12)
-                      : AppColors.slate100,
-                  borderRadius: BorderRadius.circular(9999),
-                ),
-                child: Text(
-                  badge,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected ? AppColors.proGold : AppColors.slate500,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }

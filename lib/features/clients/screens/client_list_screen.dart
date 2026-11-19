@@ -17,7 +17,9 @@ import '../../invoices/screens/create_invoice_screen.dart';
 import '../../invoices/screens/invoice_preview_screen.dart';
 import '../models/client_model.dart';
 import '../../../shared_widgets/app_dialog.dart';
-import '../../../shared_widgets/app_popup_menu.dart';
+import '../../../shared_widgets/paper.dart';
+import '../../../shared_widgets/tab_chrome.dart';
+import '../../../core/theme/app_typography.dart';
 
 class ClientListScreen extends StatefulWidget {
   final bool selectionMode;
@@ -140,9 +142,9 @@ class ClientListScreenState extends State<ClientListScreen> {
                           children: [
                             Text(
                               client == null ? 'Add New Client' : 'Edit Client',
-                              style: TextStyle(
+                              style: AppTypography.serif(
                                 fontSize: 18,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
                                 color: AppColors.textPrimary,
                               ),
                             ),
@@ -273,19 +275,6 @@ class ClientListScreenState extends State<ClientListScreen> {
     }
   }
 
-  Color _getAvatarColor(String name) {
-    final colors = [
-      AppColors.badgeOrange,
-      AppColors.badgePink,
-      AppColors.badgeViolet,
-      AppColors.badgeEmerald,
-      AppColors.badgeBlue,
-    ];
-    if (name.isEmpty) return colors[0];
-    final hash = name.codeUnits.fold(0, (prev, elem) => prev + elem);
-    return colors[hash % colors.length];
-  }
-
   String _getInitials(String name) {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return '?';
@@ -296,10 +285,102 @@ class ClientListScreenState extends State<ClientListScreen> {
     return trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
   }
 
+  /// Called by the shell's search bar.
+  void setSearch(String query) {
+    final q = query.trim();
+    if (q == _searchQuery) return;
+    setState(() => _searchQuery = q);
+  }
+
+  /// For the shell's create sheet.
+  Future<void> createNew() => _showAddEditDialog();
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredClients;
+    return widget.selectionMode ? _buildPicker(filtered) : _buildTab(filtered);
+  }
 
+  /// The tab in the main shell: search and "add" live in the dock.
+  Widget _buildTab(List<ClientModel> filtered) {
+    // A letter label before each new initial, like an address book.
+    final rows = <Object>[];
+    String? letter;
+    for (final c in filtered) {
+      final l = c.name.trim().isEmpty ? '#' : c.name.trim()[0].toUpperCase();
+      if (l != letter) {
+        rows.add(l);
+        letter = l;
+      }
+      rows.add(c);
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: () => _loadClients(showSpinner: false),
+          color: AppColors.primary,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: TabHeader(
+                  title: 'Clients',
+                  caption: _clients.isEmpty
+                      ? 'Who you bill'
+                      : '${_clients.length} ${_clients.length == 1 ? 'client' : 'clients'}',
+                ),
+              ),
+              if (_isLoading)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                )
+              else if (filtered.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 100),
+                    child: EmptyStateView(
+                      icon: Icons.people_outline_rounded,
+                      title: _searchQuery.isEmpty ? 'No Clients Yet' : 'No Results',
+                      subtitle: _searchQuery.isEmpty
+                          ? 'Save a client once and fill their details into every invoice'
+                          : 'Try a different search term',
+                      actionLabel: _searchQuery.isEmpty ? 'Add Client' : null,
+                      onAction: _searchQuery.isEmpty ? () => _showAddEditDialog() : null,
+                      isDarkBackground: false,
+                    ),
+                  ),
+                )
+              else ...[
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                  sliver: SliverList.builder(
+                    itemCount: rows.length,
+                    itemBuilder: (_, i) {
+                      final row = rows[i];
+                      if (row is String) return ListSectionLabel(row);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _buildClientCard(row as ClientModel),
+                      );
+                    },
+                  ),
+                ),
+                const SliverToBoxAdapter(child: ListFootnote('Tap for history · hold to edit')),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Pushed from an invoice to pick a client; has its own search and add.
+  Widget _buildPicker(List<ClientModel> filtered) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -316,15 +397,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                 onPressed: () => Navigator.pop(context),
               )
             : null,
-        title: Text(
-          widget.selectionMode ? 'Select Client' : 'Clients',
-          style: GoogleFonts.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-            letterSpacing: -0.4,
-            color: AppColors.ink,
-          ),
-        ),
+        title: Text(widget.selectionMode ? 'Select Client' : 'Clients'),
       ),
       body: Column(
         children: [
@@ -412,119 +485,110 @@ class ClientListScreenState extends State<ClientListScreen> {
   }
 
   Widget _buildClientCard(ClientModel client) {
-    final avatarColor = _getAvatarColor(client.name);
-    final initials = _getInitials(client.name);
-
-    return GestureDetector(
+    final contact = [client.email, client.phone].whereType<String>().where((s) => s.trim().isNotEmpty).join(' · ');
+    return PaperSlip(
       onTap: widget.selectionMode
-          ? () => Navigator.pop(context, client)
+          ? () {
+              Haptics.tap();
+              Navigator.pop(context, client);
+            }
           : () => _showClientDetailSheet(client),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.canvas,
-          borderRadius: BorderRadius.circular(12), // rounded.lg
-          border: Border.all(color: AppColors.hairline),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 4,
+      onLongPress: widget.selectionMode ? null : () => _showClientActions(client),
+      padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceCard,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.hairline),
             ),
-            leading: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: avatarColor,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  initials,
-                  style: GoogleFonts.inter(
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
+            child: Text(
+              _getInitials(client.name),
+              style: AppTypography.serif(fontSize: 16, color: AppColors.ink, letterSpacing: 0),
             ),
-            title: Text(
-              client.name,
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14.5, color: AppColors.ink),
-            ),
-            subtitle: Column(
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (client.email != null && client.email!.isNotEmpty) ...[
+                Text(
+                  client.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15, color: AppColors.ink),
+                ),
+                if (contact.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Icon(Icons.email_outlined, size: 12, color: AppColors.muted),
-                      const SizedBox(width: 4),
-                      Text(
-                        client.email!,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                if (client.phone != null && client.phone!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Icon(Icons.phone_outlined, size: 12, color: AppColors.muted),
-                      const SizedBox(width: 4),
-                      Text(
-                        client.phone!,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.muted,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    contact,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.muted),
                   ),
                 ],
               ],
             ),
-            trailing: widget.selectionMode
-                ? Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20)
-                : PopupMenuButton<String>(
-                    icon: Icon(Icons.more_vert_rounded, color: AppColors.muted, size: 18),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        _showAddEditDialog(client: client);
-                      }
-                      if (value == 'delete') _deleteClient(client);
-                    },
-                    itemBuilder: (_) => [
-                      AppPopupMenuItem.item(
-                        value: 'edit',
-                        title: 'Edit Client',
-                        icon: Icons.edit_outlined,
-                      ),
-                      AppPopupMenuItem.divider(),
-                      AppPopupMenuItem.item(
-                        value: 'delete',
-                        title: 'Delete Client',
-                        icon: Icons.delete_outline_rounded,
-                        isDestructive: true,
-                      ),
-                    ],
-                  ),
           ),
-        ),
+          Icon(Icons.chevron_right_rounded, color: AppColors.mutedSoft, size: 20),
+        ],
       ),
     );
   }
 
+  void _showClientActions(ClientModel client) {
+    Haptics.confirm();
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        Widget action(IconData icon, String label, VoidCallback f, {Color? color}) {
+          final c = color ?? AppColors.ink;
+          return ListTile(
+            dense: true,
+            visualDensity: VisualDensity.compact,
+            leading: Icon(icon, color: c, size: 20),
+            title: Text(label, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500, color: c)),
+            onTap: () {
+              Navigator.pop(ctx);
+              f();
+            },
+          );
+        }
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 14, 8, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(color: AppColors.hairline, borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(client.name, style: AppTypography.serif(fontSize: 20, color: AppColors.ink)),
+                ),
+                action(Icons.history_rounded, 'Invoices & balance', () => _showClientDetailSheet(client)),
+                action(Icons.edit_outlined, 'Edit client', () => _showAddEditDialog(client: client)),
+                Divider(color: AppColors.hairline, height: 12),
+                action(Icons.delete_outline_rounded, 'Delete client', () => _deleteClient(client), color: AppColors.error),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Future<void> _showClientDetailSheet(ClientModel client) async {
     HapticFeedback.lightImpact();
@@ -613,9 +677,9 @@ class ClientListScreenState extends State<ClientListScreen> {
                           children: [
                             Text(
                               client.name,
-                              style: TextStyle(
+                              style: AppTypography.serif(
                                 fontSize: 18,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
                                 color: AppColors.textPrimary,
                               ),
                             ),

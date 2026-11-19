@@ -619,8 +619,11 @@ class DbProvider {
   }
 
   /// "Mark as paid": records one payment for the balance, dated today.
-  static Future<void> markPaidInFull(String invoiceId, {String? method}) async {
+  /// Returns the new payment's id (null if nothing was owed), so the
+  /// caller can undo it with [deletePayment].
+  static Future<String?> markPaidInFull(String invoiceId, {String? method}) async {
     final db = await database;
+    String? paymentId;
     await db.transaction((txn) async {
       final inv = await txn.query(tableInvoices,
           columns: ['grand_total'], where: 'id = ?', whereArgs: [invoiceId]);
@@ -629,8 +632,9 @@ class DbProvider {
       final balance = double.parse((total - await _paymentsSum(txn, invoiceId)).toStringAsFixed(2));
       if (balance > 0.005) {
         final now = DateTime.now();
+        paymentId = const Uuid().v4();
         await txn.insert(tablePayments, PaymentModel(
-          id: const Uuid().v4(),
+          id: paymentId!,
           invoiceId: invoiceId,
           amount: balance,
           paidOn: DateTime(now.year, now.month, now.day),
@@ -640,6 +644,7 @@ class DbProvider {
       }
       await _syncPaidAmount(txn, invoiceId);
     });
+    return paymentId;
   }
 
   /// "Mark as unpaid": removes every payment recorded for the invoice.
