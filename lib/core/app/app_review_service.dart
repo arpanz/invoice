@@ -25,13 +25,17 @@ class AppReviewService {
     await prefs.setInt(_firstSeenKey, prefs.getInt(_firstSeenKey) ?? now);
   }
 
-  Future<bool> registerSignificantAction() async {
+  /// Counts something the user got done (sent, saved or settled an
+  /// invoice). With [prompt] the review card may follow at once; pass false
+  /// when another dialog is about to open and call [maybeRequestReview]
+  /// after it, so the two never stack.
+  Future<bool> registerSignificantAction({bool prompt = true}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(
       _significantActionCountKey,
       (prefs.getInt(_significantActionCountKey) ?? 0) + 1,
     );
-    return maybeRequestReview();
+    return prompt ? maybeRequestReview() : false;
   }
 
   Future<bool> maybeRequestReview() async {

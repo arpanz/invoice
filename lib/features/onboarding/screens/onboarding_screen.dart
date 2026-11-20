@@ -18,6 +18,8 @@ import '../../../core/utils/number_text.dart';
 import '../../../shared_widgets/currency_picker_sheet.dart';
 import '../../../shared_widgets/paper.dart';
 import '../../invoices/screens/create_invoice_screen.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_animations.dart';
 
 /// First run: welcome, your business, how you bill, done.
 ///
@@ -178,7 +180,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _goTo(int page) {
     FocusScope.of(context).unfocus();
     Haptics.tap();
-    _pageController.animateToPage(page, duration: const Duration(milliseconds: 360), curve: Curves.easeOutCubic);
+    _pageController.animateToPage(page, duration: AppAnimations.slow, curve: AppAnimations.defaultCurve);
   }
 
   void _setCurrency(Currency c) {
@@ -264,8 +266,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: Column(
             children: [
               AnimatedSize(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutCubic,
+                duration: AppAnimations.medium,
+                curve: AppAnimations.defaultCurve,
                 child: showBar ? _buildTopBar() : const SizedBox(width: double.infinity),
               ),
               Expanded(
@@ -294,13 +296,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           IconButton(
             tooltip: 'Back',
             onPressed: () => _goTo(_page - 1),
-            icon: Icon(Icons.arrow_back_rounded, color: AppColors.ink),
+            icon: Icon(AppIcons.arrowBack, color: AppColors.ink),
           ),
           const Spacer(),
           // Two steps, two dashes.
           for (var i = 1; i <= 2; i++)
             AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
+              duration: AppAnimations.medium,
               width: i == _page ? 28 : 14,
               height: 4,
               margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -392,11 +394,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     const subtotal = 1800.0;
     Widget line(int step, Widget child) => AnimatedOpacity(
       opacity: _buildStep >= step ? 1 : 0,
-      duration: const Duration(milliseconds: 300),
+      duration: AppAnimations.medium,
       child: AnimatedSlide(
         offset: _buildStep >= step ? Offset.zero : const Offset(0, 0.3),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
+        duration: AppAnimations.medium,
+        curve: AppAnimations.defaultCurve,
         child: child,
       ),
     );
@@ -547,7 +549,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_photo_alternate_outlined, color: AppColors.muted, size: 20),
+                          Icon(AppIcons.addPhoto, color: AppColors.muted, size: 20),
                           const SizedBox(height: 2),
                           Text('Logo', style: GoogleFonts.inter(fontSize: 10.5, color: AppColors.muted)),
                         ],
@@ -709,8 +711,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
+          duration: AppAnimations.fast,
+          curve: AppAnimations.defaultCurve,
           height: 42,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(

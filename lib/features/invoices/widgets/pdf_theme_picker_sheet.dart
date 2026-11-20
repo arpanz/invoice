@@ -12,6 +12,8 @@ import '../models/pdf_theme.dart';
 import '../services/dummy_invoice_data.dart';
 import '../services/pdf_generator_service.dart';
 import 'invoice_customizer_studio_sheet.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_animations.dart';
 
 /// What the picker returns: a template, or a fully customised design.
 class PdfThemeChoice {
@@ -172,7 +174,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close_rounded, color: AppColors.muted, size: 20),
+                    icon: Icon(AppIcons.close, color: AppColors.muted, size: 20),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -212,7 +214,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
-                          Icons.auto_fix_high_rounded,
+                          AppIcons.magic,
                           size: 16,
                           color: Colors.white,
                         ),
@@ -241,7 +243,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                         ),
                       ),
                       Icon(
-                        Icons.chevron_right_rounded,
+                        AppIcons.chevronRight,
                         size: 20,
                         color: AppColors.muted,
                       ),
@@ -369,7 +371,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
         });
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: AppAnimations.fast,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -430,7 +432,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                       ],
                     ),
                     child: const Icon(
-                      Icons.check,
+                      AppIcons.check,
                       size: 14,
                       color: Colors.white,
                     ),

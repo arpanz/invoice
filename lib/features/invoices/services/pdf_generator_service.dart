@@ -119,14 +119,6 @@ class BusinessProfile {
 }
 
 class PdfGeneratorService {
-  /// Logo slot when the user has no logo (or its file is missing). Only the
-  /// sample preview shows the demo logo; real documents show nothing rather
-  /// than another company's branding.
-  static pw.Widget _logoFallback(PdfTheme theme, double size, bool isSamplePreview) {
-    if (isSamplePreview) return DummyInvoiceData.buildVectorLogo(theme, size: size);
-    return pw.SizedBox();
-  }
-
   /// Up to two initials from a business name, for monogram badges.
   static String _initials(String name) {
     final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
@@ -150,6 +142,7 @@ class PdfGeneratorService {
       address: businessProfile.address,
       phone: businessProfile.phone,
       email: businessProfile.email,
+      website: businessProfile.website,
       gstin: businessProfile.gstin,
       bankName: businessProfile.bankName,
       accountNumber: businessProfile.accountNumber,
@@ -257,1530 +250,44 @@ class PdfGeneratorService {
       businessProfile.currency,
     );
     final dateFormat = DateFormat('dd MMM yyyy');
-    final pageMargin = _getPageMargin(activeTheme);
+    final doc = _DocumentLayout(
+      invoice: invoice,
+      profile: businessProfile,
+      theme: activeTheme,
+      config: config,
+      s: scale,
+      logo: logoImage,
+      signature: signatureImage,
+      isPro: isPro,
+      isSample: isSamplePreview,
+      // Every printed figure comes from the same calculation the editor
+      // uses, so the rows always add up to the total.
+      totals: DocumentTotals.ofInvoice(invoice),
+      money: (v) => CurrencyFormatter.format(v, currencyCode: invoice.currency, currencySymbol: currencySymbol),
+      date: dateFormat.format,
+    );
 
     pdf.addPage(
       pw.MultiPage(
         pageTheme: pw.PageTheme(
           pageFormat: PdfPageFormat.a4,
-          margin: pageMargin,
-          buildBackground: (context) => _buildPageBackground(context, activeTheme),
+          margin: doc.pageMargin,
+          buildBackground: doc.background,
           theme: pw.ThemeData.withFont(
             base: fonts.base,
             bold: fonts.bold,
             fontFallback: [...fonts.fallback, ...scriptFonts],
           ),
         ),
-        // Page numbers only when the document runs past one page. The
-        // footer keeps the same height either way: MultiPage measures it
-        // before the page count is final, and a footer that grew later
+        // The footer keeps the same height on every page: MultiPage measures
+        // it before the page count is final, and a footer that grew later
         // would be drawn over page 1's content.
-        footer: (context) => pw.Container(
-          height: 18,
-          alignment: pw.Alignment.bottomRight,
-          child: context.pagesCount < 2
-              ? null
-              : pw.Text(
-                  '${invoice.invoiceNumber}  ·  Page ${context.pageNumber} of ${context.pagesCount}',
-                  style: pw.TextStyle(fontSize: 7.5, color: activeTheme.slateColor),
-                ),
-        ),
-        build: (context) => [
-          _buildHeader(
-            invoice,
-            businessProfile,
-            logoImage,
-            dateFormat,
-            activeTheme,
-            config,
-            isSamplePreview,
-            scale,
-          ),
-          pw.SizedBox(height: 20 * scale),
-          _buildAddressSection(invoice, businessProfile, activeTheme, config, scale),
-          pw.SizedBox(height: 20 * scale),
-          _buildLineItemsTable(invoice, businessProfile, currencySymbol, activeTheme, config, scale),
-          pw.SizedBox(height: 18 * scale),
-          _buildTotalsSection(invoice, businessProfile, currencySymbol, activeTheme, scale),
-          if (config.showNotes && invoice.notes != null && invoice.notes!.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 18 * scale),
-            _buildNotesSection(invoice.notes!, activeTheme, scale),
-          ],
-          pw.SizedBox(height: 20 * scale),
-          _buildFooter(
-            businessProfile,
-            isPro,
-            signatureImage,
-            activeTheme,
-            config,
-            isSamplePreview,
-            scale,
-          ),
-        ],
+        footer: doc.pageFooter,
+        build: (context) => doc.build(),
       ),
     );
 
     return pdf.save();
-  }
-
-  static pw.EdgeInsets _getPageMargin(PdfTheme theme) {
-    switch (theme.paperStyle) {
-      case PdfPaperStyle.leftVerticalRibbon:
-        return const pw.EdgeInsets.fromLTRB(48, 36, 36, 36);
-      case PdfPaperStyle.architecturalFrame:
-        return const pw.EdgeInsets.all(44);
-      case PdfPaperStyle.fullWidthBanner:
-        return const pw.EdgeInsets.fromLTRB(36, 32, 36, 36);
-      default:
-        return const pw.EdgeInsets.all(36);
-    }
-  }
-
-  static pw.Widget _buildPageBackground(pw.Context context, PdfTheme theme) {
-    return pw.FullPage(
-      ignoreMargins: true,
-      child: pw.Stack(
-        children: [
-          // Base Paper Tint
-          if (theme.paperStyle == PdfPaperStyle.warmParchment)
-            pw.Container(color: PdfColor.fromHex('#FFFDF9'))
-          else if (theme.paperStyle == PdfPaperStyle.securityDotGrid)
-            pw.Container(color: PdfColor.fromHex('#FAFCFF')),
-
-          // 1. Nordic Architectural Frame
-          if (theme.paperStyle == PdfPaperStyle.architecturalFrame)
-            pw.Container(
-              margin: const pw.EdgeInsets.all(18),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: theme.primaryColor, width: 1.5),
-              ),
-              child: pw.Container(
-                margin: const pw.EdgeInsets.all(4),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(
-                    color: theme.borderColor,
-                    width: 0.6,
-                  ),
-                ),
-              ),
-            ),
-
-          // 2. Left Vertical Margin Ribbon
-          if (theme.paperStyle == PdfPaperStyle.leftVerticalRibbon)
-            pw.Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: pw.Container(
-                width: 18,
-                color: theme.primaryColor,
-                child: pw.Column(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Container(
-                      height: 60,
-                      width: 18,
-                      color: theme.secondaryColor,
-                    ),
-                    pw.Container(
-                      height: 60,
-                      width: 18,
-                      color: theme.accentColor,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          // 3. Top Accent Line
-          if (theme.paperStyle == PdfPaperStyle.topAccentLine)
-            pw.Positioned(
-              left: 36,
-              right: 36,
-              top: 20,
-              child: pw.Container(
-                height: 3.5,
-                decoration: pw.BoxDecoration(
-                  color: theme.primaryColor,
-                  borderRadius: pw.BorderRadius.circular(2),
-                ),
-              ),
-            ),
-
-          // 4. Security Guilloche Micro-Dot Grid Pattern
-          if (theme.paperStyle == PdfPaperStyle.securityDotGrid)
-            pw.Positioned.fill(
-              child: pw.CustomPaint(
-                painter: (PdfGraphics canvas, PdfPoint size) {
-                  canvas.setFillColor(theme.borderColor);
-                  const step = 28.0;
-                  for (double x = 36; x < size.x - 36; x += step) {
-                    for (double y = 36; y < size.y - 36; y += step) {
-                      canvas.drawEllipse(x, y, 0.8, 0.8);
-                      canvas.fillPath();
-                    }
-                  }
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _buildHeader(
-    InvoiceModel invoice,
-    BusinessProfile profile,
-    pw.MemoryImage? logo,
-    DateFormat dateFormat,
-    PdfTheme theme,
-    InvoiceCustomizationConfig config,
-    bool isSamplePreview,
-    double scale,
-  ) {
-    if (config.headerPosition == HeaderPosition.fullWidthBanner) {
-      return _buildGeometricBannerHeader(invoice, profile, logo, dateFormat, theme, isSamplePreview, scale);
-    }
-    if (config.headerPosition == HeaderPosition.centeredLogo) {
-      return _buildCenteredHeader(invoice, profile, logo, dateFormat, theme, isSamplePreview, scale);
-    }
-    if (config.headerPosition == HeaderPosition.logoRightDetailsLeft) {
-      return _buildRightLogoHeader(invoice, profile, logo, dateFormat, theme, isSamplePreview, scale);
-    }
-
-    // Default: logoLeftDetailsRight
-    if (theme.paperStyle == PdfPaperStyle.asymmetricSplitHeader) {
-      return _buildTwoToneSplitHeader(invoice, profile, logo, dateFormat, theme, isSamplePreview, scale);
-    }
-    if (theme.paperStyle == PdfPaperStyle.minimalDividers) {
-      return _buildModernMinimalHeader(invoice, profile, logo, dateFormat, theme, isSamplePreview, scale);
-    }
-
-    return _buildStandardHeader(invoice, profile, logo, dateFormat, theme, isSamplePreview, scale);
-  }
-
-  static pw.Widget _buildStandardHeader(
-    InvoiceModel invoice,
-    BusinessProfile profile,
-    pw.MemoryImage? logo,
-    DateFormat dateFormat,
-    PdfTheme theme,
-    bool isSamplePreview,
-    double scale,
-  ) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        // Left: Logo + Business Name
-        pw.Expanded(
-          flex: 6,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              if (logo != null)
-                pw.Container(
-                  height: 50 * scale,
-                  width: 120 * scale,
-                  alignment: pw.Alignment.centerLeft,
-                  child: pw.Image(logo, fit: pw.BoxFit.contain),
-                )
-              else
-                _logoFallback(theme, 40 * scale, isSamplePreview),
-              pw.SizedBox(height: 6 * scale),
-              pw.Text(
-                profile.businessName,
-                style: pw.TextStyle(
-                  fontSize: 15 * scale,
-                  fontWeight: pw.FontWeight.bold,
-                  color: theme.darkColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Right: INVOICE title + metadata box
-        pw.Expanded(
-          flex: 5,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: [
-              pw.Text(
-                profile.titleFor(invoice),
-                style: pw.TextStyle(
-                  fontSize: 24 * scale,
-                  fontWeight: pw.FontWeight.bold,
-                  color: theme.primaryColor,
-                  letterSpacing: 2,
-                ),
-              ),
-              pw.SizedBox(height: 6 * scale),
-              pw.Container(
-                padding: pw.EdgeInsets.all(10 * scale),
-                decoration: pw.BoxDecoration(
-                  color: theme.lightGray,
-                  borderRadius: pw.BorderRadius.circular(6),
-                  border: pw.Border.all(color: theme.borderColor, width: 0.8),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    _buildInfoRow(profile.numberLabel, invoice.invoiceNumber, theme, scale),
-                    pw.SizedBox(height: 3 * scale),
-                    _buildInfoRow('Date', dateFormat.format(invoice.invoiceDate), theme, scale),
-                    if (invoice.dueDate != null) ...[
-                      pw.SizedBox(height: 3 * scale),
-                      _buildInfoRow(
-                        profile.dueLabel,
-                        dateFormat.format(invoice.dueDate!),
-                        theme,
-                        scale,
-                      ),
-                    ],
-                    pw.SizedBox(height: 4 * scale),
-                    _statusBadgeFor(invoice, profile, theme, scale),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  static pw.Widget _buildRightLogoHeader(
-    InvoiceModel invoice,
-    BusinessProfile profile,
-    pw.MemoryImage? logo,
-    DateFormat dateFormat,
-    PdfTheme theme,
-    bool isSamplePreview,
-    double scale,
-  ) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        // Left: INVOICE title + metadata box
-        pw.Expanded(
-          flex: 5,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                profile.titleFor(invoice),
-                style: pw.TextStyle(
-                  fontSize: 24 * scale,
-                  fontWeight: pw.FontWeight.bold,
-                  color: theme.primaryColor,
-                  letterSpacing: 2,
-                ),
-              ),
-              pw.SizedBox(height: 6 * scale),
-              pw.Container(
-                padding: pw.EdgeInsets.all(10 * scale),
-                decoration: pw.BoxDecoration(
-                  color: theme.lightGray,
-                  borderRadius: pw.BorderRadius.circular(6),
-                  border: pw.Border.all(color: theme.borderColor, width: 0.8),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    _buildInfoRow(profile.numberLabel, invoice.invoiceNumber, theme, scale),
-                    pw.SizedBox(height: 3 * scale),
-                    _buildInfoRow('Date', dateFormat.format(invoice.invoiceDate), theme, scale),
-                    if (invoice.dueDate != null) ...[
-                      pw.SizedBox(height: 3 * scale),
-                      _buildInfoRow(
-                        profile.dueLabel,
-                        dateFormat.format(invoice.dueDate!),
-                        theme,
-                        scale,
-                      ),
-                    ],
-                    pw.SizedBox(height: 4 * scale),
-                    _statusBadgeFor(invoice, profile, theme, scale),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        pw.SizedBox(width: 16),
-        // Right: Logo + Business Name
-        pw.Expanded(
-          flex: 6,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: [
-              if (logo != null)
-                pw.Container(
-                  height: 50 * scale,
-                  width: 120 * scale,
-                  alignment: pw.Alignment.centerRight,
-                  child: pw.Image(logo, fit: pw.BoxFit.contain),
-                )
-              else
-                _logoFallback(theme, 40 * scale, isSamplePreview),
-              pw.SizedBox(height: 6 * scale),
-              pw.Text(
-                profile.businessName,
-                style: pw.TextStyle(
-                  fontSize: 15 * scale,
-                  fontWeight: pw.FontWeight.bold,
-                  color: theme.darkColor,
-                ),
-                textAlign: pw.TextAlign.end,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  static pw.Widget _buildCenteredHeader(
-    InvoiceModel invoice,
-    BusinessProfile profile,
-    pw.MemoryImage? logo,
-    DateFormat dateFormat,
-    PdfTheme theme,
-    bool isSamplePreview,
-    double scale,
-  ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.center,
-      children: [
-        if (logo != null)
-          pw.Container(
-            height: 46 * scale,
-            alignment: pw.Alignment.center,
-            child: pw.Image(logo, fit: pw.BoxFit.contain),
-          )
-        else
-          _logoFallback(theme, 38 * scale, isSamplePreview),
-        pw.SizedBox(height: 4 * scale),
-        pw.Text(
-          profile.businessName,
-          style: pw.TextStyle(
-            fontSize: 16 * scale,
-            fontWeight: pw.FontWeight.bold,
-            color: theme.darkColor,
-          ),
-          textAlign: pw.TextAlign.center,
-        ),
-        pw.SizedBox(height: 6 * scale),
-        pw.Text(
-          profile.titleFor(invoice),
-          style: pw.TextStyle(
-            fontSize: 20 * scale,
-            fontWeight: pw.FontWeight.bold,
-            color: theme.primaryColor,
-            letterSpacing: 2,
-          ),
-          textAlign: pw.TextAlign.center,
-        ),
-        pw.SizedBox(height: 6 * scale),
-        pw.Container(
-          padding: pw.EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 6 * scale),
-          decoration: pw.BoxDecoration(
-            color: theme.lightGray,
-            borderRadius: pw.BorderRadius.circular(6),
-            border: pw.Border.all(color: theme.borderColor, width: 0.8),
-          ),
-          child: pw.Wrap(
-            alignment: pw.WrapAlignment.center,
-            crossAxisAlignment: pw.WrapCrossAlignment.center,
-            spacing: 12 * scale,
-            runSpacing: 4 * scale,
-            children: [
-              _buildInfoRow(profile.numberLabel, invoice.invoiceNumber, theme, scale),
-              _buildInfoRow('Date', dateFormat.format(invoice.invoiceDate), theme, scale),
-              if (invoice.dueDate != null)
-                _buildInfoRow(profile.dueLabel, dateFormat.format(invoice.dueDate!), theme, scale),
-              _statusBadgeFor(invoice, profile, theme, scale),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  static pw.Widget _buildGeometricBannerHeader(
-    InvoiceModel invoice,
-    BusinessProfile profile,
-    pw.MemoryImage? logo,
-    DateFormat dateFormat,
-    PdfTheme theme,
-    bool isSamplePreview,
-    double scale,
-  ) {
-    return pw.Container(
-      padding: pw.EdgeInsets.all(14 * scale),
-      decoration: pw.BoxDecoration(
-        color: theme.primaryColor,
-        borderRadius: pw.BorderRadius.circular(8),
-      ),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
-        children: [
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              if (logo != null)
-                pw.Container(
-                  height: 42 * scale,
-                  width: 100 * scale,
-                  alignment: pw.Alignment.centerLeft,
-                  child: pw.Image(logo, fit: pw.BoxFit.contain),
-                )
-              else
-                pw.Row(
-                  children: [
-                    pw.Container(
-                      width: 28 * scale,
-                      height: 28 * scale,
-                      decoration: pw.BoxDecoration(
-                        color: theme.accentColor,
-                        borderRadius: pw.BorderRadius.circular(6),
-                      ),
-                      child: pw.Center(
-                        child: pw.Text(
-                          isSamplePreview ? 'AP' : _initials(profile.businessName),
-                          style: pw.TextStyle(
-                            color: PdfColors.white,
-                            fontSize: 12 * scale,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(width: 8 * scale),
-                    pw.Text(
-                      profile.businessName,
-                      style: pw.TextStyle(
-                        color: PdfColors.white,
-                        fontSize: 15 * scale,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: [
-              pw.Text(
-                profile.titleFor(invoice),
-                style: pw.TextStyle(
-                  color: PdfColors.white,
-                  fontSize: 20 * scale,
-                  fontWeight: pw.FontWeight.bold,
-                  letterSpacing: 2,
-                ),
-              ),
-              pw.SizedBox(height: 2 * scale),
-              pw.Text(
-                '#${invoice.invoiceNumber}',
-                style: pw.TextStyle(
-                  color: theme.accentColor,
-                  fontSize: 11 * scale,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.Text(
-                dateFormat.format(invoice.invoiceDate),
-                style: pw.TextStyle(
-                  color: PdfColor.fromHex('#94A3B8'),
-                  fontSize: 9 * scale,
-                ),
-              ),
-              if (invoice.dueDate != null)
-                pw.Text(
-                  '${profile.dueLabel}: ${dateFormat.format(invoice.dueDate!)}',
-                  style: pw.TextStyle(
-                    color: PdfColor.fromHex('#CBD5E1'),
-                    fontSize: 9 * scale,
-                  ),
-                ),
-              pw.SizedBox(height: 4 * scale),
-              _statusBadgeFor(invoice, profile, theme, scale),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _buildTwoToneSplitHeader(
-    InvoiceModel invoice,
-    BusinessProfile profile,
-    pw.MemoryImage? logo,
-    DateFormat dateFormat,
-    PdfTheme theme,
-    bool isSamplePreview,
-    double scale,
-  ) {
-    return pw.Container(
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: theme.borderColor, width: 1),
-        borderRadius: pw.BorderRadius.circular(8),
-      ),
-      child: pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          // Left Half (Dark Tone)
-          pw.Expanded(
-            flex: 5,
-            child: pw.Container(
-              padding: pw.EdgeInsets.all(14 * scale),
-              decoration: pw.BoxDecoration(
-                color: theme.primaryColor,
-                borderRadius: const pw.BorderRadius.only(
-                  topLeft: pw.Radius.circular(7),
-                  bottomLeft: pw.Radius.circular(7),
-                ),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                mainAxisAlignment: pw.MainAxisAlignment.center,
-                children: [
-                  if (logo != null) ...[
-                    pw.Container(
-                      height: 36 * scale,
-                      width: 90 * scale,
-                      alignment: pw.Alignment.centerLeft,
-                      child: pw.Image(logo, fit: pw.BoxFit.contain),
-                    ),
-                    pw.SizedBox(height: 6 * scale),
-                  ],
-                  pw.Text(
-                    profile.businessName,
-                    style: pw.TextStyle(
-                      color: PdfColors.white,
-                      fontSize: 15 * scale,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  if (profile.email != null) ...[
-                    pw.SizedBox(height: 2 * scale),
-                    pw.Text(
-                      profile.email!,
-                      style: pw.TextStyle(color: PdfColor.fromHex('#CBD5E1'), fontSize: 8.5 * scale),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          // Right Half (Light Tone)
-          pw.Expanded(
-            flex: 5,
-            child: pw.Container(
-              padding: pw.EdgeInsets.all(14 * scale),
-              color: theme.lightGray,
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
-                children: [
-                  pw.Text(
-                    profile.titleFor(invoice),
-                    style: pw.TextStyle(
-                      color: theme.primaryColor,
-                      fontSize: 16 * scale,
-                      fontWeight: pw.FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  pw.SizedBox(height: 3 * scale),
-                  _buildInfoRow(profile.numberLabel, invoice.invoiceNumber, theme, scale),
-                  _buildInfoRow('Date', dateFormat.format(invoice.invoiceDate), theme, scale),
-                  if (invoice.dueDate != null)
-                    _buildInfoRow(profile.dueLabel, dateFormat.format(invoice.dueDate!), theme, scale),
-                  pw.SizedBox(height: 4 * scale),
-                  _statusBadgeFor(invoice, profile, theme, scale),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _buildModernMinimalHeader(
-    InvoiceModel invoice,
-    BusinessProfile profile,
-    pw.MemoryImage? logo,
-    DateFormat dateFormat,
-    PdfTheme theme,
-    bool isSamplePreview,
-    double scale,
-  ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                if (logo != null)
-                  pw.Container(
-                    height: 44 * scale,
-                    width: 110 * scale,
-                    margin: pw.EdgeInsets.only(bottom: 6 * scale),
-                    alignment: pw.Alignment.centerLeft,
-                    child: pw.Image(logo, fit: pw.BoxFit.contain),
-                  )
-                else
-                  _logoFallback(theme, 36 * scale, isSamplePreview),
-                pw.SizedBox(height: 4 * scale),
-                pw.Text(
-                  profile.businessName,
-                  style: pw.TextStyle(
-                    fontSize: 18 * scale,
-                    fontWeight: pw.FontWeight.bold,
-                    color: theme.darkColor,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ],
-            ),
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.end,
-              children: [
-                pw.Text(
-                  profile.titleFor(invoice),
-                  style: pw.TextStyle(
-                    fontSize: 20 * scale,
-                    fontWeight: pw.FontWeight.bold,
-                    color: theme.darkColor,
-                    letterSpacing: 3,
-                  ),
-                ),
-                pw.SizedBox(height: 2 * scale),
-                pw.Text(
-                  '#${invoice.invoiceNumber}',
-                  style: pw.TextStyle(
-                    fontSize: 11 * scale,
-                    fontWeight: pw.FontWeight.bold,
-                    color: theme.slateColor,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        pw.SizedBox(height: 10 * scale),
-        pw.Container(
-          height: 1,
-          color: theme.borderColor,
-        ),
-        pw.SizedBox(height: 8 * scale),
-        pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            pw.Row(
-              children: [
-                pw.Text(
-                  'Date: ',
-                  style: pw.TextStyle(fontSize: 9 * scale, color: theme.slateColor),
-                ),
-                pw.Text(
-                  dateFormat.format(invoice.invoiceDate),
-                  style: pw.TextStyle(fontSize: 9 * scale, fontWeight: pw.FontWeight.bold, color: theme.darkColor),
-                ),
-                if (invoice.dueDate != null) ...[
-                  pw.SizedBox(width: 14 * scale),
-                  pw.Text(
-                    '${profile.dueLabel}: ',
-                    style: pw.TextStyle(fontSize: 9 * scale, color: theme.slateColor),
-                  ),
-                  pw.Text(
-                    dateFormat.format(invoice.dueDate!),
-                    style: pw.TextStyle(fontSize: 9 * scale, fontWeight: pw.FontWeight.bold, color: theme.darkColor),
-                  ),
-                ],
-              ],
-            ),
-            _statusBadgeFor(invoice, profile, theme, scale),
-          ],
-        ),
-      ],
-    );
-  }
-
-  static pw.Widget _buildInfoRow(String label, String value, PdfTheme theme, double scale) {
-    return pw.Row(
-      mainAxisSize: pw.MainAxisSize.min,
-      children: [
-        pw.Text(
-          '$label ',
-          style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-        ),
-        pw.Text(
-          value,
-          style: pw.TextStyle(
-            fontSize: 8.5 * scale,
-            fontWeight: pw.FontWeight.bold,
-            color: theme.darkColor,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Payment status badge; estimates have no payment status.
-  static pw.Widget _statusBadgeFor(
-    InvoiceModel invoice,
-    BusinessProfile profile,
-    PdfTheme theme,
-    double scale,
-  ) =>
-      profile.isEstimate ? pw.SizedBox() : _buildStatusBadge(invoice.effectiveStatus, theme, scale);
-
-  static pw.Widget _buildStatusBadge(InvoiceStatus status, PdfTheme theme, double scale) {
-    PdfColor bgColor;
-    PdfColor textColor;
-    String label;
-
-    switch (status) {
-      case InvoiceStatus.paid:
-        bgColor = PdfColor.fromHex('#D1FAE5');
-        textColor = PdfColor.fromHex('#065F46');
-        label = 'PAID';
-        break;
-      case InvoiceStatus.partiallyPaid:
-        bgColor = PdfColor.fromHex('#FEF3C7');
-        textColor = PdfColor.fromHex('#92400E');
-        label = 'PARTIALLY PAID';
-        break;
-      case InvoiceStatus.overdue:
-        bgColor = PdfColor.fromHex('#FEE2E2');
-        textColor = PdfColor.fromHex('#991B1B');
-        label = 'OVERDUE';
-        break;
-      default:
-        bgColor = PdfColor.fromHex('#FEF3C7');
-        textColor = PdfColor.fromHex('#92400E');
-        label = 'UNPAID';
-    }
-
-    return pw.Container(
-      padding: pw.EdgeInsets.symmetric(horizontal: 7 * scale, vertical: 2 * scale),
-      decoration: pw.BoxDecoration(
-        color: bgColor,
-        borderRadius: pw.BorderRadius.circular(3),
-      ),
-      child: pw.Text(
-        label,
-        style: pw.TextStyle(
-          fontSize: 7.5 * scale,
-          fontWeight: pw.FontWeight.bold,
-          color: textColor,
-        ),
-      ),
-    );
-  }
-
-  static pw.Widget _buildAddressSection(
-    InvoiceModel invoice,
-    BusinessProfile profile,
-    PdfTheme theme,
-    InvoiceCustomizationConfig config,
-    double scale,
-  ) {
-    final isMinimal = theme.paperStyle == PdfPaperStyle.minimalDividers;
-
-    final fromBox = pw.Container(
-      padding: pw.EdgeInsets.all(10 * scale),
-      decoration: pw.BoxDecoration(
-        color: isMinimal ? null : PdfColors.white,
-        border: isMinimal
-            ? null
-            : pw.Border.all(color: theme.borderColor, width: 0.8),
-        borderRadius: isMinimal ? null : pw.BorderRadius.circular(6),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            'FROM',
-            style: pw.TextStyle(
-              fontSize: 8 * scale,
-              fontWeight: pw.FontWeight.bold,
-              color: isMinimal ? theme.primaryColor : theme.slateColor,
-              letterSpacing: 1,
-            ),
-          ),
-          pw.SizedBox(height: 5 * scale),
-          pw.Text(
-            profile.businessName,
-            style: pw.TextStyle(
-              fontSize: 11 * scale,
-              fontWeight: pw.FontWeight.bold,
-              color: theme.darkColor,
-            ),
-          ),
-          if (profile.address != null && profile.address!.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 2 * scale),
-            pw.Text(
-              profile.address!,
-              style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-            ),
-          ],
-          if (profile.phone != null && profile.phone!.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 2 * scale),
-            pw.Text(
-              profile.phone!,
-              style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-            ),
-          ],
-          if (profile.email != null && profile.email!.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 2 * scale),
-            pw.Text(
-              profile.email!,
-              style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-            ),
-          ],
-          if (profile.website != null && profile.website!.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 2 * scale),
-            pw.Text(
-              profile.website!,
-              style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-            ),
-          ],
-          if (profile.gstin != null && profile.gstin!.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 2 * scale),
-            pw.Text(
-              '${profile.taxIdLabel}: ${profile.gstin}',
-              style: pw.TextStyle(fontSize: 8 * scale, color: theme.slateColor),
-            ),
-          ],
-        ],
-      ),
-    );
-
-    final billToBox = pw.Container(
-      padding: pw.EdgeInsets.all(10 * scale),
-      decoration: pw.BoxDecoration(
-        color: isMinimal ? null : theme.lightGray,
-        border: isMinimal
-            ? null
-            : pw.Border.all(color: theme.borderColor, width: 0.8),
-        borderRadius: isMinimal ? null : pw.BorderRadius.circular(6),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            'BILL TO',
-            style: pw.TextStyle(
-              fontSize: 8 * scale,
-              fontWeight: pw.FontWeight.bold,
-              color: isMinimal ? theme.primaryColor : theme.slateColor,
-              letterSpacing: 1,
-            ),
-          ),
-          pw.SizedBox(height: 5 * scale),
-          pw.Text(
-            invoice.clientName,
-            style: pw.TextStyle(
-              fontSize: 11 * scale,
-              fontWeight: pw.FontWeight.bold,
-              color: theme.darkColor,
-            ),
-          ),
-          if (invoice.clientAddress != null && invoice.clientAddress!.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 2 * scale),
-            pw.Text(
-              invoice.clientAddress!,
-              style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-            ),
-          ],
-          if (invoice.clientPhone != null && invoice.clientPhone!.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 2 * scale),
-            pw.Text(
-              invoice.clientPhone!,
-              style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-            ),
-          ],
-          if (invoice.clientEmail != null && invoice.clientEmail!.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 2 * scale),
-            pw.Text(
-              invoice.clientEmail!,
-              style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-            ),
-          ],
-          if (invoice.clientGstin != null && invoice.clientGstin!.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 2 * scale),
-            pw.Text(
-              '${profile.taxIdLabel}: ${invoice.clientGstin}',
-              style: pw.TextStyle(fontSize: 8 * scale, color: theme.slateColor),
-            ),
-          ],
-        ],
-      ),
-    );
-
-    if (config.addressLayout == AddressLayout.inverted) {
-      return pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Expanded(child: billToBox),
-          pw.SizedBox(width: 12),
-          pw.Expanded(child: fromBox),
-        ],
-      );
-    }
-
-    if (config.addressLayout == AddressLayout.stacked) {
-      return pw.Column(
-        children: [
-          pw.Container(width: double.infinity, child: fromBox),
-          pw.SizedBox(height: 8 * scale),
-          pw.Container(width: double.infinity, child: billToBox),
-        ],
-      );
-    }
-
-    // Default: sideBySide
-    return pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Expanded(child: fromBox),
-        pw.SizedBox(width: 12),
-        pw.Expanded(child: billToBox),
-      ],
-    );
-  }
-
-  static pw.Widget _buildLineItemsTable(
-    InvoiceModel invoice,
-    BusinessProfile profile,
-    String currencySymbol,
-    PdfTheme theme,
-    InvoiceCustomizationConfig config,
-    double scale,
-  ) {
-    final isMinimal = theme.paperStyle == PdfPaperStyle.minimalDividers;
-    String money(double v) =>
-        CurrencyFormatter.format(v, currencyCode: invoice.currency, currencySymbol: currencySymbol);
-
-    final showQty = config.showQuantity;
-    final showUnitPrice = config.showUnitPrice;
-
-    final headerTextStyle = pw.TextStyle(
-      color: theme.tableHeaderTextColor,
-      fontSize: 8.5 * scale,
-      fontWeight: pw.FontWeight.bold,
-      letterSpacing: isMinimal ? 0.5 : 0,
-    );
-
-    final Map<int, pw.TableColumnWidth> columnWidths = {};
-    int colIdx = 0;
-    columnWidths[colIdx++] = const pw.FlexColumnWidth(5.0);
-    if (showQty) columnWidths[colIdx++] = const pw.FlexColumnWidth(1.4);
-    if (showUnitPrice) columnWidths[colIdx++] = const pw.FlexColumnWidth(2.0);
-    columnWidths[colIdx++] = const pw.FlexColumnWidth(2.1);
-
-    final headerCells = <pw.Widget>[
-      _tableCell('DESCRIPTION', style: headerTextStyle, isHeader: true, scale: scale),
-      if (showQty)
-        _tableCell(
-          'QTY',
-          style: headerTextStyle,
-          isHeader: true,
-          align: pw.Alignment.centerRight,
-          scale: scale,
-        ),
-      if (showUnitPrice)
-        _tableCell(
-          'UNIT PRICE',
-          style: headerTextStyle,
-          isHeader: true,
-          align: pw.Alignment.centerRight,
-          scale: scale,
-        ),
-      _tableCell(
-        'TOTAL',
-        style: headerTextStyle,
-        isHeader: true,
-        align: pw.Alignment.centerRight,
-        scale: scale,
-      ),
-    ];
-
-    return pw.Table(
-      border: isMinimal
-          ? pw.TableBorder(
-              top: pw.BorderSide(color: theme.primaryColor, width: 1.2),
-              bottom: pw.BorderSide(color: theme.borderColor, width: 1),
-              horizontalInside: pw.BorderSide(color: theme.borderColor, width: 0.5),
-            )
-          : pw.TableBorder.all(color: theme.borderColor, width: 0.5),
-      columnWidths: columnWidths,
-      children: [
-        // Header row
-        pw.TableRow(
-          repeat: true, // header again on every page
-          decoration: pw.BoxDecoration(color: theme.tableHeaderBg),
-          children: headerCells,
-        ),
-        // Item rows
-        ...invoice.lineItems.asMap().entries.map((entry) {
-          final index = entry.key;
-          final item = entry.value;
-          final isAlt = index % 2 == 1;
-          final rowBg = isAlt ? theme.lightGray : PdfColors.white;
-          final rowStyle = pw.TextStyle(fontSize: 9 * scale, color: theme.darkColor);
-          final rowStyleSecondary = pw.TextStyle(
-            fontSize: 9 * scale,
-            color: theme.slateColor,
-          );
-
-          // HSN/SAC, the line's own discount and its own tax rate.
-          final details = <String>[
-            if (item.hsnSac != null) '${profile.isDualTax ? 'HSN/SAC' : 'Code'} ${item.hsnSac}',
-            if (item.discountRate > 0) '${NumberText.trim(item.discountRate)}% off',
-            if (config.showTaxColumn && item.taxRate != null)
-              item.taxRate == 0 ? 'Tax exempt' : '${profile.taxShortName} ${NumberText.trim(item.taxRate!)}%',
-          ];
-          final descriptionCell = details.isEmpty
-              ? _tableCell(item.description, style: rowStyle, scale: scale)
-              : pw.Container(
-                  padding: pw.EdgeInsets.symmetric(horizontal: 9 * scale, vertical: 6 * scale),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(item.description, style: rowStyle),
-                      pw.SizedBox(height: 1.5 * scale),
-                      pw.Text(
-                        details.join('  ·  '),
-                        style: pw.TextStyle(fontSize: 7 * scale, color: theme.slateColor),
-                      ),
-                    ],
-                  ),
-                );
-
-          final cells = <pw.Widget>[
-            descriptionCell,
-            if (showQty)
-              _tableCell(
-                '${NumberText.trim(item.quantity, maxDecimals: 3)}${item.unit != null ? ' ${item.unit}' : ''}',
-                style: rowStyleSecondary,
-                align: pw.Alignment.centerRight,
-                scale: scale,
-              ),
-            if (showUnitPrice)
-              _tableCell(
-                money(item.unitPrice),
-                style: rowStyleSecondary,
-                align: pw.Alignment.centerRight,
-                scale: scale,
-              ),
-            _tableCell(
-              money(item.total),
-              style: rowStyle,
-              align: pw.Alignment.centerRight,
-              scale: scale,
-            ),
-          ];
-
-          return pw.TableRow(
-            decoration: pw.BoxDecoration(color: rowBg),
-            children: cells,
-          );
-        }),
-      ],
-    );
-  }
-
-  static pw.Widget _tableCell(
-    String text, {
-    pw.TextStyle? style,
-    bool isHeader = false,
-    pw.Alignment align = pw.Alignment.centerLeft,
-    double scale = 1.0,
-  }) {
-    return pw.Container(
-      padding: pw.EdgeInsets.symmetric(
-        horizontal: 9 * scale,
-        vertical: (isHeader ? 7 : 6) * scale,
-      ),
-      alignment: align,
-      child: pw.Text(text, style: style),
-    );
-  }
-
-  static pw.Widget _buildTotalsSection(
-    InvoiceModel invoice,
-    BusinessProfile profile,
-    String currencySymbol,
-    PdfTheme theme,
-    double scale,
-  ) {
-    final taxShortName = profile.taxShortName;
-    // Every printed figure comes from the same calculation the editor uses,
-    // so the rows always add up to the grand total.
-    final totals = DocumentTotals.ofInvoice(invoice);
-    String money(double v) =>
-        CurrencyFormatter.format(v, currencyCode: invoice.currency, currencySymbol: currencySymbol);
-    String taxLabel(TaxComponent c) {
-      final name = switch (c.kind) {
-        TaxComponentKind.cgst => 'CGST',
-        TaxComponentKind.sgst => 'SGST',
-        TaxComponentKind.igst => 'IGST',
-        TaxComponentKind.single => taxShortName,
-      };
-      return '$name (${NumberText.trim(c.rate)}%)';
-    }
-
-    pw.Widget divider() => pw.Divider(color: theme.borderColor, height: 1, thickness: 0.5);
-    final inWords = AmountInWords.format(totals.grandTotal, invoice.currency);
-
-    final box = pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.end,
-      children: [
-        pw.Container(
-          width: 240 * scale,
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: theme.borderColor, width: 0.8),
-            borderRadius: pw.BorderRadius.circular(6),
-          ),
-          child: pw.Column(
-            children: [
-              _buildTotalRow('Subtotal', money(totals.subtotal), theme, scale),
-              if (totals.discountAmount > 0) ...[
-                divider(),
-                _buildTotalRow(
-                  invoice.discountType == DiscountType.percentage
-                      ? 'Discount (${NumberText.trim(invoice.discountValue)}%)'
-                      : 'Discount',
-                  '-${money(totals.discountAmount)}',
-                  theme,
-                  scale,
-                  valueColor: theme.paperStyle == PdfPaperStyle.minimalDividers
-                      ? theme.darkColor
-                      : theme.accentColor,
-                ),
-                if (totals.taxComponents.isNotEmpty) ...[
-                  divider(),
-                  _buildTotalRow('Taxable Amount', money(totals.taxableAmount), theme, scale),
-                ],
-              ],
-              for (final c in totals.taxComponents) ...[
-                divider(),
-                _buildTotalRow(taxLabel(c), money(c.amount), theme, scale),
-              ],
-              if (totals.shipping > 0) ...[
-                divider(),
-                _buildTotalRow('Shipping', money(totals.shipping), theme, scale),
-              ],
-              if (invoice.status == InvoiceStatus.partiallyPaid || invoice.paidAmount > 0) ...[
-                divider(),
-                _buildTotalRow(
-                  'Amount Paid',
-                  money(invoice.paidAmount),
-                  theme,
-                  scale,
-                  valueColor: PdfColor.fromHex('#059669'),
-                ),
-                pw.Divider(color: theme.borderColor, height: 1, thickness: 0.5),
-                _buildTotalRow(
-                  'Balance Due',
-                  money((totals.grandTotal - invoice.paidAmount).clamp(0, double.infinity).toDouble()),
-                  theme,
-                  scale,
-                  valueColor: PdfColor.fromHex('#D97706'),
-                ),
-              ],
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  color: theme.primaryColor,
-                  borderRadius: const pw.BorderRadius.only(
-                    bottomLeft: pw.Radius.circular(5),
-                    bottomRight: pw.Radius.circular(5),
-                  ),
-                ),
-                padding: pw.EdgeInsets.symmetric(
-                  horizontal: 12 * scale,
-                  vertical: 9 * scale,
-                ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      'GRAND TOTAL',
-                      style: pw.TextStyle(
-                        fontSize: 10.5 * scale,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    pw.Text(
-                      money(totals.grandTotal),
-                      style: pw.TextStyle(
-                        fontSize: 12.5 * scale,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-    if (inWords == null) return box;
-    // Inseparable: the words stay on the same page as the totals box.
-    return pw.Inseparable(
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          box,
-          pw.SizedBox(height: 8 * scale),
-          pw.Text(
-            'Amount in words: $inWords',
-            textAlign: pw.TextAlign.right,
-            style: pw.TextStyle(
-              fontSize: 8.5 * scale,
-              color: theme.slateColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _buildTotalRow(
-    String label,
-    String value,
-    PdfTheme theme,
-    double scale, {
-    PdfColor? valueColor,
-  }) {
-    return pw.Padding(
-      padding: pw.EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 6 * scale),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Text(label, style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor)),
-          pw.Text(
-            value,
-            style: pw.TextStyle(
-              fontSize: 8.5 * scale,
-              fontWeight: pw.FontWeight.bold,
-              color: valueColor ?? theme.darkColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _buildNotesSection(String notes, PdfTheme theme, double scale) {
-    final isMinimal = theme.paperStyle == PdfPaperStyle.minimalDividers;
-
-    return pw.Container(
-      width: double.infinity,
-      padding: pw.EdgeInsets.all(10 * scale),
-      decoration: pw.BoxDecoration(
-        color: isMinimal ? null : theme.lightGray,
-        border: isMinimal ? pw.Border.all(color: theme.borderColor, width: 0.8) : null,
-        borderRadius: pw.BorderRadius.circular(6),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            'NOTES',
-            style: pw.TextStyle(
-              fontSize: 7.5 * scale,
-              fontWeight: pw.FontWeight.bold,
-              color: theme.slateColor,
-              letterSpacing: 1,
-            ),
-          ),
-          pw.SizedBox(height: 3 * scale),
-          pw.Text(notes, style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor)),
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _buildFooter(
-    BusinessProfile profile,
-    bool isPro,
-    pw.MemoryImage? signatureImage,
-    PdfTheme theme,
-    InvoiceCustomizationConfig config,
-    bool isSamplePreview,
-    double scale,
-  ) {
-    final hasBankDetails = config.showBankDetails &&
-        ((profile.bankName != null && profile.bankName!.trim().isNotEmpty) ||
-         (profile.accountNumber != null && profile.accountNumber!.trim().isNotEmpty) ||
-         (profile.ifscCode != null && profile.ifscCode!.trim().isNotEmpty));
-    final hasUpiDetails = config.showUpiDetails &&
-        (profile.upiId != null && profile.upiId!.trim().isNotEmpty);
-    final showPaymentDetails = hasBankDetails || hasUpiDetails;
-
-    final thankYouText = (config.customFooterMessage != null &&
-            config.customFooterMessage!.trim().isNotEmpty)
-        ? config.customFooterMessage!.trim()
-        : 'Thank you for your business!';
-
-    return pw.Column(
-      children: [
-        if (showPaymentDetails) ...[
-          pw.Divider(color: theme.borderColor, thickness: 0.8),
-          pw.SizedBox(height: 6 * scale),
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      'PAYMENT DETAILS',
-                      style: pw.TextStyle(
-                        fontSize: 8 * scale,
-                        fontWeight: pw.FontWeight.bold,
-                        color: theme.slateColor,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    pw.SizedBox(height: 4 * scale),
-                    if (config.showBankDetails) ...[
-                      if (profile.bankName != null && profile.bankName!.trim().isNotEmpty)
-                        pw.Text(
-                          'Bank: ${profile.bankName}',
-                          style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-                        ),
-                      if (profile.accountNumber != null && profile.accountNumber!.trim().isNotEmpty)
-                        pw.Text(
-                          '${profile.bankAccountLabel}: ${profile.accountNumber}',
-                          style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-                        ),
-                      if (profile.ifscCode != null && profile.ifscCode!.trim().isNotEmpty)
-                        pw.Text(
-                          '${profile.bankRoutingLabel}: ${profile.ifscCode}',
-                          style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-                        ),
-                    ],
-                    if (config.showUpiDetails &&
-                        profile.upiId != null &&
-                        profile.upiId!.trim().isNotEmpty)
-                      pw.Text(
-                        '${profile.digitalPaymentLabel}: ${profile.upiId}',
-                        style: pw.TextStyle(fontSize: 8.5 * scale, color: theme.slateColor),
-                      ),
-                  ],
-                ),
-              ),
-              if (config.showSignature)
-                pw.Expanded(
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      if (signatureImage != null)
-                        pw.Container(
-                          height: 40 * scale,
-                          width: 85 * scale,
-                          alignment: pw.Alignment.centerRight,
-                          child: pw.Image(signatureImage, fit: pw.BoxFit.contain),
-                        )
-                      else if (isSamplePreview)
-                        DummyInvoiceData.buildVectorSignature(theme)
-                      else
-                        pw.SizedBox(height: 20 * scale),
-                      pw.SizedBox(height: 6 * scale),
-                      pw.Text(
-                        thankYouText,
-                        style: pw.TextStyle(
-                          fontSize: 10 * scale,
-                          fontWeight: pw.FontWeight.bold,
-                          color: theme.primaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                pw.Expanded(
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Text(
-                        thankYouText,
-                        style: pw.TextStyle(
-                          fontSize: 10 * scale,
-                          fontWeight: pw.FontWeight.bold,
-                          color: theme.primaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ] else ...[
-          pw.Divider(color: theme.borderColor, thickness: 0.8),
-          pw.SizedBox(height: 6 * scale),
-          if (config.showSignature) ...[
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.end,
-              children: [
-                if (signatureImage != null)
-                  pw.Container(
-                    height: 40 * scale,
-                    width: 85 * scale,
-                    child: pw.Image(signatureImage, fit: pw.BoxFit.contain),
-                  )
-                else if (isSamplePreview)
-                  DummyInvoiceData.buildVectorSignature(theme)
-                else
-                  pw.SizedBox(height: 20 * scale),
-              ],
-            ),
-            pw.SizedBox(height: 6 * scale),
-          ],
-          pw.Center(
-            child: pw.Text(
-              thankYouText,
-              style: pw.TextStyle(
-                fontSize: 10 * scale,
-                fontWeight: pw.FontWeight.bold,
-                color: theme.primaryColor,
-              ),
-            ),
-          ),
-        ],
-        if (!isPro) ...[
-          pw.SizedBox(height: 8 * scale),
-          pw.Center(
-            child: pw.Text(
-              'Generated by Invoice Maker Pro',
-              style: pw.TextStyle(
-                fontSize: 7.5 * scale,
-                color: PdfColor.fromHex('#94A3B8'),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
   }
 
   static Future<String> saveAndGetPath(
@@ -1788,6 +295,834 @@ class PdfGeneratorService {
     String invoiceNumber,
   ) async {
     return await PdfHelper.savePdf(pdfBytes, invoiceNumber);
+  }
+}
+
+/// How the line-item table's header row is drawn.
+enum _TableStyle { ruled, filled }
+
+/// Lays out one document. The look is typographic: hairline rules and
+/// white space carry the structure, one accent colour carries the brand,
+/// and the amount to pay is the largest figure on the page.
+class _DocumentLayout {
+  _DocumentLayout({
+    required this.invoice,
+    required this.profile,
+    required this.theme,
+    required this.config,
+    required this.s,
+    required this.logo,
+    required this.signature,
+    required this.isPro,
+    required this.isSample,
+    required this.totals,
+    required this.money,
+    required this.date,
+  });
+
+  final InvoiceModel invoice;
+  final BusinessProfile profile;
+  final PdfTheme theme;
+  final InvoiceCustomizationConfig config;
+
+  /// Density scale for type and spacing.
+  final double s;
+  final pw.MemoryImage? logo;
+  final pw.MemoryImage? signature;
+  final bool isPro;
+  final bool isSample;
+  final DocumentTotals totals;
+  final String Function(double) money;
+  final String Function(DateTime) date;
+
+  static const double _sideMargin = 46;
+  static const double _bannerTopMargin = 30;
+
+  PdfColor get _ink => theme.darkColor;
+  PdfColor get _muted => theme.slateColor;
+  /// Hairlines are a neutral tint of the text grey, so they stay visible on
+  /// every paper tint (a theme's own border colour can vanish on cream).
+  PdfColor get _rule => _mix(_muted, PdfColors.white, 0.72);
+  PdfColor get _accent => theme.primaryColor;
+
+  bool get _isBanner => config.headerPosition == HeaderPosition.fullWidthBanner;
+  bool get _isMinimal => theme.paperStyle == PdfPaperStyle.minimalDividers;
+  double get _bannerBodyHeight => 84 * s;
+  double get _bannerHeight => _bannerTopMargin * 2 + _bannerBodyHeight;
+
+  _TableStyle get _tableStyle => switch (theme.paperStyle) {
+        PdfPaperStyle.fullWidthBanner ||
+        PdfPaperStyle.asymmetricSplitHeader ||
+        PdfPaperStyle.leftVerticalRibbon =>
+          _TableStyle.filled,
+        _ => _TableStyle.ruled,
+      };
+
+  double get _balance => (totals.grandTotal - invoice.paidAmount).clamp(0, double.infinity).toDouble();
+  bool get _hasPayments => invoice.status == InvoiceStatus.partiallyPaid || invoice.paidAmount > 0;
+
+  static bool _filled(String? v) => v != null && v.trim().isNotEmpty;
+
+  static PdfColor _mix(PdfColor a, PdfColor b, double t) => PdfColor(
+        a.red + (b.red - a.red) * t,
+        a.green + (b.green - a.green) * t,
+        a.blue + (b.blue - a.blue) * t,
+      );
+
+  // ---- Type ----
+
+  pw.TextStyle _label({PdfColor? color}) => pw.TextStyle(
+        fontSize: 6.8 * s,
+        fontWeight: pw.FontWeight.bold,
+        letterSpacing: 1.1,
+        color: color ?? _muted,
+      );
+
+  pw.TextStyle _body({PdfColor? color, bool bold = false, double size = 9}) => pw.TextStyle(
+        fontSize: size * s,
+        fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        color: color ?? _ink,
+        lineSpacing: 1.5 * s,
+      );
+
+  // ---- Page ----
+
+  pw.EdgeInsets get pageMargin {
+    if (_isBanner) return const pw.EdgeInsets.fromLTRB(_sideMargin, _bannerTopMargin, _sideMargin, 30);
+    return switch (theme.paperStyle) {
+      PdfPaperStyle.leftVerticalRibbon => const pw.EdgeInsets.fromLTRB(_sideMargin + 14, 44, _sideMargin, 30),
+      PdfPaperStyle.architecturalFrame => const pw.EdgeInsets.fromLTRB(52, 50, 52, 38),
+      PdfPaperStyle.topAccentLine ||
+      PdfPaperStyle.doubleRule ||
+      PdfPaperStyle.warmParchment =>
+        const pw.EdgeInsets.fromLTRB(_sideMargin, 50, _sideMargin, 30),
+      _ => const pw.EdgeInsets.fromLTRB(_sideMargin, 44, _sideMargin, 30),
+    };
+  }
+
+  pw.Widget background(pw.Context context) {
+    final style = theme.paperStyle;
+    return pw.FullPage(
+      ignoreMargins: true,
+      child: pw.Stack(
+        children: [
+          if (style == PdfPaperStyle.warmParchment)
+            pw.Container(color: PdfColor.fromHex('#FFFDF8'))
+          else if (style == PdfPaperStyle.securityDotGrid)
+            pw.Container(color: PdfColor.fromHex('#FCFDFF')),
+
+          // A fine dot grid, light enough to sit behind text.
+          if (style == PdfPaperStyle.securityDotGrid)
+            pw.Positioned.fill(
+              child: pw.CustomPaint(
+                painter: (PdfGraphics canvas, PdfPoint size) {
+                  canvas.setFillColor(_mix(_rule, PdfColors.white, 0.35));
+                  const step = 22.0;
+                  for (double x = 24; x < size.x - 20; x += step) {
+                    for (double y = 24; y < size.y - 20; y += step) {
+                      canvas.drawEllipse(x, y, 0.55, 0.55);
+                      canvas.fillPath();
+                    }
+                  }
+                },
+              ),
+            ),
+
+          // A single band of colour across the head of the sheet.
+          if (style == PdfPaperStyle.topAccentLine && !_isBanner)
+            pw.Positioned(left: 0, right: 0, top: 0, child: pw.Container(height: 7, color: _accent)),
+
+          if (style == PdfPaperStyle.warmParchment && !_isBanner)
+            pw.Positioned(left: 0, right: 0, top: 0, child: pw.Container(height: 3, color: theme.secondaryColor)),
+
+          // A thick and a thin rule, mirrored at head and foot.
+          if (style == PdfPaperStyle.doubleRule) ...[
+            if (!_isBanner) ...[
+              pw.Positioned(left: _sideMargin, right: _sideMargin, top: 26, child: pw.Container(height: 1.6, color: _accent)),
+              pw.Positioned(left: _sideMargin, right: _sideMargin, top: 30, child: pw.Container(height: 0.4, color: _accent)),
+            ],
+            pw.Positioned(left: _sideMargin, right: _sideMargin, bottom: 22, child: pw.Container(height: 0.4, color: _accent)),
+            pw.Positioned(left: _sideMargin, right: _sideMargin, bottom: 18, child: pw.Container(height: 1.6, color: _accent)),
+          ],
+
+          if (style == PdfPaperStyle.architecturalFrame && !_isBanner)
+            pw.Container(
+              margin: const pw.EdgeInsets.all(22),
+              decoration: pw.BoxDecoration(border: pw.Border.all(color: _accent, width: 0.9)),
+              child: pw.Container(
+                margin: const pw.EdgeInsets.all(3.5),
+                decoration: pw.BoxDecoration(border: pw.Border.all(color: _accent, width: 0.3)),
+              ),
+            ),
+
+          if (style == PdfPaperStyle.leftVerticalRibbon)
+            pw.Positioned(left: 0, top: 0, bottom: 0, child: pw.Container(width: 12, color: _accent)),
+
+          // The banner bleeds to the edges of the first page.
+          if (_isBanner && context.pageNumber == 1)
+            pw.Positioned(left: 0, right: 0, top: 0, child: pw.Container(height: _bannerHeight, color: _accent)),
+        ],
+      ),
+    );
+  }
+
+  /// Fixed height: the free-plan credit on the left, page numbers on the
+  /// right when the document runs past one page.
+  pw.Widget pageFooter(pw.Context context) {
+    final small = pw.TextStyle(fontSize: 7, color: _mix(_muted, PdfColors.white, 0.25));
+    return pw.Container(
+      height: 20,
+      alignment: pw.Alignment.bottomCenter,
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.end,
+        children: [
+          pw.Expanded(
+            child: isPro ? pw.SizedBox() : pw.Text('Generated by Invoice Maker Pro', style: small),
+          ),
+          if (context.pagesCount > 1)
+            pw.Text(
+              '${invoice.invoiceNumber}   ·   Page ${context.pageNumber} of ${context.pagesCount}',
+              style: small,
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<pw.Widget> build() {
+    final notes = invoice.notes;
+    final footer = _paymentAndSignature();
+    return [
+      _header(),
+      pw.SizedBox(height: (_isBanner ? 16 : 20) * s),
+      _metaStrip(),
+      pw.SizedBox(height: 20 * s),
+      _parties(),
+      pw.SizedBox(height: 26 * s),
+      _lineItems(),
+      pw.SizedBox(height: 14 * s),
+      _totals(),
+      if (config.showNotes && _filled(notes)) ...[
+        pw.SizedBox(height: 22 * s),
+        pw.Text('NOTES', style: _label()),
+        pw.SizedBox(height: 5 * s),
+        // A direct child, so long notes can run on to the next page.
+        pw.Text(notes!.trim(), style: _body(color: _muted, size: 8.6)),
+      ],
+      pw.SizedBox(height: 24 * s),
+      // One block, so the closing line never lands alone on a new page.
+      pw.Inseparable(
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            if (footer != null) ...[
+              footer,
+              pw.SizedBox(height: 22 * s),
+            ],
+            pw.Text(
+              _filled(config.customFooterMessage) ? config.customFooterMessage!.trim() : 'Thank you for your business.',
+              style: _body(color: _ink, size: 9.5),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  // ---- Header ----
+
+  pw.Widget _header() {
+    if (_isBanner) return _bannerHeader();
+    switch (config.headerPosition) {
+      case HeaderPosition.centeredLogo:
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            pw.Center(child: _brand(pw.CrossAxisAlignment.center)),
+            pw.SizedBox(height: 12 * s),
+            pw.Center(child: _title(pw.CrossAxisAlignment.center)),
+          ],
+        );
+      case HeaderPosition.logoRightDetailsLeft:
+        return pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(flex: 5, child: _title(pw.CrossAxisAlignment.start)),
+            pw.SizedBox(width: 16),
+            pw.Expanded(flex: 6, child: _brand(pw.CrossAxisAlignment.end)),
+          ],
+        );
+      default:
+        if (theme.paperStyle == PdfPaperStyle.asymmetricSplitHeader) return _splitHeader();
+        return pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(flex: 6, child: _brand(pw.CrossAxisAlignment.start)),
+            pw.SizedBox(width: 16),
+            pw.Expanded(flex: 5, child: _title(pw.CrossAxisAlignment.end)),
+          ],
+        );
+    }
+  }
+
+  static pw.TextAlign _textAlign(pw.CrossAxisAlignment a) => switch (a) {
+        pw.CrossAxisAlignment.end => pw.TextAlign.right,
+        pw.CrossAxisAlignment.center => pw.TextAlign.center,
+        _ => pw.TextAlign.left,
+      };
+
+  static pw.Alignment _boxAlign(pw.CrossAxisAlignment a) => switch (a) {
+        pw.CrossAxisAlignment.end => pw.Alignment.centerRight,
+        pw.CrossAxisAlignment.center => pw.Alignment.center,
+        _ => pw.Alignment.centerLeft,
+      };
+
+  /// The logo with the business name under it. With no logo, the name
+  /// stands alone, set larger.
+  pw.Widget _brand(pw.CrossAxisAlignment align, {PdfColor? color, bool onColor = false}) {
+    final hasMark = logo != null || (isSample && !onColor);
+    return pw.Column(
+      crossAxisAlignment: align,
+      mainAxisSize: pw.MainAxisSize.min,
+      children: [
+        if (logo != null)
+          pw.Container(
+            height: 44 * s,
+            width: 150 * s,
+            alignment: _boxAlign(align),
+            child: pw.Image(logo!, fit: pw.BoxFit.contain),
+          )
+        else if (isSample && !onColor)
+          // Only the sample preview shows the demo logo; a real document
+          // never carries another company's mark.
+          DummyInvoiceData.buildVectorLogo(theme, size: 36 * s),
+        if (hasMark) pw.SizedBox(height: 8 * s),
+        pw.Text(
+          profile.businessName,
+          maxLines: 2,
+          textAlign: _textAlign(align),
+          style: pw.TextStyle(
+            fontSize: (hasMark ? 12.5 : (_isMinimal ? 19 : 17)) * s,
+            fontWeight: pw.FontWeight.bold,
+            color: color ?? _ink,
+            letterSpacing: hasMark ? 0 : -0.2,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The document title, set large and light, with the payment stamp.
+  pw.Widget _title(pw.CrossAxisAlignment align, {PdfColor? color, bool onColor = false}) {
+    final text = profile.titleFor(invoice);
+    final stamp = _stamp(onColor: onColor);
+    return pw.Column(
+      crossAxisAlignment: align,
+      mainAxisSize: pw.MainAxisSize.min,
+      children: [
+        pw.Text(
+          text,
+          textAlign: _textAlign(align),
+          style: pw.TextStyle(
+            fontSize: (text.length > 12 ? 17 : 25) * s,
+            color: color ?? (_isMinimal ? _ink : _accent),
+            letterSpacing: 1.6,
+          ),
+        ),
+        if (stamp != null) ...[
+          pw.SizedBox(height: 7 * s),
+          stamp,
+        ],
+      ],
+    );
+  }
+
+  /// A small outlined stamp for a settled or late invoice. An invoice that
+  /// is simply awaiting payment carries none, and nor does an estimate.
+  pw.Widget? _stamp({bool onColor = false}) {
+    if (profile.isEstimate) return null;
+    final (label, hex) = switch (invoice.effectiveStatus) {
+      InvoiceStatus.paid => ('PAID', '#15803D'),
+      InvoiceStatus.partiallyPaid => ('PART PAID', '#A16207'),
+      InvoiceStatus.overdue => ('OVERDUE', '#B91C1C'),
+      InvoiceStatus.unpaid => ('', ''),
+    };
+    if (label.isEmpty) return null;
+    final color = onColor ? PdfColors.white : PdfColor.fromHex(hex);
+    return pw.Container(
+      padding: pw.EdgeInsets.symmetric(horizontal: 6 * s, vertical: 2.2 * s),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: color, width: 0.9),
+        borderRadius: pw.BorderRadius.circular(2),
+      ),
+      child: pw.Text(
+        label,
+        style: pw.TextStyle(fontSize: 7 * s, fontWeight: pw.FontWeight.bold, letterSpacing: 1.4, color: color),
+      ),
+    );
+  }
+
+  /// White type on the banner painted by [background].
+  pw.Widget _bannerHeader() {
+    final hasLogo = logo != null;
+    return pw.Container(
+      height: _bannerBodyHeight,
+      margin: const pw.EdgeInsets.only(bottom: _bannerTopMargin),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Expanded(
+            flex: 6,
+            child: pw.Row(
+              children: [
+                if (!hasLogo) ...[
+                  pw.Container(
+                    width: 30 * s,
+                    height: 30 * s,
+                    alignment: pw.Alignment.center,
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.white, width: 0.9),
+                      borderRadius: pw.BorderRadius.circular(2),
+                    ),
+                    child: pw.Text(
+                      isSample ? 'AG' : PdfGeneratorService._initials(profile.businessName),
+                      style: pw.TextStyle(color: PdfColors.white, fontSize: 11 * s, fontWeight: pw.FontWeight.bold, letterSpacing: 0.6),
+                    ),
+                  ),
+                  pw.SizedBox(width: 11 * s),
+                ],
+                pw.Expanded(
+                  child: hasLogo
+                      ? _brand(pw.CrossAxisAlignment.start, color: PdfColors.white, onColor: true)
+                      : pw.Text(
+                          profile.businessName,
+                          maxLines: 2,
+                          style: pw.TextStyle(color: PdfColors.white, fontSize: 15 * s, fontWeight: pw.FontWeight.bold),
+                        ),
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(width: 16),
+          pw.Expanded(
+            flex: 5,
+            child: _title(pw.CrossAxisAlignment.end, color: PdfColors.white, onColor: true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Brand on a panel of colour, title on a panel of tint.
+  pw.Widget _splitHeader() {
+    return pw.Container(
+      height: 92 * s,
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Expanded(
+            child: pw.Container(
+              color: _accent,
+              padding: pw.EdgeInsets.symmetric(horizontal: 18 * s),
+              alignment: pw.Alignment.centerLeft,
+              child: _brand(pw.CrossAxisAlignment.start, color: PdfColors.white, onColor: true),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Container(
+              color: theme.lightGray,
+              padding: pw.EdgeInsets.symmetric(horizontal: 18 * s),
+              alignment: pw.Alignment.centerRight,
+              child: _title(pw.CrossAxisAlignment.end),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---- Number, dates and the amount to pay ----
+
+  pw.Widget _metaStrip() {
+    pw.Widget cell(String label, String value, {bool end = false, bool strong = false}) {
+      return pw.Column(
+        crossAxisAlignment: end ? pw.CrossAxisAlignment.end : pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(label, style: _label()),
+          pw.SizedBox(height: 4 * s),
+          pw.Text(
+            value,
+            textAlign: end ? pw.TextAlign.right : pw.TextAlign.left,
+            style: strong ? _body(bold: true, size: 12, color: _isMinimal ? _ink : _accent) : _body(size: 9.5),
+          ),
+        ],
+      );
+    }
+
+    final due = invoice.dueDate;
+    final amountLabel = profile.isEstimate
+        ? 'ESTIMATE TOTAL'
+        : (_hasPayments ? 'BALANCE DUE' : 'AMOUNT DUE');
+    return pw.Container(
+      padding: pw.EdgeInsets.symmetric(vertical: 10 * s),
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          top: pw.BorderSide(color: _ink, width: 0.8),
+          bottom: pw.BorderSide(color: _rule, width: 0.6),
+        ),
+      ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Expanded(
+            flex: 30,
+            child: cell(profile.isEstimate ? 'ESTIMATE NO.' : 'INVOICE NO.', invoice.invoiceNumber),
+          ),
+          pw.Expanded(flex: 22, child: cell('ISSUED', date(invoice.invoiceDate))),
+          pw.Expanded(
+            flex: 22,
+            child: due == null ? pw.SizedBox() : cell(profile.dueLabel.toUpperCase(), date(due)),
+          ),
+          pw.Expanded(
+            flex: 28,
+            child: cell(amountLabel, money(profile.isEstimate ? totals.grandTotal : _balance), end: true, strong: true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---- From and bill to ----
+
+  pw.Widget _party(String label, String name, List<String?> lines) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(label, style: _label()),
+        pw.SizedBox(height: 6 * s),
+        pw.Text(name, style: _body(bold: true, size: 10.5)),
+        for (final line in lines)
+          if (_filled(line))
+            pw.Padding(
+              padding: pw.EdgeInsets.only(top: 2.5 * s),
+              child: pw.Text(line!.trim(), style: _body(color: _muted, size: 8.6)),
+            ),
+      ],
+    );
+  }
+
+  pw.Widget _parties() {
+    final from = _party('FROM', profile.businessName, [
+      profile.address,
+      profile.phone,
+      profile.email,
+      profile.website,
+      if (_filled(profile.gstin)) '${profile.taxIdLabel}: ${profile.gstin}',
+    ]);
+    final billTo = _party('BILL TO', invoice.clientName, [
+      invoice.clientAddress,
+      invoice.clientPhone,
+      invoice.clientEmail,
+      if (_filled(invoice.clientGstin)) '${profile.taxIdLabel}: ${invoice.clientGstin}',
+    ]);
+
+    switch (config.addressLayout) {
+      case AddressLayout.stacked:
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [from, pw.SizedBox(height: 14 * s), billTo],
+        );
+      case AddressLayout.inverted:
+        return pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [pw.Expanded(child: billTo), pw.SizedBox(width: 28), pw.Expanded(child: from)],
+        );
+      default:
+        return pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [pw.Expanded(child: from), pw.SizedBox(width: 28), pw.Expanded(child: billTo)],
+        );
+    }
+  }
+
+  // ---- Line items ----
+
+  pw.Widget _lineItems() {
+    final filled = _tableStyle == _TableStyle.filled;
+    final showQty = config.showQuantity;
+    final showUnitPrice = config.showUnitPrice;
+    // A filled header needs its text inset; a ruled table sits flush with
+    // the margins, so the columns line up with everything else on the page.
+    final edge = (filled ? 10.0 : 0.0) * s;
+    final gap = 8.0 * s;
+
+    final headStyle = _label(color: filled ? theme.tableHeaderTextColor : _muted);
+    final lastIndex = 1 + (showQty ? 1 : 0) + (showUnitPrice ? 1 : 0);
+
+    pw.Widget cell(pw.Widget child, int index, {required double vertical, bool right = false}) {
+      return pw.Container(
+        padding: pw.EdgeInsets.fromLTRB(
+          index == 0 ? edge : gap,
+          vertical,
+          index == lastIndex ? edge : gap,
+          vertical,
+        ),
+        alignment: right ? pw.Alignment.topRight : pw.Alignment.topLeft,
+        child: child,
+      );
+    }
+
+    final columnWidths = <int, pw.TableColumnWidth>{};
+    var col = 0;
+    columnWidths[col++] = const pw.FlexColumnWidth(5.2);
+    if (showQty) columnWidths[col++] = const pw.FlexColumnWidth(1.4);
+    if (showUnitPrice) columnWidths[col++] = const pw.FlexColumnWidth(2.0);
+    columnWidths[col++] = const pw.FlexColumnWidth(2.1);
+
+    var h = 0;
+    final header = pw.TableRow(
+      repeat: true, // the header again on every page
+      decoration: pw.BoxDecoration(
+        color: filled ? theme.tableHeaderBg : null,
+        border: filled ? null : pw.Border(bottom: pw.BorderSide(color: _ink, width: 0.8)),
+      ),
+      children: [
+        cell(pw.Text('DESCRIPTION', style: headStyle), h++, vertical: 7 * s),
+        if (showQty) cell(pw.Text('QTY', style: headStyle), h++, vertical: 7 * s, right: true),
+        if (showUnitPrice) cell(pw.Text('RATE', style: headStyle), h++, vertical: 7 * s, right: true),
+        cell(pw.Text('AMOUNT', style: headStyle), h++, vertical: 7 * s, right: true),
+      ],
+    );
+
+    final rows = invoice.lineItems.map((item) {
+      // HSN/SAC, the line's own discount and its own tax rate.
+      final details = <String>[
+        if (item.hsnSac != null) '${profile.isDualTax ? 'HSN/SAC' : 'Code'} ${item.hsnSac}',
+        if (item.discountRate > 0) '${NumberText.trim(item.discountRate)}% off',
+        if (config.showTaxColumn && item.taxRate != null)
+          item.taxRate == 0 ? 'Tax exempt' : '${profile.taxShortName} ${NumberText.trim(item.taxRate!)}%',
+      ];
+      var i = 0;
+      return pw.TableRow(
+        decoration: pw.BoxDecoration(
+          border: pw.Border(bottom: pw.BorderSide(color: _rule, width: 0.5)),
+        ),
+        children: [
+          cell(
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(item.description, style: _body()),
+                if (details.isNotEmpty) ...[
+                  pw.SizedBox(height: 2 * s),
+                  pw.Text(details.join('   ·   '), style: _body(color: _muted, size: 7.2)),
+                ],
+              ],
+            ),
+            i++,
+            vertical: 8 * s,
+          ),
+          if (showQty)
+            cell(
+              pw.Text(
+                '${NumberText.trim(item.quantity, maxDecimals: 3)}${item.unit != null ? ' ${item.unit}' : ''}',
+                style: _body(color: _muted),
+              ),
+              i++,
+              vertical: 8 * s,
+              right: true,
+            ),
+          if (showUnitPrice)
+            cell(pw.Text(money(item.unitPrice), style: _body(color: _muted)), i++, vertical: 8 * s, right: true),
+          cell(pw.Text(money(item.total), style: _body()), i++, vertical: 8 * s, right: true),
+        ],
+      );
+    });
+
+    return pw.Table(columnWidths: columnWidths, children: [header, ...rows]);
+  }
+
+  // ---- Totals ----
+
+  pw.Widget _totals() {
+    String taxLabel(TaxComponent c) {
+      final name = switch (c.kind) {
+        TaxComponentKind.cgst => 'CGST',
+        TaxComponentKind.sgst => 'SGST',
+        TaxComponentKind.igst => 'IGST',
+        TaxComponentKind.single => profile.taxShortName,
+      };
+      return '$name (${NumberText.trim(c.rate)}%)';
+    }
+
+    pw.Widget row(String label, String value, {bool strong = false}) {
+      return pw.Padding(
+        padding: pw.EdgeInsets.symmetric(vertical: 3.2 * s),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(label, style: _body(color: strong ? _ink : _muted, bold: strong, size: 8.8)),
+            pw.Text(value, style: _body(bold: strong, size: 8.8)),
+          ],
+        ),
+      );
+    }
+
+    /// The figure the reader must act on: the largest on the page.
+    pw.Widget headline(String label, String value) {
+      return pw.Container(
+        margin: pw.EdgeInsets.only(top: 6 * s),
+        padding: pw.EdgeInsets.only(top: 9 * s),
+        decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(color: _ink, width: 0.8))),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: pw.CrossAxisAlignment.end,
+          children: [
+            pw.Padding(
+              padding: pw.EdgeInsets.only(bottom: 2.5 * s),
+              child: pw.Text(label, style: _label(color: _ink)),
+            ),
+            pw.Text(
+              value,
+              style: pw.TextStyle(
+                fontSize: 17 * s,
+                fontWeight: pw.FontWeight.bold,
+                color: _isMinimal ? _ink : _accent,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final hasDiscount = totals.discountAmount > 0;
+    final totalLabel = profile.isEstimate ? 'ESTIMATE TOTAL' : 'TOTAL';
+    final column = pw.Container(
+      width: 232 * s,
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          row('Subtotal', money(totals.subtotal)),
+          if (hasDiscount) ...[
+            row(
+              invoice.discountType == DiscountType.percentage
+                  ? 'Discount (${NumberText.trim(invoice.discountValue)}%)'
+                  : 'Discount',
+              '-${money(totals.discountAmount)}',
+            ),
+            if (totals.taxComponents.isNotEmpty) row('Taxable amount', money(totals.taxableAmount)),
+          ],
+          for (final c in totals.taxComponents) row(taxLabel(c), money(c.amount)),
+          if (totals.shipping > 0) row('Shipping', money(totals.shipping)),
+          if (_hasPayments) ...[
+            pw.Container(
+              margin: pw.EdgeInsets.only(top: 4 * s),
+              padding: pw.EdgeInsets.only(top: 4 * s),
+              decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(color: _rule, width: 0.5))),
+              child: row('Total', money(totals.grandTotal), strong: true),
+            ),
+            row('Paid', '-${money(invoice.paidAmount)}'),
+            headline('BALANCE DUE', money(_balance)),
+          ] else
+            headline(totalLabel, money(totals.grandTotal)),
+        ],
+      ),
+    );
+
+    final inWords = AmountInWords.format(totals.grandTotal, invoice.currency);
+    // Inseparable: the total never parts from the rows that add up to it.
+    return pw.Inseparable(
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Align(alignment: pw.Alignment.centerRight, child: column),
+          if (inWords != null) ...[
+            pw.SizedBox(height: 7 * s),
+            pw.Text(
+              inWords,
+              textAlign: pw.TextAlign.right,
+              style: _body(color: _muted, size: 8.2),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ---- How to pay, and the signature ----
+
+  pw.Widget? _paymentAndSignature() {
+    final payment = <(String, String)>[
+      if (config.showBankDetails) ...[
+        if (_filled(profile.bankName)) ('Bank', profile.bankName!.trim()),
+        if (_filled(profile.accountNumber)) (profile.bankAccountLabel, profile.accountNumber!.trim()),
+        if (_filled(profile.ifscCode)) (profile.bankRoutingLabel, profile.ifscCode!.trim()),
+      ],
+      if (config.showUpiDetails && _filled(profile.upiId)) (profile.digitalPaymentLabel, profile.upiId!.trim()),
+    ];
+    if (payment.isEmpty && !config.showSignature) return null;
+
+    final paymentBlock = payment.isEmpty
+        ? pw.SizedBox()
+        : pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text('PAYMENT DETAILS', style: _label()),
+              pw.SizedBox(height: 7 * s),
+              pw.Table(
+                columnWidths: const {0: pw.IntrinsicColumnWidth(), 1: pw.FlexColumnWidth()},
+                children: [
+                  for (final (label, value) in payment)
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: pw.EdgeInsets.only(right: 14 * s, bottom: 3.5 * s),
+                          child: pw.Text(label, style: _body(color: _muted, size: 8.6)),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.only(bottom: 3.5 * s),
+                          child: pw.Text(value, style: _body(size: 8.6)),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ],
+          );
+
+    final signatureBlock = !config.showSignature
+        ? null
+        : pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              pw.Container(
+                height: 42 * s,
+                width: 130 * s,
+                alignment: pw.Alignment.bottomCenter,
+                child: signature != null
+                    ? pw.Image(signature!, fit: pw.BoxFit.contain)
+                    : (isSample ? DummyInvoiceData.buildVectorSignature(theme) : null),
+              ),
+              pw.Container(width: 130 * s, height: 0.6, color: _ink, margin: pw.EdgeInsets.only(top: 4 * s, bottom: 4 * s)),
+              pw.Text('AUTHORISED SIGNATURE', style: _label()),
+            ],
+          );
+
+    return pw.Container(
+        padding: pw.EdgeInsets.only(top: 14 * s),
+        decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(color: _rule, width: 0.6))),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.end,
+          children: [
+            pw.Expanded(child: paymentBlock),
+            if (signatureBlock != null) ...[
+              pw.SizedBox(width: 24),
+              signatureBlock,
+            ],
+          ],
+        ),
+    );
   }
 }
 
@@ -1812,7 +1147,8 @@ class _PdfFonts {
     final arabic = await _loadFont('assets/fonts/NotoSansArabic-Regular.ttf');
     final bengali = await _loadFont('assets/fonts/NotoSansBengali-Regular.ttf');
     final thai = await _loadFont('assets/fonts/NotoSansThai-Regular.ttf');
-    final fallbacks = [arabic, bengali, thai];
+    final noto = await _loadFont('assets/fonts/NotoSans-Regular.ttf');
+    final fallbacks = [noto, arabic, bengali, thai];
 
     pw.Font base;
     pw.Font bold;
@@ -1845,8 +1181,10 @@ class _PdfFonts {
           bold = await _loadFont('assets/fonts/NotoSans-Bold.ttf');
         }
       case InvoiceFontFamily.cleanSans:
-        base = await _loadFont('assets/fonts/NotoSans-Regular.ttf');
-        bold = await _loadFont('assets/fonts/NotoSans-Bold.ttf');
+        // Inter is bundled; Noto stays in the fallback list for any glyph
+        // Inter lacks.
+        base = await _loadFont('assets/fonts/Inter-Regular.ttf');
+        bold = await _loadFont('assets/fonts/Inter-SemiBold.ttf');
         break;
     }
 

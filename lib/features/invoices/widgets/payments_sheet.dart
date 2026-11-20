@@ -11,6 +11,7 @@ import '../../../shared_widgets/app_dialog.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../models/invoice_model.dart';
 import '../models/payment_model.dart';
+import '../../../core/theme/app_icons.dart';
 
 /// Payment methods offered when recording a payment.
 const paymentMethods = ['Bank transfer', 'UPI', 'Cash', 'Card', 'Cheque', 'PayPal'];
@@ -172,7 +173,7 @@ class _PaymentsSheetState extends State<PaymentsSheet> {
                           subtitle: Text(details, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
                           trailing: IconButton(
                             tooltip: 'Delete payment',
-                            icon: Icon(Icons.delete_outline_rounded, color: AppColors.muted),
+                            icon: Icon(AppIcons.delete, color: AppColors.muted),
                             onPressed: () => _delete(p),
                           ),
                         );
@@ -182,7 +183,7 @@ class _PaymentsSheetState extends State<PaymentsSheet> {
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: _loading ? null : _record,
-                  icon: const Icon(Icons.add_rounded),
+                  icon: const Icon(AppIcons.add),
                   label: const Text('Record payment'),
                 ),
               ],

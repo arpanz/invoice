@@ -4,6 +4,7 @@ import 'package:invoice/core/billing/billing_service.dart';
 import 'package:invoice/core/providers/currency_provider.dart';
 import 'package:invoice/features/paywall/paywall_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:invoice/core/theme/app_icons.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -45,7 +46,7 @@ void main() {
     expect(find.text('Unlock Lifetime Access'), findsOneWidget);
 
     // Verify Close and Restore buttons
-    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+    expect(find.byIcon(AppIcons.close), findsOneWidget);
     expect(find.text('Restore purchase'), findsOneWidget);
   });
 
@@ -95,7 +96,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Restore purchase'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.tap(find.byIcon(AppIcons.close));
     await tester.pumpAndSettle();
     expect(find.text('Restore purchase'), findsNothing);
     expect(find.text('open'), findsOneWidget);

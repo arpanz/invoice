@@ -10,6 +10,7 @@ import 'package:invoice/features/invoices/screens/invoice_preview_screen.dart';
 import 'package:invoice/features/invoices/services/pdf_generator_service.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:invoice/core/theme/app_icons.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -84,7 +85,7 @@ void main() {
     expect(find.text('Bill To'), findsOneWidget);
     expect(find.text('Items'), findsOneWidget);
     expect(find.text('Discount'), findsOneWidget);
-    expect(find.byIcon(Icons.account_balance_outlined), findsOneWidget);
+    expect(find.byIcon(AppIcons.bank), findsOneWidget);
     expect(find.text('Shipping'), findsOneWidget);
     expect(find.text('Total'), findsOneWidget);
     expect(find.text('Balance Due'), findsOneWidget);
@@ -124,7 +125,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('INV00099'), findsWidgets);
-    expect(find.text('Acme Corporation'), findsOneWidget);
+    expect(find.textContaining('Acme Corporation'), findsOneWidget);
     expect(find.text('Partially Paid'), findsWidgets);
     expect(find.text('Paid: ₹200.00'), findsOneWidget);
     expect(find.text('Balance Due: ₹300.00'), findsOneWidget);

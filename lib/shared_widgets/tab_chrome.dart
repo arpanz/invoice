@@ -5,6 +5,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_typography.dart';
 import '../features/paywall/paywall_screen.dart';
 import 'paper.dart';
+import '../core/theme/app_animations.dart';
 
 /// The top of each tab: a small caption over a serif title, with the
 /// GO PRO stamp and any [trailing] buttons on the right.
@@ -104,8 +105,8 @@ class FilterPill extends StatelessWidget {
             onTap();
           },
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
+            duration: AppAnimations.fast,
+            curve: AppAnimations.defaultCurve,
             height: 34,
             padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
@@ -183,7 +184,7 @@ class PinnedBarDelegate extends SliverPersistentHeaderDelegate {
           const Spacer(),
           AnimatedOpacity(
             opacity: overlapsContent || shrinkOffset > 0 ? 1 : 0,
-            duration: const Duration(milliseconds: 150),
+            duration: AppAnimations.fast,
             child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
           ),
         ],

@@ -99,14 +99,7 @@ class DummyInvoiceData {
             height: size,
             decoration: pw.BoxDecoration(
               color: theme.primaryColor,
-              borderRadius: pw.BorderRadius.circular(8),
-              boxShadow: [
-                pw.BoxShadow(
-                  color: PdfColor.fromHex('#000000'),
-                  offset: const PdfPoint(0, 1),
-                  blurRadius: 3,
-                ),
-              ],
+              borderRadius: pw.BorderRadius.circular(3),
             ),
             child: pw.Center(
               child: pw.Text(

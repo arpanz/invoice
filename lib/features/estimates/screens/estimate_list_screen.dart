@@ -21,6 +21,7 @@ import 'create_estimate_screen.dart';
 import 'estimate_preview_screen.dart';
 import '../../../shared_widgets/paper.dart';
 import '../../../shared_widgets/tab_chrome.dart';
+import '../../../core/theme/app_icons.dart';
 
 class EstimateListScreen extends StatefulWidget {
   const EstimateListScreen({super.key});
@@ -310,7 +311,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 100),
                     child: EmptyStateView(
-                      icon: Icons.request_quote_outlined,
+                      icon: AppIcons.estimate,
                       title: _allEstimates.isEmpty ? 'No Estimates Yet' : 'No Results Found',
                       subtitle: _allEstimates.isEmpty
                           ? 'Send a price before you bill. Accepted quotes turn into invoices in one tap.'
@@ -399,23 +400,23 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                   ),
                 ),
                 if (estimate.canConvert)
-                  action(Icons.transform_rounded, 'Convert to Invoice', () => _convertToInvoice(estimate),
+                  action(AppIcons.convert, 'Convert to Invoice', () => _convertToInvoice(estimate),
                       color: AppColors.statusPaid),
-                action(Icons.visibility_outlined, 'View details', () => _openEstimatePreview(estimate)),
-                action(Icons.ios_share_rounded, 'Share PDF', () => _sharePdf(estimate)),
+                action(AppIcons.visibility, 'View details', () => _openEstimatePreview(estimate)),
+                action(AppIcons.share, 'Share PDF', () => _sharePdf(estimate)),
                 if (!locked) ...[
                   if (estimate.status != EstimateStatus.accepted)
-                    action(Icons.check_circle_outline_rounded, 'Mark accepted',
+                    action(AppIcons.checkCircle, 'Mark accepted',
                         () => _quickUpdateStatus(estimate, EstimateStatus.accepted)),
                   if (estimate.status != EstimateStatus.declined)
-                    action(Icons.cancel_outlined, 'Mark declined',
+                    action(AppIcons.cancel, 'Mark declined',
                         () => _quickUpdateStatus(estimate, EstimateStatus.declined)),
                   if (estimate.status != EstimateStatus.pending)
-                    action(Icons.schedule_rounded, 'Mark pending',
+                    action(AppIcons.schedule, 'Mark pending',
                         () => _quickUpdateStatus(estimate, EstimateStatus.pending)),
                 ],
                 Divider(color: AppColors.hairline, height: 12),
-                action(Icons.delete_outline_rounded, 'Delete estimate', () => _deleteEstimate(estimate),
+                action(AppIcons.delete, 'Delete estimate', () => _deleteEstimate(estimate),
                     color: AppColors.error),
               ],
             ),
@@ -493,8 +494,8 @@ class EstimateListScreenState extends State<EstimateListScreen> {
           }
           return false;
         },
-        background: _swipeBackground(true, AppColors.statusPaidBg, AppColors.statusPaid, Icons.transform_rounded, 'Convert'),
-        secondaryBackground: _swipeBackground(false, AppColors.surfaceCard, AppColors.ink, Icons.ios_share_rounded, 'Share'),
+        background: _swipeBackground(true, AppColors.statusPaidBg, AppColors.statusPaid, AppIcons.convert, 'Convert'),
+        secondaryBackground: _swipeBackground(false, AppColors.surfaceCard, AppColors.ink, AppIcons.share, 'Share'),
         child: slip,
       ),
     );

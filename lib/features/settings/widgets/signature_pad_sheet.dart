@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
 
 // The pad is always white paper, in both themes, so its guide marks use
 // fixed paper colours rather than theme tokens that flip in dark mode.
@@ -211,7 +212,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  Icons.draw_rounded,
+                  AppIcons.draw,
                   color: AppColors.squirclePurpleIcon,
                   size: 20,
                 ),
@@ -242,7 +243,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
               ),
               IconButton(
                 icon: Icon(
-                  Icons.close_rounded,
+                  AppIcons.close,
                   color: AppColors.slate500,
                 ),
                 onPressed: () => Navigator.pop(context),
@@ -256,7 +257,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
             height: 220,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFFAFBFD),
+              color: const Color(0xFFFFFDF8), // warm paper white, fixed in both themes
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.cardBorder, width: 1.5),
               boxShadow: const [
@@ -283,7 +284,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  Icons.edit_outlined,
+                                  AppIcons.edit,
                                   size: 16,
                                   color: _padHint,
                                 ),
@@ -410,7 +411,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
               // Undo Button
               IconButton(
                 tooltip: 'Undo stroke',
-                icon: const Icon(Icons.undo_rounded, size: 20),
+                icon: const Icon(AppIcons.undo, size: 20),
                 color: _strokes.isNotEmpty
                     ? AppColors.slate700
                     : AppColors.slate300,
@@ -420,7 +421,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
               // Clear Button
               IconButton(
                 tooltip: 'Clear canvas',
-                icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                icon: const Icon(AppIcons.delete, size: 20),
                 color: _strokes.isNotEmpty
                     ? AppColors.accentRed
                     : AppColors.slate300,
@@ -439,9 +440,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.slate700,
                     side: BorderSide(color: AppColors.slate200),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: const StadiumBorder(),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: const Text(
@@ -459,9 +458,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.onPrimary,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: const StadiumBorder(),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: _isSaving
@@ -477,7 +474,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                       : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.check_rounded, size: 18),
+                            Icon(AppIcons.check, size: 18),
                             SizedBox(width: 6),
                             Text(
                               'Use Signature',

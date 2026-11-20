@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/features/settings/widgets/signature_pad_sheet.dart';
+import 'package:invoice/core/theme/app_icons.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -46,7 +47,7 @@ void main() {
     expect(find.text('Draw inside this box'), findsNothing);
 
     // Tap clear button to reset
-    final clearButton = find.byIcon(Icons.delete_outline_rounded);
+    final clearButton = find.byIcon(AppIcons.delete);
     await tester.tap(clearButton);
     await tester.pumpAndSettle();
 

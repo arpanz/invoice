@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../invoices/models/invoice_model.dart';
 import '../../invoices/models/line_item_model.dart';
+import '../../../core/theme/app_icons.dart';
 
 enum EstimateStatus {
   pending,
@@ -63,13 +64,13 @@ extension EstimateStatusExtension on EstimateStatus {
   IconData get icon {
     switch (this) {
       case EstimateStatus.pending:
-        return Icons.schedule_rounded;
+        return AppIcons.schedule;
       case EstimateStatus.accepted:
-        return Icons.check_circle_rounded;
+        return AppIcons.checkCircleFilled;
       case EstimateStatus.declined:
-        return Icons.cancel_rounded;
+        return AppIcons.cancelFilled;
       case EstimateStatus.converted:
-        return Icons.receipt_long_rounded;
+        return AppIcons.receipt;
     }
   }
 

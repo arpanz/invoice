@@ -60,22 +60,31 @@ flutter:
   assets:
     - assets/images/
     - assets/fonts/
+  fonts:
+    # Built from assets/icons/*.svg by tool/build_icons.py
+    - family: AppIcons
+      fonts:
+        - asset: assets/icon_font/AppIcons.ttf
 
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: false
   image_path: "assets/icon.png"
   min_sdk_android: 21
-  adaptive_icon_foreground_inset: 12
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/icon.png"
-  adaptive_icon_monochrome: "assets/icon.png"
+  # The foreground is drawn full-bleed with the subject already inside the
+  # adaptive-icon safe zone, so it needs no extra inset.
+  adaptive_icon_foreground_inset: 0
+  adaptive_icon_background: "#1C1915"
+  adaptive_icon_foreground: "assets/icon_foreground.png"
+  adaptive_icon_monochrome: "assets/icon_monochrome.png"
 
 flutter_native_splash:
   color: "#F4EFE4"
   color_dark: "#14120F"
-  image: "assets/icon.png"
+  image: "assets/splash.png"
   android_12:
-    image: "assets/icon.png"
+    image: "assets/icon_foreground.png"
+    icon_background_color: "#1C1915"
+    icon_background_color_dark: "#1C1915"
     color: "#F4EFE4"
     color_dark: "#14120F"

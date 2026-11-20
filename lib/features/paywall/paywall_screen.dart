@@ -8,6 +8,8 @@ import '../../core/billing/free_limits.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../shared_widgets/paper.dart';
+import '../../core/theme/app_icons.dart';
+import '../../core/theme/app_animations.dart';
 
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
@@ -147,7 +149,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           IconButton(
             tooltip: 'Close',
             onPressed: () => Navigator.pop(context),
-            icon: Icon(Icons.close_rounded, color: AppColors.ink, size: 24),
+            icon: Icon(AppIcons.close, color: AppColors.ink, size: 24),
           ),
           const Spacer(),
           Text('UPGRADE', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.1, color: AppColors.mutedSoft)),
@@ -220,7 +222,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   Text('TOTAL', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1.1, color: AppColors.muted)),
                   const Spacer(),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
+                    duration: AppAnimations.fast,
                     child: Text(
                       _lifetime
                           ? _price(BillingService.lifetimeProductId)
@@ -284,7 +286,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           const SizedBox(width: 12),
           Padding(
             padding: const EdgeInsets.only(top: 1),
-            child: Icon(Icons.check_rounded, color: AppColors.statusPaid, size: 20),
+            child: Icon(AppIcons.check, color: AppColors.statusPaid, size: 20),
           ),
         ],
       ),
@@ -307,8 +309,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
         child: GestureDetector(
           onTap: () => _select(id),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
+            duration: AppAnimations.fast,
+            curve: AppAnimations.defaultCurve,
             padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
             decoration: BoxDecoration(
               color: AppColors.canvas,
@@ -318,7 +320,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             child: Row(
               children: [
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: AppAnimations.fast,
                   width: 22,
                   height: 22,
                   decoration: BoxDecoration(
@@ -326,7 +328,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     color: selected ? AppColors.ink : Colors.transparent,
                     border: Border.all(color: selected ? AppColors.ink : AppColors.mutedSoft, width: 1.5),
                   ),
-                  child: selected ? Icon(Icons.check_rounded, size: 14, color: AppColors.onPrimary) : null,
+                  child: selected ? Icon(AppIcons.check, size: 14, color: AppColors.onPrimary) : null,
                 ),
                 const SizedBox(width: 14),
                 Expanded(

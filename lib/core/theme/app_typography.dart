@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
+import 'app_icons.dart';
 import 'theme_controller.dart';
 
 /// "Paper and stamp" typography: Fraunces (serif) for titles and amounts,
@@ -232,6 +233,12 @@ class AppTypography {
         ),
         scaffoldBackgroundColor: AppColors.background,
         textTheme: textTheme,
+        // Back and close buttons that Flutter adds on its own use the app's
+        // icon set too, not the stock Material arrows.
+        actionIconTheme: ActionIconThemeData(
+          backButtonIconBuilder: (_) => const Icon(AppIcons.chevronBack, size: 18),
+          closeButtonIconBuilder: (_) => const Icon(AppIcons.close, size: 20),
+        ),
         appBarTheme: AppBarTheme(
           backgroundColor: AppColors.canvas,
           foregroundColor: AppColors.ink,

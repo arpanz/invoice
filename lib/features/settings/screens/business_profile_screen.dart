@@ -14,6 +14,7 @@ import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/primary_button.dart';
 import '../../../shared_widgets/app_dialog.dart';
 import '../widgets/signature_pad_sheet.dart';
+import '../../../core/theme/app_icons.dart';
 
 class BusinessProfileScreen extends StatefulWidget {
   const BusinessProfileScreen({super.key});
@@ -78,7 +79,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
         message:
             'You have unsaved changes to your business profile. Leave without saving them?',
         variant: AppDialogVariant.danger,
-        icon: Icons.warning_amber_rounded,
+        icon: AppIcons.warning,
         confirmLabel: 'Discard',
         cancelLabel: 'Keep editing',
         isDestructive: true,
@@ -190,7 +191,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.check_circle_rounded, color: AppColors.onPrimary, size: 20),
+            Icon(AppIcons.checkCircleFilled, color: AppColors.onPrimary, size: 20),
             SizedBox(width: 10),
             Text(
               'Business profile saved successfully!',
@@ -264,7 +265,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   ),
                   IconButton(
                     icon: Icon(
-                      Icons.close_rounded,
+                      AppIcons.close,
                       color: AppColors.slate400,
                     ),
                     onPressed: () => Navigator.pop(ctx),
@@ -273,7 +274,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               ),
               const SizedBox(height: 14),
               _buildMediaOptionCard(
-                icon: Icons.photo_library_outlined,
+                icon: AppIcons.photoLibrary,
                 iconColor: AppColors.squirclePurpleIcon,
                 bgColor: AppColors.squirclePurple,
                 title: 'Choose from Gallery',
@@ -285,7 +286,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               ),
               const SizedBox(height: 8),
               _buildMediaOptionCard(
-                icon: Icons.camera_alt_outlined,
+                icon: AppIcons.camera,
                 iconColor: AppColors.squircleCyanIcon,
                 bgColor: AppColors.squircleCyan,
                 title: 'Take Photo',
@@ -298,7 +299,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               if (_logoPath != null) ...[
                 const SizedBox(height: 8),
                 _buildMediaOptionCard(
-                  icon: Icons.delete_outline_rounded,
+                  icon: AppIcons.delete,
                   iconColor: AppColors.accentRed,
                   bgColor: AppColors.statusOverdueBg,
                   title: 'Remove Logo',
@@ -387,7 +388,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   ),
                   IconButton(
                     icon: Icon(
-                      Icons.close_rounded,
+                      AppIcons.close,
                       color: AppColors.slate400,
                     ),
                     onPressed: () => Navigator.pop(ctx),
@@ -396,7 +397,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               ),
               const SizedBox(height: 14),
               _buildMediaOptionCard(
-                icon: Icons.draw_rounded,
+                icon: AppIcons.draw,
                 iconColor: AppColors.squirclePurpleIcon,
                 bgColor: AppColors.squirclePurple,
                 title: 'Draw Signature on Screen',
@@ -408,7 +409,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               ),
               const SizedBox(height: 8),
               _buildMediaOptionCard(
-                icon: Icons.image_outlined,
+                icon: AppIcons.image,
                 iconColor: AppColors.squircleTealIcon,
                 bgColor: AppColors.squircleTeal,
                 title: 'Upload Image from Gallery',
@@ -421,7 +422,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               if (_signaturePath != null) ...[
                 const SizedBox(height: 8),
                 _buildMediaOptionCard(
-                  icon: Icons.delete_outline_rounded,
+                  icon: AppIcons.delete,
                   iconColor: AppColors.accentRed,
                   bgColor: AppColors.statusOverdueBg,
                   title: 'Remove Signature',
@@ -586,7 +587,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
             child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
           ),
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_rounded, color: AppColors.ink),
+            icon: Icon(AppIcons.arrowBack, color: AppColors.ink),
             onPressed: () => Navigator.maybePop(context),
           ),
           title: const Text('Business Profile'),
@@ -634,7 +635,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               // 2. Branding & Media Section (Logo + Signature)
               _buildSectionHeader(
                 title: 'Branding & Identity',
-                icon: Icons.auto_awesome_rounded,
+                icon: AppIcons.sparkle,
                 iconColor: AppColors.badgeViolet,
                 iconBg: AppColors.badgeViolet.withValues(alpha: 0.12),
               ),
@@ -654,7 +655,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               subtitle: _logoPath != null
                                   ? 'Tap to change'
                                   : 'Upload logo',
-                              icon: Icons.add_photo_alternate_outlined,
+                              icon: AppIcons.addPhoto,
                               imagePath: _logoPath,
                               onTap: _showLogoOptions,
                             ),
@@ -667,7 +668,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               subtitle: _signaturePath != null
                                   ? 'Tap to change'
                                   : 'Draw or upload',
-                              icon: Icons.draw_outlined,
+                              icon: AppIcons.draw,
                               imagePath: _signaturePath,
                               onTap: _showSignatureOptions,
                             ),
@@ -681,7 +682,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         controller: _nameCtrl,
                         textCapitalization: TextCapitalization.words,
                         prefixIcon: Icon(
-                          Icons.storefront_rounded,
+                          AppIcons.storefront,
                           color: AppColors.primary,
                           size: 20,
                         ),
@@ -696,7 +697,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         controller: _taglineCtrl,
                         textCapitalization: TextCapitalization.sentences,
                         prefixIcon: Icon(
-                          Icons.badge_outlined,
+                          AppIcons.badge,
                           color: AppColors.slate500,
                           size: 20,
                         ),
@@ -710,7 +711,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               // 3. Contact & Location Section
               _buildSectionHeader(
                 title: 'Contact & Location',
-                icon: Icons.contact_mail_rounded,
+                icon: AppIcons.contactCard,
                 iconColor: AppColors.squircleCyanIcon,
                 iconBg: AppColors.squircleCyan,
               ),
@@ -725,7 +726,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         controller: _emailCtrl,
                         keyboardType: TextInputType.emailAddress,
                         prefixIcon: Icon(
-                          Icons.mail_outline_rounded,
+                          AppIcons.mail,
                           color: AppColors.slate500,
                           size: 20,
                         ),
@@ -737,7 +738,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         controller: _phoneCtrl,
                         keyboardType: TextInputType.phone,
                         prefixIcon: Icon(
-                          Icons.phone_outlined,
+                          AppIcons.phone,
                           color: AppColors.slate500,
                           size: 20,
                         ),
@@ -749,7 +750,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         controller: _websiteCtrl,
                         keyboardType: TextInputType.url,
                         prefixIcon: Icon(
-                          Icons.language_rounded,
+                          AppIcons.globe,
                           color: AppColors.slate500,
                           size: 20,
                         ),
@@ -764,7 +765,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         prefixIcon: Padding(
                           padding: EdgeInsets.only(bottom: 36),
                           child: Icon(
-                            Icons.location_on_outlined,
+                            AppIcons.location,
                             color: AppColors.slate500,
                             size: 20,
                           ),
@@ -779,7 +780,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               // 4. Tax & Legal Section
               _buildSectionHeader(
                 title: 'Tax & Legal Registration',
-                icon: Icons.gavel_rounded,
+                icon: AppIcons.gavel,
                 iconColor: AppColors.squircleOrangeIcon,
                 iconBg: AppColors.squircleOrange,
               ),
@@ -795,7 +796,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         controller: _gstinCtrl,
                         textCapitalization: TextCapitalization.characters,
                         prefixIcon: Icon(
-                          Icons.receipt_long_rounded,
+                          AppIcons.receipt,
                           color: AppColors.slate500,
                           size: 20,
                         ),
@@ -804,7 +805,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                       Row(
                         children: [
                           Icon(
-                            Icons.info_outline_rounded,
+                            AppIcons.info,
                             size: 14,
                             color: AppColors.slate400,
                           ),
@@ -829,7 +830,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               // 5. Bank & Payment Methods Section
               _buildSectionHeader(
                 title: 'Bank & Payment Details',
-                icon: Icons.account_balance_rounded,
+                icon: AppIcons.bank,
                 iconColor: AppColors.ink,
                 iconBg: AppColors.surfaceCard,
                 trailing: InkWell(
@@ -867,7 +868,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         ),
                         const SizedBox(width: 2),
                         Icon(
-                          Icons.arrow_drop_down_rounded,
+                          AppIcons.caretDown,
                           size: 16,
                           color: AppColors.ink,
                         ),
@@ -919,7 +920,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         controller: _bankNameCtrl,
                         textCapitalization: TextCapitalization.words,
                         prefixIcon: Icon(
-                          Icons.account_balance_outlined,
+                          AppIcons.bank,
                           color: AppColors.slate500,
                           size: 20,
                         ),
@@ -933,7 +934,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         controller: _accountCtrl,
                         keyboardType: TextInputType.text,
                         prefixIcon: Icon(
-                          Icons.numbers_rounded,
+                          AppIcons.numbers,
                           color: AppColors.slate500,
                           size: 20,
                         ),
@@ -947,7 +948,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         controller: _ifscCtrl,
                         textCapitalization: TextCapitalization.characters,
                         prefixIcon: Icon(
-                          Icons.pin_outlined,
+                          AppIcons.pin,
                           color: AppColors.slate500,
                           size: 20,
                         ),
@@ -961,7 +962,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         controller: _upiCtrl,
                         keyboardType: TextInputType.text,
                         prefixIcon: Icon(
-                          Icons.qr_code_rounded,
+                          AppIcons.qrCode,
                           color: AppColors.slate500,
                           size: 20,
                         ),
@@ -979,7 +980,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         prefixIcon: Padding(
                           padding: EdgeInsets.only(bottom: 24),
                           child: Icon(
-                            Icons.assignment_outlined,
+                            AppIcons.assignment,
                             color: AppColors.slate500,
                             size: 20,
                           ),
@@ -1010,7 +1011,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
             child: PrimaryButton(
               label: 'Save Business Profile',
               isLoading: _isSaving,
-              icon: Icons.check_circle_outline_rounded,
+              icon: AppIcons.checkCircle,
               onPressed: _saveProfile,
             ),
           ),
@@ -1206,7 +1207,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      Icons.verified_rounded,
+                                      AppIcons.verified,
                                       size: 11,
                                       color: AppColors.statusPaid,
                                     ),
@@ -1245,7 +1246,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           child: Row(
                             children: [
                               Icon(
-                                Icons.mail_outline_rounded,
+                                AppIcons.mail,
                                 size: 14,
                                 color: AppColors.muted,
                               ),
@@ -1270,7 +1271,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           child: Row(
                             children: [
                               Icon(
-                                Icons.phone_outlined,
+                                AppIcons.phone,
                                 size: 14,
                                 color: AppColors.muted,
                               ),
@@ -1302,7 +1303,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           child: Row(
                             children: [
                               Icon(
-                                Icons.location_on_outlined,
+                                AppIcons.location,
                                 size: 14,
                                 color: AppColors.muted,
                               ),
@@ -1327,7 +1328,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           child: Row(
                             children: [
                               Icon(
-                                Icons.language_rounded,
+                                AppIcons.globe,
                                 size: 14,
                                 color: AppColors.muted,
                               ),
@@ -1361,7 +1362,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           child: Row(
                             children: [
                               Icon(
-                                Icons.account_balance_outlined,
+                                AppIcons.bank,
                                 size: 14,
                                 color: AppColors.muted,
                               ),
@@ -1391,7 +1392,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           child: Row(
                             children: [
                               Icon(
-                                Icons.qr_code_rounded,
+                                AppIcons.qrCode,
                                 size: 14,
                                 color: AppColors.muted,
                               ),
@@ -1547,7 +1548,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               border: Border.all(color: AppColors.hairline),
                             ),
                             child: Icon(
-                              Icons.edit_rounded,
+                              AppIcons.edit,
                               size: 13,
                               color: AppColors.ink,
                             ),

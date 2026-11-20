@@ -142,8 +142,8 @@ class PdfTheme {
   static const PdfTheme classicBlue = PdfTheme(
     id: PdfThemeId.classicBlue,
     name: 'Classic Corporate',
-    description: 'Balanced card containers with royal blue accents & dark slate headers',
-    paperDesignName: 'Structured Card Canvas',
+    description: 'Clean ruled layout with a royal blue title and total',
+    paperDesignName: 'Classic Ruled Sheet',
     paperStyle: PdfPaperStyle.standard,
     previewPrimary: Color(0xFF2563EB),
     previewSecondary: Color(0xFF1E293B),
@@ -164,7 +164,7 @@ class PdfTheme {
   static const PdfTheme modernMinimal = PdfTheme(
     id: PdfThemeId.modernMinimal,
     name: 'Modern Minimal',
-    description: 'Swiss typography-first design with horizontal micro-rules and spacious layout',
+    description: 'Black and white, type first, with fine rules and generous space',
     paperDesignName: 'Swiss Minimalist Sheet',
     paperStyle: PdfPaperStyle.minimalDividers,
     previewPrimary: Color(0xFF18181B),
@@ -186,7 +186,7 @@ class PdfTheme {
   static const PdfTheme emeraldExecutive = PdfTheme(
     id: PdfThemeId.emeraldExecutive,
     name: 'Emerald Executive',
-    description: 'Executive top color band with soft mint recipient panel and seal badge',
+    description: 'A band of colour across the head of the sheet, with matching title and total',
     paperDesignName: 'Executive Header Band',
     paperStyle: PdfPaperStyle.topAccentLine,
     previewPrimary: Color(0xFF065F46),
@@ -208,7 +208,7 @@ class PdfTheme {
   static const PdfTheme slateElegance = PdfTheme(
     id: PdfThemeId.slateElegance,
     name: 'Slate Elegance',
-    description: 'Symmetrical double-rule dividers with graphite headers & cool slate container',
+    description: 'Thick-and-thin double rules at head and foot, in graphite',
     paperDesignName: 'Symmetrical Double-Rule',
     paperStyle: PdfPaperStyle.doubleRule,
     previewPrimary: Color(0xFF334155),
@@ -230,7 +230,7 @@ class PdfTheme {
   static const PdfTheme warmCorporate = PdfTheme(
     id: PdfThemeId.warmCorporate,
     name: 'Warm Corporate',
-    description: 'Warm parchment paper tint with navy blue block headers & bronze accent lines',
+    description: 'Warm parchment tint with a navy title and a bronze head rule',
     paperDesignName: 'Warm Parchment Sheet',
     paperStyle: PdfPaperStyle.warmParchment,
     previewPrimary: Color(0xFF1E3A8A),
@@ -252,7 +252,7 @@ class PdfTheme {
   static const PdfTheme nordicFrame = PdfTheme(
     id: PdfThemeId.nordicFrame,
     name: 'Nordic Frame',
-    description: 'Architectural double-line border frame with clean corner geometry',
+    description: 'A fine double-line frame around the whole sheet',
     paperDesignName: 'Architectural Border Frame',
     paperStyle: PdfPaperStyle.architecturalFrame,
     previewPrimary: Color(0xFF0F766E),
@@ -274,7 +274,7 @@ class PdfTheme {
   static const PdfTheme leftRibbon = PdfTheme(
     id: PdfThemeId.leftRibbon,
     name: 'Left Accent Ribbon',
-    description: 'Solid vertical accent ribbon down left margin with connected header block',
+    description: 'A solid ribbon of colour down the left edge, with a filled table header',
     paperDesignName: 'Vertical Margin Ribbon',
     paperStyle: PdfPaperStyle.leftVerticalRibbon,
     previewPrimary: Color(0xFF4338CA),
@@ -296,7 +296,7 @@ class PdfTheme {
   static const PdfTheme geometricBlock = PdfTheme(
     id: PdfThemeId.geometricBlock,
     name: 'Geometric Banner',
-    description: 'Full-width solid dark header banner with inverted typography & dark total block',
+    description: 'Edge-to-edge dark banner with white type and a filled table header',
     paperDesignName: 'Full-Width Dark Banner',
     paperStyle: PdfPaperStyle.fullWidthBanner,
     previewPrimary: Color(0xFF1E293B),
@@ -318,7 +318,7 @@ class PdfTheme {
   static const PdfTheme securityGrid = PdfTheme(
     id: PdfThemeId.securityGrid,
     name: 'Security Grid',
-    description: 'Formal document security micro-dot watermark grid with certificate styling',
+    description: 'A faint dot grid behind the text, like security paper',
     paperDesignName: 'Security Micro-Dot Grid',
     paperStyle: PdfPaperStyle.securityDotGrid,
     previewPrimary: Color(0xFF1E40AF),
@@ -340,7 +340,7 @@ class PdfTheme {
   static const PdfTheme splitTwoTone = PdfTheme(
     id: PdfThemeId.splitTwoTone,
     name: 'Two-Tone Split',
-    description: 'Asymmetric split header with dark slate branding and light metadata box',
+    description: 'Slate and sky palette with a filled table header',
     paperDesignName: 'Two-Tone Split Header',
     paperStyle: PdfPaperStyle.asymmetricSplitHeader,
     previewPrimary: Color(0xFF374151),

@@ -10,6 +10,8 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../shared_widgets/custom_text_field.dart';
 import '../models/saved_item_model.dart';
 import '../services/item_service.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_animations.dart';
 
 /// A rich bottom-sheet form for creating or editing a SavedItemModel.
 ///
@@ -246,7 +248,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                   ),
                   IconButton(
                     icon: Icon(
-                      Icons.close_rounded,
+                      AppIcons.close,
                       color: AppColors.slate400,
                     ),
                     onPressed: () => Navigator.pop(context),
@@ -342,7 +344,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                   child: DropdownButton<String>(
                     value: _selectedUnit,
                     isExpanded: true,
-                    icon: Icon(Icons.keyboard_arrow_down_rounded,
+                    icon: Icon(AppIcons.chevronDown,
                         color: AppColors.slate500),
                     style: TextStyle(
                       fontSize: 14,
@@ -380,7 +382,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                         },
                         borderRadius: BorderRadius.circular(8),
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
+                          duration: AppAnimations.fast,
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: isSel ? AppColors.primary : AppColors.slate100,
@@ -453,7 +455,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
               _buildCardSection(
                 title: 'Item Discount',
                 subtitle: 'Set a default percentage discount for this item',
-                icon: Icons.local_offer_outlined,
+                icon: AppIcons.tag,
                 iconBg: AppColors.surfaceCard,
                 iconColor: AppColors.ink,
                 child: Column(
@@ -499,7 +501,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
               _buildCardSection(
                 title: 'Tax Configuration',
                 subtitle: 'Specify whether tax applies and the item tax rate',
-                icon: Icons.receipt_long_rounded,
+                icon: AppIcons.receipt,
                 iconBg: AppColors.surfaceCard,
                 iconColor: _isTaxable ? AppColors.ink : AppColors.mutedSoft,
                 child: Column(
@@ -575,7 +577,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.calculate_outlined, size: 18, color: AppColors.primary),
+                        Icon(AppIcons.calculate, size: 18, color: AppColors.primary),
                         SizedBox(width: 6),
                         Text(
                           'Estimated Item Total',
@@ -667,9 +669,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                     foregroundColor: AppColors.onPrimary,
                     disabledBackgroundColor:
                         AppColors.primary.withValues(alpha: 0.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                    shape: const StadiumBorder(),
                     elevation: 0,
                   ),
                   child: _isSaving

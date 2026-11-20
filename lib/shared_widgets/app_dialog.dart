@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_typography.dart';
+import '../core/theme/app_icons.dart';
+import '../core/theme/app_animations.dart';
 
 enum AppDialogVariant {
   danger,
@@ -58,11 +60,11 @@ class AppDialog extends StatelessWidget {
       };
 
   IconData get _defaultIcon => switch (variant) {
-        AppDialogVariant.danger => Icons.delete_outline_rounded,
-        AppDialogVariant.primary => Icons.check_circle_outline_rounded,
-        AppDialogVariant.warning => Icons.warning_amber_rounded,
-        AppDialogVariant.success => Icons.check_rounded,
-        AppDialogVariant.info => Icons.info_outline_rounded,
+        AppDialogVariant.danger => AppIcons.delete,
+        AppDialogVariant.primary => AppIcons.checkCircle,
+        AppDialogVariant.warning => AppIcons.warning,
+        AppDialogVariant.success => AppIcons.check,
+        AppDialogVariant.info => AppIcons.info,
       };
 
   Color get _confirmBg => isDestructive || variant == AppDialogVariant.danger
@@ -217,7 +219,7 @@ class AppDialog extends StatelessWidget {
       barrierDismissible: true,
       barrierLabel: 'Dismiss Dialog',
       barrierColor: const Color.fromRGBO(0, 0, 0, 0.45),
-      transitionDuration: const Duration(milliseconds: 180),
+      transitionDuration: AppAnimations.fast,
       pageBuilder: (ctx, anim1, anim2) => AppDialog(
         title: title,
         message: message,
@@ -228,7 +230,7 @@ class AppDialog extends StatelessWidget {
         isDestructive: isDestructive,
       ),
       transitionBuilder: (ctx, anim1, anim2, child) {
-        final curved = CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic);
+        final curved = CurvedAnimation(parent: anim1, curve: AppAnimations.defaultCurve);
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 3 * curved.value, sigmaY: 3 * curved.value),
           child: ScaleTransition(
@@ -256,7 +258,7 @@ class AppDialog extends StatelessWidget {
       title: title,
       message: message,
       variant: AppDialogVariant.danger,
-      icon: Icons.delete_outline_rounded,
+      icon: AppIcons.delete,
       confirmLabel: confirmLabel,
       cancelLabel: cancelLabel,
       isDestructive: true,
@@ -275,7 +277,7 @@ class AppDialog extends StatelessWidget {
       message:
           'This will generate an active invoice from $estimateNumber for $clientName and mark this estimate as Converted.',
       variant: AppDialogVariant.primary,
-      icon: Icons.receipt_long_rounded,
+      icon: AppIcons.receipt,
       confirmLabel: 'Convert to Invoice',
       cancelLabel: 'Cancel',
     );

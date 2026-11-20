@@ -12,6 +12,8 @@ import '../models/invoice_model.dart';
 import '../models/pdf_theme.dart';
 import '../services/dummy_invoice_data.dart';
 import '../services/pdf_generator_service.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_animations.dart';
 
 class InvoiceCustomizerStudioSheet extends StatefulWidget {
   final InvoiceCustomizationConfig initialConfig;
@@ -232,7 +234,7 @@ class _InvoiceCustomizerStudioSheetState
                       _footerMessageController.text = '';
                     },
                     icon: Icon(
-                      Icons.refresh_rounded,
+                      AppIcons.refresh,
                       size: 16,
                       color: AppColors.slate600,
                     ),
@@ -247,7 +249,7 @@ class _InvoiceCustomizerStudioSheetState
                   ),
                   IconButton(
                     icon: Icon(
-                      Icons.close_rounded,
+                      AppIcons.close,
                       color: AppColors.slate400,
                     ),
                     onPressed: () => Navigator.pop(context),
@@ -370,7 +372,7 @@ class _InvoiceCustomizerStudioSheetState
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.open_in_full_rounded,
+                              AppIcons.openInFull,
                               size: 13,
                               color: AppColors.primary,
                             ),
@@ -417,7 +419,7 @@ class _InvoiceCustomizerStudioSheetState
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.fit_screen_rounded,
+                              AppIcons.fitScreen,
                               size: 12,
                               color: AppColors.slate600,
                             ),
@@ -463,22 +465,22 @@ class _InvoiceCustomizerStudioSheetState
                 tabs: const [
                   Tab(
                     height: 52,
-                    icon: Icon(Icons.palette_outlined, size: 16),
+                    icon: Icon(AppIcons.palette, size: 16),
                     text: 'Style',
                   ),
                   Tab(
                     height: 52,
-                    icon: Icon(Icons.text_fields_rounded, size: 16),
+                    icon: Icon(AppIcons.text, size: 16),
                     text: 'Typo',
                   ),
                   Tab(
                     height: 52,
-                    icon: Icon(Icons.dashboard_customize_outlined, size: 16),
+                    icon: Icon(AppIcons.dashboardCustomize, size: 16),
                     text: 'Layout',
                   ),
                   Tab(
                     height: 52,
-                    icon: Icon(Icons.tune_rounded, size: 16),
+                    icon: Icon(AppIcons.tune, size: 16),
                     text: 'Sections',
                   ),
                 ],
@@ -551,9 +553,7 @@ class _InvoiceCustomizerStudioSheetState
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.onPrimary,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: const StadiumBorder(),
                       ),
                       child: const Text(
                         'Apply & Save Style',
@@ -608,7 +608,7 @@ class _InvoiceCustomizerStudioSheetState
                   );
                 },
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                  duration: AppAnimations.fast,
                   width: 84,
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
@@ -777,8 +777,8 @@ class _InvoiceCustomizerStudioSheetState
                 children: [
                   Icon(
                     isSelected
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_off,
+                        ? AppIcons.radioOn
+                        : AppIcons.radioOff,
                     size: 18,
                     color: isSelected ? AppColors.primary : AppColors.slate400,
                   ),
@@ -914,12 +914,12 @@ class _InvoiceCustomizerStudioSheetState
                 children: [
                   Icon(
                     pos == HeaderPosition.logoLeftDetailsRight
-                        ? Icons.align_horizontal_left_rounded
+                        ? AppIcons.alignLeft
                         : (pos == HeaderPosition.logoRightDetailsLeft
-                              ? Icons.align_horizontal_right_rounded
+                              ? AppIcons.alignRight
                               : (pos == HeaderPosition.centeredLogo
-                                    ? Icons.align_horizontal_center_rounded
-                                    : Icons.view_headline_rounded)),
+                                    ? AppIcons.alignCenter
+                                    : AppIcons.viewHeadline)),
                     color: isSelected ? AppColors.primary : AppColors.slate600,
                     size: 20,
                   ),
@@ -952,7 +952,7 @@ class _InvoiceCustomizerStudioSheetState
                   ),
                   if (isSelected)
                     Icon(
-                      Icons.check_circle_rounded,
+                      AppIcons.checkCircleFilled,
                       size: 18,
                       color: AppColors.primary,
                     ),
@@ -987,8 +987,8 @@ class _InvoiceCustomizerStudioSheetState
                 children: [
                   Icon(
                     layout == AddressLayout.stacked
-                        ? Icons.view_agenda_outlined
-                        : Icons.view_column_outlined,
+                        ? AppIcons.viewAgenda
+                        : AppIcons.viewColumn,
                     color: isSelected ? AppColors.primary : AppColors.slate600,
                     size: 20,
                   ),
@@ -1021,7 +1021,7 @@ class _InvoiceCustomizerStudioSheetState
                   ),
                   if (isSelected)
                     Icon(
-                      Icons.check_circle_rounded,
+                      AppIcons.checkCircleFilled,
                       size: 18,
                       color: AppColors.primary,
                     ),
@@ -1133,7 +1133,7 @@ class _InvoiceCustomizerStudioSheetState
     required ValueChanged<bool> onChanged,
   }) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
+      duration: AppAnimations.fast,
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -1318,7 +1318,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
+            AppIcons.chevronBack,
             color: AppColors.textPrimary,
             size: 19,
           ),
@@ -1369,7 +1369,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
                 });
               },
               icon: Icon(
-                Icons.fit_screen_rounded,
+                AppIcons.fitScreen,
                 size: 16,
                 color: AppColors.primary,
               ),

@@ -12,6 +12,7 @@ import 'package:invoice/features/invoices/services/pdf_generator_service.dart';
 import 'package:invoice/features/invoices/widgets/pdf_theme_picker_sheet.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:invoice/core/theme/app_icons.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -251,7 +252,7 @@ void main() {
       expect(find.text('Choose style & paper design'), findsOneWidget);
     });
 
-    testWidgets('InvoicePreviewScreen shows quick theme pill and actions', (
+    testWidgets('InvoicePreviewScreen has one design entry point', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
@@ -259,8 +260,9 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byIcon(Icons.palette_outlined), findsOneWidget);
-      expect(find.text('Style'), findsOneWidget);
+      // One entry point for the design, and nothing laid over the page.
+      expect(find.byIcon(AppIcons.palette), findsOneWidget);
+      expect(find.text('Style'), findsNothing);
     });
   });
 }

@@ -26,6 +26,7 @@ import '../../invoices/widgets/pdf_theme_picker_sheet.dart';
 import '../../items/screens/item_picker_sheet.dart';
 import '../models/estimate_model.dart';
 import 'estimate_preview_screen.dart';
+import '../../../core/theme/app_icons.dart';
 
 /// The note a new estimate starts with. Not carried into an invoice.
 const String defaultEstimateNote = 'This estimate is valid for 30 days. Contact us to accept.';
@@ -396,7 +397,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                          Icons.inventory_2_outlined,
+                          AppIcons.items,
                           color: AppColors.squircleGreenIcon,
                           size: 22,
                         ),
@@ -426,7 +427,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     ],
                   ),
                   IconButton(
-                    icon: Icon(Icons.close_rounded, color: AppColors.slate400),
+                    icon: Icon(AppIcons.close, color: AppColors.slate400),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -486,9 +487,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.onPrimary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: const StadiumBorder(),
                   ),
                   onPressed: () {
                     if (formKey.currentState!.validate()) {
@@ -604,7 +603,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
         title: 'Discard changes?',
         message: 'You have unsaved changes. Leave without saving them?',
         variant: AppDialogVariant.danger,
-        icon: Icons.warning_amber_rounded,
+        icon: AppIcons.warning,
         confirmLabel: 'Discard',
         cancelLabel: 'Keep editing',
         isDestructive: true,
@@ -630,7 +629,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
           surfaceTintColor: Colors.transparent,
           leading: IconButton(
             icon: Icon(
-              Icons.arrow_back_rounded,
+              AppIcons.arrowBack,
               color: AppColors.textPrimary,
             ),
             // maybePop, so the unsaved-changes check runs.
@@ -647,7 +646,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
           actions: [
             IconButton(
               tooltip: 'PDF Templates',
-              icon: Icon(Icons.palette_outlined, color: AppColors.primary),
+              icon: Icon(AppIcons.palette, color: AppColors.primary),
               onPressed: _pickTheme,
             ),
           ],
@@ -775,7 +774,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
-                        Icons.palette_rounded,
+                        AppIcons.palette,
                         color: AppColors.primary,
                         size: 20,
                       ),
@@ -805,7 +804,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       ),
                     ),
                     Icon(
-                      Icons.chevron_right_rounded,
+                      AppIcons.chevronRight,
                       color: AppColors.slate400,
                     ),
                   ],
@@ -828,7 +827,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                          Icons.storefront_rounded,
+                          AppIcons.storefront,
                           color: AppColors.squircleBlueIcon,
                           size: 20,
                         ),
@@ -857,7 +856,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
-                            Icons.person_rounded,
+                            AppIcons.person,
                             color: AppColors.statusPartiallyPaid,
                             size: 20,
                           ),
@@ -892,7 +891,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         IconButton(
                           tooltip: 'Select Client',
                           icon: Icon(
-                            Icons.contacts_rounded,
+                            AppIcons.contacts,
                             color: AppColors.primary,
                           ),
                           onPressed: _pickClient,
@@ -932,7 +931,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         Row(
                           children: [
                             TextButton.icon(
-                              icon: const Icon(Icons.inventory_2_outlined, size: 16),
+                              icon: const Icon(AppIcons.items, size: 16),
                               label: const Text('Catalog'),
                               onPressed: () async {
                                 final picked = await ItemPickerSheet.show(
@@ -946,7 +945,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                               },
                             ),
                             TextButton.icon(
-                              icon: const Icon(Icons.add_rounded, size: 18),
+                              icon: const Icon(AppIcons.add, size: 18),
                               label: const Text('Add Item'),
                               onPressed: () => _showItemDialog(),
                             ),
@@ -962,7 +961,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         child: Column(
                           children: [
                             Icon(
-                              Icons.inventory_2_outlined,
+                              AppIcons.items,
                               size: 36,
                               color: AppColors.slate300,
                             ),
@@ -1019,7 +1018,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                               const SizedBox(width: 8),
                               IconButton(
                                 icon: Icon(
-                                  Icons.edit_outlined,
+                                  AppIcons.edit,
                                   size: 18,
                                   color: AppColors.slate400,
                                 ),
@@ -1028,7 +1027,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                               ),
                               IconButton(
                                 icon: Icon(
-                                  Icons.delete_outline_rounded,
+                                  AppIcons.delete,
                                   size: 18,
                                   color: AppColors.accentRed,
                                 ),
@@ -1257,7 +1256,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
-                            Icons.payments_outlined,
+                            AppIcons.payments,
                             color: AppColors.primary,
                             size: 20,
                           ),
@@ -1283,7 +1282,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         ),
                         const SizedBox(width: 4),
                         Icon(
-                          Icons.chevron_right_rounded,
+                          AppIcons.chevronRight,
                           color: AppColors.slate400,
                           size: 20,
                         ),
@@ -1342,9 +1341,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         color: AppColors.primary,
                         width: 1.5,
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: const StadiumBorder(),
                     ),
                     onPressed: _openPreview,
                     child: Text(
@@ -1362,9 +1359,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: const StadiumBorder(),
                     ),
                     onPressed: _isSaving
                         ? null

@@ -1,3 +1,4 @@
+import '../../../shared_widgets/document_pages.dart';
 import 'package:flutter/material.dart';
 import '../services/estimate_actions.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +21,7 @@ import '../../invoices/services/pdf_generator_service.dart';
 import '../../invoices/widgets/invoice_customizer_studio_sheet.dart';
 import '../models/estimate_model.dart';
 import 'create_estimate_screen.dart';
+import '../../../core/theme/app_icons.dart';
 
 class EstimatePreviewScreen extends StatefulWidget {
   final EstimateModel estimate;
@@ -35,7 +37,6 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
   Uint8List? _pdfBytes;
   List<MemoryImage>? _rasterPages;
   bool _isLoading = true;
-  final TransformationController _zoomController = TransformationController();
   PdfTheme _currentTheme = PdfTheme.defaultTheme;
   InvoiceCustomizationConfig _customConfig = InvoiceCustomizationConfig.defaultConfig;
 
@@ -48,7 +49,6 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
 
   @override
   void dispose() {
-    _zoomController.dispose();
     super.dispose();
   }
 
@@ -219,7 +219,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                     ],
                   ),
                   IconButton(
-                    icon: Icon(Icons.close_rounded, color: AppColors.slate400),
+                    icon: Icon(AppIcons.close, color: AppColors.slate400),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -332,7 +332,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
               ),
             ),
             if (isSelected)
-              Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22),
+              Icon(AppIcons.checkCircleFilled, color: AppColors.primary, size: 22),
           ],
         ),
       ),
@@ -412,7 +412,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.palette_rounded, size: 14, color: AppColors.ink),
+                  Icon(AppIcons.palette, size: 14, color: AppColors.ink),
                   const SizedBox(width: 4),
                   Text(
                     _currentTheme.name,
@@ -424,7 +424,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
           ),
           IconButton(
             tooltip: 'Edit',
-            icon: Icon(Icons.edit_rounded, color: AppColors.ink),
+            icon: Icon(AppIcons.edit, color: AppColors.ink),
             onPressed: _editEstimate,
           ),
         ],
@@ -463,7 +463,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                           ),
                         ),
                         const SizedBox(width: 2),
-                        Icon(Icons.arrow_drop_down_rounded, size: 16, color: _estimate.status.color),
+                        Icon(AppIcons.caretDown, size: 16, color: _estimate.status.color),
                       ],
                     ),
                   ),
@@ -495,48 +495,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
 
           // Main PDF Preview Canvas
           Expanded(
-            child: _isLoading
-                ? Center(child: CircularProgressIndicator(color: AppColors.primary))
-                : _rasterPages == null || _rasterPages!.isEmpty
-                    ? Center(child: Text('Could not render preview', style: TextStyle(color: AppColors.muted)))
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          return InteractiveViewer(
-                            transformationController: _zoomController,
-                            constrained: false,
-                            minScale: 0.8,
-                            maxScale: 3.5,
-                            boundaryMargin: const EdgeInsets.all(80),
-                            child: SizedBox(
-                              width: constraints.maxWidth,
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  children: _rasterPages!.map((pageImg) {
-                                    return Container(
-                                      margin: const EdgeInsets.only(bottom: 16),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color.fromRGBO(60, 45, 20, 0.16),
-                                            blurRadius: 16,
-                                            offset: const Offset(0, 6),
-                                          ),
-                                        ],
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image(image: pageImg),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+            child: DocumentPagesView(pages: _rasterPages, loading: _isLoading),
           ),
 
           // Bottom Action Bar
@@ -565,7 +524,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                             shape: const StadiumBorder(),
                             elevation: 0,
                           ),
-                          icon: const Icon(Icons.transform_rounded, size: 20),
+                          icon: const Icon(AppIcons.convert, size: 20),
                           label: const Text(
                             'Convert to Invoice',
                             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
@@ -585,7 +544,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                             side: BorderSide(color: AppColors.primary),
                             shape: const StadiumBorder(),
                           ),
-                          icon: Icon(Icons.share_rounded, size: 18, color: AppColors.primary),
+                          icon: Icon(AppIcons.share, size: 18, color: AppColors.primary),
                           label: Text('Share PDF', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary)),
                           onPressed: _sharePdf,
                         ),
@@ -598,7 +557,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                             side: BorderSide(color: AppColors.slate300),
                             shape: const StadiumBorder(),
                           ),
-                          icon: Icon(Icons.print_rounded, size: 18, color: AppColors.slate600),
+                          icon: Icon(AppIcons.print, size: 18, color: AppColors.slate600),
                           label: Text('Print', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.slate700)),
                           onPressed: _printPdf,
                         ),

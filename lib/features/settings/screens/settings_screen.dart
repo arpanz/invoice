@@ -25,6 +25,7 @@ import '../../invoices/widgets/invoice_customizer_studio_sheet.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../paywall/paywall_screen.dart';
 import 'business_profile_screen.dart';
+import '../../../core/theme/app_icons.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -84,7 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: AppColors.ink),
+          icon: Icon(AppIcons.arrowBack, color: AppColors.ink),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Settings'),
@@ -104,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSectionHeader('Workspace'),
           _buildCardGroup([
             _buildGroupedTile(
-              icon: Icons.business_rounded,
+              icon: AppIcons.business,
               iconBg: AppColors.surfaceCard,
               iconColor: AppColors.ink,
               title: 'Business Profile',
@@ -122,14 +123,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSectionHeader('Your Data'),
           _buildCardGroup([
             _buildGroupedTile(
-              icon: Icons.cloud_download_rounded,
+              icon: AppIcons.cloudDownload,
               iconBg: AppColors.surfaceCard,
               iconColor: AppColors.ink,
               title: 'Export Data (JSON)',
               subtitle: 'A copy of your records to keep or open elsewhere. It can\'t be restored into the app yet.',
               onTap: _exportBackupJson,
               trailing: Icon(
-                Icons.share_outlined,
+                AppIcons.share,
                 size: 18,
                 color: AppColors.ink,
               ),
@@ -152,7 +153,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSectionHeader('About & Support'),
           _buildCardGroup([
             _buildGroupedTile(
-              icon: Icons.star_outline_rounded,
+              icon: AppIcons.star,
               iconBg: AppColors.surfaceCard,
               iconColor: AppColors.ink,
               title: 'Rate Us on Play Store',
@@ -161,7 +162,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             Divider(height: 1, indent: 56, color: AppColors.hairline),
             _buildGroupedTile(
-              icon: Icons.help_outline_rounded,
+              icon: AppIcons.help,
               iconBg: AppColors.surfaceCard,
               iconColor: AppColors.ink,
               title: 'Help & Guide',
@@ -241,7 +242,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Row(
         children: [
           Icon(
-            Icons.verified_rounded,
+            AppIcons.verified,
             color: AppColors.statusPaid,
             size: 24,
           ),
@@ -327,7 +328,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing ??
             (onTap != null
                 ? Icon(
-                    Icons.chevron_right_rounded,
+                    AppIcons.chevronRight,
                     color: AppColors.mutedSoft,
                   )
                 : null),
@@ -345,7 +346,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildAppearanceTile() {
     final mode = context.watch<ThemeController>().mode;
     return _buildGroupedTile(
-      icon: AppColors.isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+      icon: AppColors.isDark ? AppIcons.darkMode : AppIcons.lightMode,
       iconBg: AppColors.squirclePurple,
       iconColor: AppColors.squirclePurpleIcon,
       title: 'Appearance',
@@ -419,7 +420,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
-            Icons.currency_exchange_rounded,
+            AppIcons.currencyExchange,
             size: 20,
             color: AppColors.ink,
           ),
@@ -438,7 +439,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
         trailing: Icon(
-          Icons.chevron_right_rounded,
+          AppIcons.chevronRight,
           color: AppColors.slate400,
         ),
         onTap: () => _showCurrencyPicker(context),
@@ -459,7 +460,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
-            Icons.auto_fix_high_rounded,
+            AppIcons.magic,
             size: 20,
             color: AppColors.ink,
           ),
@@ -493,7 +494,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.chevron_right_rounded, color: AppColors.mutedSoft),
+            Icon(AppIcons.chevronRight, color: AppColors.mutedSoft),
           ],
         ),
         onTap: () async {
@@ -544,7 +545,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
-            Icons.percent_rounded,
+            AppIcons.percent,
             size: 18,
             color: AppColors.ink,
           ),

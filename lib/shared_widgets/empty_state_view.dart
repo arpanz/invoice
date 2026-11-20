@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/theme/app_colors.dart';
 import 'doodle_arrow.dart';
+import '../core/theme/app_icons.dart';
 
 /// Cal.com Minimalist SaaS Empty State View
 class EmptyStateView extends StatefulWidget {
@@ -133,7 +134,7 @@ class _EmptyStateViewState extends State<EmptyStateView> {
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          Icons.add,
+                          AppIcons.add,
                           size: 10,
                           color: AppColors.onPrimary,
                         ),
@@ -178,7 +179,7 @@ class _EmptyStateViewState extends State<EmptyStateView> {
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: widget.onAction,
-                icon: const Icon(Icons.add, size: 18),
+                icon: const Icon(AppIcons.add, size: 18),
                 label: Text(
                   widget.actionLabel!,
                   style: GoogleFonts.inter(
@@ -231,7 +232,7 @@ class _EmptyStateViewState extends State<EmptyStateView> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        Icons.lightbulb_outline_rounded,
+                        AppIcons.lightbulb,
                         size: 14,
                         color: AppColors.ink,
                       ),
@@ -260,7 +261,7 @@ class _EmptyStateViewState extends State<EmptyStateView> {
                           color: AppColors.surfaceCard,
                         ),
                         child: Icon(
-                          Icons.close,
+                          AppIcons.close,
                           size: 12,
                           color: AppColors.muted,
                         ),

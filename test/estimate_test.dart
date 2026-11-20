@@ -12,6 +12,7 @@ import 'package:invoice/features/invoices/models/invoice_model.dart';
 import 'package:invoice/features/invoices/models/line_item_model.dart';
 import 'package:invoice/features/invoices/services/pdf_generator_service.dart';
 import 'package:invoice/main.dart';
+import 'package:invoice/core/theme/app_icons.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -229,7 +230,7 @@ void main() {
       expect(find.text('Estimates'), findsOneWidget);
       expect(find.text('Clients'), findsOneWidget);
       expect(find.text('Items'), findsOneWidget);
-      expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+      expect(find.byIcon(AppIcons.add), findsOneWidget);
 
       // Tap on Estimates tab
       await tester.tap(find.text('Estimates'));
@@ -237,7 +238,7 @@ void main() {
 
       // Tap on Center (+) action button in the bottom navigation bar
       final centerAddButton = find.byWidgetPredicate(
-        (w) => w is Icon && w.icon == Icons.add_rounded && w.size == 28,
+        (w) => w is Icon && w.icon == AppIcons.add && w.size == 28,
       );
       expect(centerAddButton, findsOneWidget);
       await tester.tap(centerAddButton);

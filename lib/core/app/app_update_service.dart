@@ -11,6 +11,11 @@ enum AppUpdateAvailability {
 
 enum AppUpdateStartResult {
   started,
+
+  /// A flexible update finished downloading. It installs when the app
+  /// restarts; call [AppUpdateService.completeDownloadedUpdate] once the
+  /// user agrees, so unsaved work is never lost to a surprise restart.
+  downloaded,
   cancelled,
   unavailable,
   unsupported,
@@ -75,13 +80,13 @@ class AppUpdateService {
     try {
       final AppUpdateResult result;
 
-      if (info.immediateUpdateAllowed) {
-        result = await InAppUpdate.performImmediateUpdate();
-      } else if (info.flexibleUpdateAllowed) {
+      // The prompt offers "Later", so prefer the flexible flow: it downloads
+      // in the background while the user keeps working.
+      if (info.flexibleUpdateAllowed) {
         result = await InAppUpdate.startFlexibleUpdate();
-        if (result == AppUpdateResult.success) {
-          await InAppUpdate.completeFlexibleUpdate();
-        }
+        if (result == AppUpdateResult.success) return AppUpdateStartResult.downloaded;
+      } else if (info.immediateUpdateAllowed) {
+        result = await InAppUpdate.performImmediateUpdate();
       } else {
         return AppUpdateStartResult.unavailable;
       }
@@ -96,6 +101,19 @@ class AppUpdateService {
       }
     } catch (_) {
       return AppUpdateStartResult.failed;
+    }
+  }
+
+  /// True when a flexible update has downloaded and only needs a restart.
+  bool isDownloaded(AppUpdateInfo? info) => info?.installStatus == InstallStatus.downloaded;
+
+  /// Restarts the app to install a downloaded flexible update.
+  Future<bool> completeDownloadedUpdate() async {
+    try {
+      await InAppUpdate.completeFlexibleUpdate();
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 

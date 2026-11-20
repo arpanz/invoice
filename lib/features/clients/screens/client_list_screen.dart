@@ -20,6 +20,7 @@ import '../../../shared_widgets/app_dialog.dart';
 import '../../../shared_widgets/paper.dart';
 import '../../../shared_widgets/tab_chrome.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/app_icons.dart';
 
 class ClientListScreen extends StatefulWidget {
   final bool selectionMode;
@@ -131,7 +132,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
-                            Icons.person_outline_rounded,
+                            AppIcons.person,
                             color: AppColors.squirclePurpleIcon,
                             size: 22,
                           ),
@@ -163,7 +164,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                       ],
                     ),
                     IconButton(
-                      icon: Icon(Icons.close_rounded, color: AppColors.slate400),
+                      icon: Icon(AppIcons.close, color: AppColors.slate400),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -344,7 +345,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 100),
                     child: EmptyStateView(
-                      icon: Icons.people_outline_rounded,
+                      icon: AppIcons.clients,
                       title: _searchQuery.isEmpty ? 'No Clients Yet' : 'No Results',
                       subtitle: _searchQuery.isEmpty
                           ? 'Save a client once and fill their details into every invoice'
@@ -393,7 +394,7 @@ class ClientListScreenState extends State<ClientListScreen> {
         ),
         leading: widget.selectionMode
             ? IconButton(
-                icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.ink),
+                icon: Icon(AppIcons.chevronBack, size: 18, color: AppColors.ink),
                 onPressed: () => Navigator.pop(context),
               )
             : null,
@@ -413,7 +414,7 @@ class ClientListScreenState extends State<ClientListScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
-                  Icon(Icons.search_rounded, color: AppColors.muted, size: 18),
+                  Icon(AppIcons.search, color: AppColors.muted, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
@@ -439,7 +440,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                   )
                 : filtered.isEmpty
                     ? EmptyStateView(
-                        icon: Icons.people_outline_rounded,
+                        icon: AppIcons.clients,
                         title: _searchQuery.isEmpty
                             ? 'No Clients Yet'
                             : 'No Results',
@@ -471,7 +472,7 @@ class ClientListScreenState extends State<ClientListScreen> {
               child: FloatingActionButton.extended(
                 heroTag: 'client_list_fab',
                 onPressed: () => _showAddEditDialog(),
-                icon: Icon(Icons.person_add_rounded, color: AppColors.onPrimary, size: 18),
+                icon: Icon(AppIcons.personAdd, color: AppColors.onPrimary, size: 18),
                 label: Text(
                   'Add Client',
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.onPrimary, fontSize: 13),
@@ -534,7 +535,7 @@ class ClientListScreenState extends State<ClientListScreen> {
               ],
             ),
           ),
-          Icon(Icons.chevron_right_rounded, color: AppColors.mutedSoft, size: 20),
+          Icon(AppIcons.chevronRight, color: AppColors.mutedSoft, size: 20),
         ],
       ),
     );
@@ -578,10 +579,10 @@ class ClientListScreenState extends State<ClientListScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(client.name, style: AppTypography.serif(fontSize: 20, color: AppColors.ink)),
                 ),
-                action(Icons.history_rounded, 'Invoices & balance', () => _showClientDetailSheet(client)),
-                action(Icons.edit_outlined, 'Edit client', () => _showAddEditDialog(client: client)),
+                action(AppIcons.history, 'Invoices & balance', () => _showClientDetailSheet(client)),
+                action(AppIcons.edit, 'Edit client', () => _showAddEditDialog(client: client)),
                 Divider(color: AppColors.hairline, height: 12),
-                action(Icons.delete_outline_rounded, 'Delete client', () => _deleteClient(client), color: AppColors.error),
+                action(AppIcons.delete, 'Delete client', () => _deleteClient(client), color: AppColors.error),
               ],
             ),
           ),
@@ -697,7 +698,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.edit_outlined, color: AppColors.primary),
+                        icon: Icon(AppIcons.edit, color: AppColors.primary),
                         tooltip: 'Edit Client',
                         onPressed: () async {
                           Navigator.pop(ctx);
@@ -705,7 +706,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                         },
                       ),
                       IconButton(
-                        icon: Icon(Icons.close_rounded, color: AppColors.slate400),
+                        icon: Icon(AppIcons.close, color: AppColors.slate400),
                         onPressed: () => Navigator.pop(ctx),
                       ),
                     ],
@@ -837,7 +838,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                             ),
                           ).then((_) => _loadClients());
                         },
-                        icon: const Icon(Icons.add_rounded, size: 16),
+                        icon: const Icon(AppIcons.add, size: 16),
                         label: const Text('New Invoice', style: TextStyle(fontWeight: FontWeight.w600)),
                       ),
                     ],
@@ -852,7 +853,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.receipt_long_outlined, size: 40, color: AppColors.slate300),
+                                Icon(AppIcons.receipt, size: 40, color: AppColors.slate300),
                                 SizedBox(height: 8),
                                 Text('No invoices created for this client yet', style: TextStyle(color: AppColors.slate500, fontSize: 13)),
                               ],
@@ -919,7 +920,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                                       style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary),
                                     ),
                                     const SizedBox(width: 6),
-                                    Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.slate400),
+                                    Icon(AppIcons.chevronRight, size: 18, color: AppColors.slate400),
                                   ],
                                 ),
                               ),

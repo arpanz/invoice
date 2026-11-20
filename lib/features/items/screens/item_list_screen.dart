@@ -14,6 +14,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/saved_item_model.dart';
 import '../services/item_service.dart';
 import 'create_edit_item_sheet.dart';
+import '../../../core/theme/app_icons.dart';
 
 class ItemListScreen extends StatefulWidget {
   const ItemListScreen({super.key});
@@ -243,14 +244,14 @@ class ItemListScreenState extends State<ItemListScreen> {
   Widget _buildEmptyState() {
     if (_searchQuery.isNotEmpty) {
       return EmptyStateView(
-        icon: Icons.search_off_rounded,
+        icon: AppIcons.searchOff,
         title: 'No Results',
         subtitle: 'No items match "$_searchQuery"',
         isDarkBackground: false,
       );
     }
     return EmptyStateView(
-      icon: Icons.inventory_2_rounded,
+      icon: AppIcons.items,
       title: 'No Items Yet',
       subtitle: _filterCategory == 'all'
           ? 'Save your products & services here to quickly add them to invoices'
@@ -299,10 +300,10 @@ class ItemListScreenState extends State<ItemListScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(item.name, style: AppTypography.serif(fontSize: 20, color: AppColors.ink)),
                 ),
-                action(Icons.edit_outlined, 'Edit item', () => _editItem(item)),
-                action(Icons.copy_rounded, 'Duplicate', () => _duplicateItemDirect(item)),
+                action(AppIcons.edit, 'Edit item', () => _editItem(item)),
+                action(AppIcons.copy, 'Duplicate', () => _duplicateItemDirect(item)),
                 Divider(color: AppColors.hairline, height: 12),
-                action(Icons.delete_outline_rounded, 'Delete item', () => _deleteItem(item), color: AppColors.error),
+                action(AppIcons.delete, 'Delete item', () => _deleteItem(item), color: AppColors.error),
               ],
             ),
           ),

@@ -11,6 +11,7 @@ import 'package:invoice/features/settings/screens/settings_screen.dart';
 
 import 'package:invoice/features/dashboard/screens/dashboard_screen.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:invoice/core/theme/app_icons.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -106,7 +107,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('Invoices'), findsOneWidget);
-    final menuButton = find.byIcon(Icons.settings_outlined);
+    final menuButton = find.byIcon(AppIcons.settings);
     expect(menuButton, findsOneWidget);
 
     await tester.tap(menuButton);
@@ -116,7 +117,7 @@ void main() {
     expect(find.text('WORKSPACE'), findsOneWidget);
 
     // Tap back button to return to dashboard
-    final backButton = find.byIcon(Icons.arrow_back_rounded);
+    final backButton = find.byIcon(AppIcons.arrowBack);
     expect(backButton, findsOneWidget);
     await tester.tap(backButton);
     await tester.pump(const Duration(milliseconds: 500));

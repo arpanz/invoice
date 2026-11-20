@@ -11,6 +11,8 @@ import '../../invoices/models/line_item_model.dart';
 import '../models/saved_item_model.dart';
 import '../services/item_service.dart';
 import 'create_edit_item_sheet.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_animations.dart';
 
 /// A picker sheet that lets users select saved items from their catalog
 /// and converts them to [LineItemModel]s for invoices/estimates.
@@ -187,7 +189,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                         }
                       },
                       icon:
-                          const Icon(Icons.add_rounded, size: 18),
+                          const Icon(AppIcons.add, size: 18),
                       label: const Text(
                         'New',
                         style: TextStyle(
@@ -198,7 +200,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                     ),
                     IconButton(
                       icon: Icon(
-                        Icons.close_rounded,
+                        AppIcons.close,
                         color: AppColors.slate400,
                       ),
                       onPressed: () => Navigator.pop(context),
@@ -223,7 +225,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                 decoration: InputDecoration(
                   hintText: 'Search items...',
                   border: InputBorder.none,
-                  prefixIcon: Icon(Icons.search_rounded,
+                  prefixIcon: Icon(AppIcons.search,
                       size: 20, color: AppColors.slate400),
                   hintStyle:
                       TextStyle(color: AppColors.slate400, fontSize: 14),
@@ -300,7 +302,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                                       // Checkbox indicator
                                       AnimatedContainer(
                                         duration:
-                                            const Duration(milliseconds: 150),
+                                            AppAnimations.fast,
                                         width: 28,
                                         height: 28,
                                         decoration: BoxDecoration(
@@ -318,7 +320,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                                         ),
                                         child: isSelected
                                             ? Icon(
-                                                Icons.check_rounded,
+                                                AppIcons.check,
                                                 color: AppColors.onPrimary,
                                                 size: 18,
                                               )
@@ -475,12 +477,10 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: AppColors.onPrimary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      shape: const StadiumBorder(),
                       elevation: 0,
                     ),
-                    icon: const Icon(Icons.add_rounded, size: 20),
+                    icon: const Icon(AppIcons.add, size: 20),
                     label: Text(
                       'Add ${_selectedIds.length} Item${_selectedIds.length > 1 ? 's' : ''}',
                       style: const TextStyle(
@@ -512,7 +512,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Icon(
-                Icons.inventory_2_outlined,
+                AppIcons.items,
                 size: 32,
                 color: AppColors.slate400,
               ),
@@ -546,7 +546,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                   }
                 }
               },
-              icon: const Icon(Icons.add_rounded, size: 18),
+              icon: const Icon(AppIcons.add, size: 18),
               label: const Text('Create New Item'),
             ),
           ],

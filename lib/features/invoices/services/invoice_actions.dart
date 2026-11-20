@@ -15,6 +15,7 @@ import '../models/invoice_model.dart';
 import 'invoice_render_service.dart';
 import 'pdf_generator_service.dart';
 import '../widgets/payments_sheet.dart';
+import '../../../core/theme/app_icons.dart';
 
 /// Invoice actions shared by the preview, the Invoices tab and History, so
 /// each behaves the same wherever it is started.
@@ -42,13 +43,17 @@ class InvoiceActions {
           text: 'Invoice ${invoice.invoiceNumber} for ${invoice.clientName}',
         ),
       );
-      await AppReviewService.instance.registerSignificantAction();
+      // Counted now; the review card waits until the question below is
+      // answered, so the two never stack.
+      await AppReviewService.instance.registerSignificantAction(prompt: false);
 
       // Opening the share sheet is not sending: ask, unless the user backed
       // out of the sheet or the invoice is already marked as sent.
       if (!context.mounted ||
           invoice.sentAt != null ||
           result.status == ShareResultStatus.dismissed) {
+        // No question follows here, so the review card may show now.
+        if (result.status != ShareResultStatus.dismissed) AppReviewService.instance.maybeRequestReview();
         return null;
       }
       final mark = await showDialog<bool>(
@@ -64,6 +69,8 @@ class InvoiceActions {
       );
       if (mark != true) return null;
       final sentAt = await setSent(invoice.id, true);
+      // Just sent an invoice: a good moment to ask.
+      AppReviewService.instance.maybeRequestReview();
       return invoice.copyWith(sentAt: sentAt);
     } catch (e) {
       debugPrint('Share invoice failed: $e');
@@ -160,7 +167,7 @@ class InvoiceActions {
                 ? 'This deletes the 1 payment recorded for ${invoice.invoiceNumber}.'
                 : 'This deletes the $count payments recorded for ${invoice.invoiceNumber}.',
             variant: AppDialogVariant.danger,
-            icon: Icons.warning_amber_rounded,
+            icon: AppIcons.warning,
             confirmLabel: 'Delete payments',
             isDestructive: true,
           );

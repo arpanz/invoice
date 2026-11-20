@@ -5,6 +5,7 @@ import '../core/models/currency_model.dart';
 import '../core/providers/currency_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_typography.dart';
+import '../core/theme/app_icons.dart';
 
 class CurrencyPickerSheet extends StatefulWidget {
   final Function(Currency)? onCurrencySelected;
@@ -91,7 +92,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
-                    Icons.public_rounded,
+                    AppIcons.globe,
                     color: AppColors.ink,
                     size: 18,
                   ),
@@ -122,7 +123,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                 ),
                 IconButton(
                   icon:
-                      Icon(Icons.close_rounded, color: AppColors.muted, size: 20),
+                      Icon(AppIcons.close, color: AppColors.muted, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -152,13 +153,13 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                     fontSize: 13.5,
                   ),
                   prefixIcon: Icon(
-                    Icons.search_rounded,
+                    AppIcons.search,
                     color: AppColors.muted,
                     size: 18,
                   ),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: Icon(Icons.clear_rounded,
+                          icon: Icon(AppIcons.close,
                               color: AppColors.muted, size: 16),
                           onPressed: () {
                             _searchCtrl.clear();
@@ -286,7 +287,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                Icons.check_rounded,
+                                AppIcons.check,
                                 size: 12,
                                 color: AppColors.onPrimary,
                               ),

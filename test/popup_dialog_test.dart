@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/core/theme/app_typography.dart';
 import 'package:invoice/shared_widgets/app_dialog.dart';
 import 'package:invoice/shared_widgets/app_popup_menu.dart';
+import 'package:invoice/core/theme/app_icons.dart';
 
 void main() {
   group('AppDialog & Popup Design Tests', () {
@@ -40,7 +41,7 @@ void main() {
       expect(find.text('This action cannot be undone.'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
       expect(find.text('Delete'), findsOneWidget);
-      expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+      expect(find.byIcon(AppIcons.delete), findsOneWidget);
 
       // Tap Delete to confirm
       await tester.tap(find.text('Delete'));
@@ -104,19 +105,19 @@ void main() {
           home: Scaffold(
             body: Center(
               child: PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
+                icon: const Icon(AppIcons.moreVert),
                 onSelected: (val) => selected = val,
                 itemBuilder: (_) => [
                   AppPopupMenuItem.item(
                     value: 'edit',
                     title: 'Edit Item',
-                    icon: Icons.edit_outlined,
+                    icon: AppIcons.edit,
                   ),
                   AppPopupMenuItem.divider(),
                   AppPopupMenuItem.item(
                     value: 'delete',
                     title: 'Delete Item',
-                    icon: Icons.delete_outline_rounded,
+                    icon: AppIcons.delete,
                     isDestructive: true,
                   ),
                 ],
@@ -127,13 +128,13 @@ void main() {
       );
 
       // Open menu
-      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.tap(find.byIcon(AppIcons.moreVert));
       await tester.pumpAndSettle();
 
       expect(find.text('Edit Item'), findsOneWidget);
       expect(find.text('Delete Item'), findsOneWidget);
-      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+      expect(find.byIcon(AppIcons.edit), findsOneWidget);
+      expect(find.byIcon(AppIcons.delete), findsOneWidget);
 
       // Select edit
       await tester.tap(find.text('Edit Item'));

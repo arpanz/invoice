@@ -23,6 +23,8 @@ import 'features/invoices/screens/create_invoice_screen.dart';
 import 'features/items/screens/item_list_screen.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
 import 'shared_widgets/paper.dart';
+import 'core/theme/app_icons.dart';
+import 'core/theme/app_animations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -274,7 +276,13 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   Future<void> _maybePromptForAppUpdate() async {
     final result = await AppUpdateService.instance.checkForUpdate();
-    if (!mounted || result.status != AppUpdateAvailability.available) return;
+    if (!mounted) return;
+    // An update downloaded earlier only needs a restart.
+    if (AppUpdateService.instance.isDownloaded(result.info)) {
+      _offerRestartForUpdate();
+      return;
+    }
+    if (result.status != AppUpdateAvailability.available) return;
 
     final info = result.info!;
     // Ask about the same update at most once every three days.
@@ -294,6 +302,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           Navigator.pop(ctx);
           final updateResult = await AppUpdateService.instance.startUpdate();
           if (!mounted) return;
+          if (updateResult == AppUpdateStartResult.downloaded) {
+            _offerRestartForUpdate();
+            return;
+          }
 
           final messenger = ScaffoldMessenger.of(context);
           messenger.hideCurrentSnackBar();
@@ -301,7 +313,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             SnackBar(
               behavior: SnackBarBehavior.floating,
               content: Text(switch (updateResult) {
-                AppUpdateStartResult.started =>
+                AppUpdateStartResult.started || AppUpdateStartResult.downloaded =>
                   'Update flow started. Follow the system prompt to finish.',
                 AppUpdateStartResult.cancelled =>
                   'Update cancelled. You can install it later when prompted again.',
@@ -315,6 +327,25 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// The update is on the device; installing it restarts the app, so the
+  /// user picks the moment.
+  void _offerRestartForUpdate() {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 12),
+        persist: false,
+        content: const Text('Update downloaded. Restart to finish installing.'),
+        action: SnackBarAction(
+          label: 'Restart',
+          onPressed: () => AppUpdateService.instance.completeDownloadedUpdate(),
+        ),
       ),
     );
   }
@@ -387,7 +418,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         extendBody: true,
-        body: IndexedStack(index: _currentIndex, children: _screens),
+        // The stack keeps every tab alive; the fade only plays over it.
+        body: _TabEntrance(
+          index: _currentIndex,
+          child: IndexedStack(index: _currentIndex, children: _screens),
+        ),
         // The dock rides on top of the keyboard while searching.
         bottomNavigationBar: Padding(
           padding: EdgeInsets.only(bottom: keyboard),
@@ -421,8 +456,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             : const [BoxShadow(color: Color.fromRGBO(60, 45, 20, 0.10), blurRadius: 18, offset: Offset(0, 6))],
       ),
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        switchInCurve: Curves.easeOutCubic,
+        duration: AppAnimations.fast,
+        switchInCurve: AppAnimations.defaultCurve,
         switchOutCurve: Curves.easeInCubic,
         transitionBuilder: (child, anim) => FadeTransition(
           opacity: anim,
@@ -439,10 +474,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       padding: const EdgeInsets.symmetric(horizontal: 5),
       child: Row(
         children: [
-          _buildNavItem(index: 0, icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, label: 'Invoices'),
-          _buildNavItem(index: 1, icon: Icons.request_quote_outlined, activeIcon: Icons.request_quote_rounded, label: 'Estimates'),
-          _buildNavItem(index: 2, icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, label: 'Clients'),
-          _buildNavItem(index: 3, icon: Icons.inventory_2_outlined, activeIcon: Icons.inventory_2_rounded, label: 'Items'),
+          _buildNavItem(index: 0, icon: AppIcons.receipt, activeIcon: AppIcons.receiptFilled, label: 'Invoices'),
+          _buildNavItem(index: 1, icon: AppIcons.estimate, activeIcon: AppIcons.estimateFilled, label: 'Estimates'),
+          _buildNavItem(index: 2, icon: AppIcons.clients, activeIcon: AppIcons.clientsFilled, label: 'Clients'),
+          _buildNavItem(index: 3, icon: AppIcons.items, activeIcon: AppIcons.itemsFilled, label: 'Items'),
           Tooltip(
             message: 'Search',
             child: InkResponse(
@@ -451,7 +486,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               child: SizedBox(
                 width: 42,
                 height: 52,
-                child: Icon(Icons.search_rounded, color: AppColors.ink, size: 22),
+                child: Icon(AppIcons.search, color: AppColors.ink, size: 22),
               ),
             ),
           ),
@@ -466,7 +501,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       padding: const EdgeInsets.only(left: 18, right: 4),
       child: Row(
         children: [
-          Icon(Icons.search_rounded, color: AppColors.muted, size: 20),
+          Icon(AppIcons.search, color: AppColors.muted, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
@@ -492,7 +527,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           IconButton(
             tooltip: 'Close search',
             onPressed: _closeSearch,
-            icon: Icon(Icons.close_rounded, color: AppColors.ink, size: 20),
+            icon: Icon(AppIcons.close, color: AppColors.ink, size: 20),
           ),
         ],
       ),
@@ -514,8 +549,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           onTap: () => _selectTab(index),
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
+            duration: AppAnimations.fast,
+            curve: AppAnimations.defaultCurve,
             margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 1),
             decoration: BoxDecoration(
               color: isSelected ? AppColors.surfaceCard : Colors.transparent,
@@ -567,7 +602,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                   ? null
                   : const [BoxShadow(color: Color.fromRGBO(60, 45, 20, 0.22), blurRadius: 14, offset: Offset(0, 6))],
             ),
-            child: Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 28),
+            child: Icon(AppIcons.add, color: AppColors.onPrimary, size: 28),
           ),
         ),
       ),
@@ -623,14 +658,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 const SizedBox(height: 14),
                 _CreateOption(
                   primary: true,
-                  icon: Icons.receipt_long_rounded,
+                  icon: AppIcons.receipt,
                   title: 'New Invoice',
                   subtitle: 'Bill a client for work or items',
                   onTap: () => go(_newInvoice),
                 ),
                 const SizedBox(height: 8),
                 _CreateOption(
-                  icon: Icons.request_quote_rounded,
+                  icon: AppIcons.estimate,
                   title: 'New Estimate / Quote',
                   subtitle: 'Send a price before you bill',
                   onTap: () => go(_newEstimate),
@@ -641,7 +676,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     Expanded(
                       child: _CreateOption(
                         compact: true,
-                        icon: Icons.person_add_alt_1_rounded,
+                        icon: AppIcons.personAdd,
                         title: 'Client',
                         onTap: () => go(() {
                           _selectTab(2);
@@ -653,7 +688,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     Expanded(
                       child: _CreateOption(
                         compact: true,
-                        icon: Icons.add_box_outlined,
+                        icon: AppIcons.addBox,
                         title: 'Item',
                         onTap: () => go(() {
                           _selectTab(3);
@@ -728,7 +763,7 @@ class _CreateOption extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (!compact) Icon(Icons.arrow_forward_rounded, color: fg.withValues(alpha: 0.8), size: 18),
+                if (!compact) Icon(AppIcons.arrowForward, color: fg.withValues(alpha: 0.8), size: 18),
               ],
             ),
           ),
@@ -787,7 +822,7 @@ class _StartupUpdateSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  Icons.system_update_alt_rounded,
+                  AppIcons.systemUpdate,
                   color: AppColors.ink,
                   size: 22,
                 ),
@@ -811,7 +846,6 @@ class _StartupUpdateSheet extends StatelessWidget {
                   color: AppColors.muted,
                 ),
               ),
-              const SizedBox(height: 18),
               const SizedBox(height: 18),
               Row(
                 children: [
@@ -850,6 +884,52 @@ class _StartupUpdateSheet extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Eases the newly chosen tab in: a short fade with a slight rise.
+class _TabEntrance extends StatefulWidget {
+  final int index;
+  final Widget child;
+
+  const _TabEntrance({required this.index, required this.child});
+
+  @override
+  State<_TabEntrance> createState() => _TabEntranceState();
+}
+
+class _TabEntranceState extends State<_TabEntrance> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: AppAnimations.medium,
+    value: 1,
+  );
+  late final Animation<double> _t = CurvedAnimation(parent: _c, curve: AppAnimations.defaultCurve);
+
+  @override
+  void didUpdateWidget(_TabEntrance old) {
+    super.didUpdateWidget(old);
+    if (old.index != widget.index && MediaQuery.maybeDisableAnimationsOf(context) != true) {
+      _c.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _t,
+      child: widget.child,
+      builder: (context, child) => Opacity(
+        opacity: _t.value,
+        child: Transform.translate(offset: Offset(0, 10 * (1 - _t.value)), child: child),
       ),
     );
   }

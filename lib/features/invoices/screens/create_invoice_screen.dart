@@ -34,6 +34,7 @@ import '../../../shared_widgets/app_dialog.dart';
 import '../../../shared_widgets/app_popup_menu.dart';
 import '../../../shared_widgets/currency_picker_sheet.dart';
 import '../../items/screens/item_picker_sheet.dart';
+import '../../../core/theme/app_icons.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   final InvoiceModel? existingInvoice;
@@ -105,7 +106,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   final _notesCtrl = TextEditingController(text: 'Thanks for your business.');
   final List<String> _attachments = [];
   InvoiceStatus _status = InvoiceStatus.unpaid;
-  bool _showPaidStamp = true;
   PdfTheme _selectedTheme = PdfTheme.defaultTheme;
 
   String? _activeInvoiceId;
@@ -475,7 +475,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.close_rounded, color: AppColors.slate400),
+                        icon: Icon(AppIcons.close, color: AppColors.slate400),
                         onPressed: () => Navigator.pop(ctx),
                       ),
                     ],
@@ -531,7 +531,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primary),
+                              Icon(AppIcons.calendar, size: 16, color: AppColors.primary),
                               const SizedBox(width: 10),
                               Text(
                                 DateFormat('dd MMMM yyyy').format(tempDate),
@@ -543,7 +543,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               ),
                             ],
                           ),
-                          Icon(Icons.edit_calendar_outlined, size: 18, color: AppColors.slate400),
+                          Icon(AppIcons.editCalendar, size: 18, color: AppColors.slate400),
                         ],
                       ),
                     ),
@@ -686,9 +686,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.onPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: const StadiumBorder(),
                         elevation: 0,
                       ),
                       child: const Text(
@@ -817,7 +815,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.onPrimary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: const StadiumBorder(),
                   ),
                   child: const Text('Save Business Info', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
@@ -932,7 +930,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                icon: Icon(Icons.remove_circle_outline_rounded, size: 18, color: AppColors.slate400),
+                                icon: Icon(AppIcons.removeCircle, size: 18, color: AppColors.slate400),
                                 onPressed: () {
                                   final current = NumberText.parse(qtyCtrl.text, fallback: 1);
                                   if (current > 1) {
@@ -946,7 +944,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                icon: Icon(Icons.add_circle_outline_rounded, size: 18, color: AppColors.primary),
+                                icon: Icon(AppIcons.addCircle, size: 18, color: AppColors.primary),
                                 onPressed: () {
                                   final current = NumberText.parse(qtyCtrl.text, fallback: 1);
                                   final next = current + 1;
@@ -981,7 +979,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            showDiscountsAndTax ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                            showDiscountsAndTax ? AppIcons.chevronUp : AppIcons.chevronDown,
                             size: 20,
                             color: AppColors.primary,
                           ),
@@ -1117,7 +1115,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.onPrimary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: const StadiumBorder(),
                       ),
                       child: Text(editIndex != null ? 'Update Item' : 'Add to Invoice', style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
@@ -1194,7 +1192,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.onPrimary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: const StadiumBorder(),
                   ),
                   child: const Text('Apply Discount', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
@@ -1389,7 +1387,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.slate600,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: const StadiumBorder(),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       child: const Text('Remove Tax'),
@@ -1414,7 +1412,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.onPrimary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: const StadiumBorder(),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       child: const Text('Apply Tax', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -1464,7 +1462,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.onPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: const StadiumBorder(),
                 ),
                 child: const Text('Save Shipping Fee', style: TextStyle(fontWeight: FontWeight.w600)),
               ),
@@ -1576,7 +1574,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.onPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: const StadiumBorder(),
                 ),
                 child: const Text('Save', style: TextStyle(fontWeight: FontWeight.w600)),
               ),
@@ -1616,7 +1614,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               final isSel = _paymentMethod == m;
               return ListTile(
                 title: Text(m, style: TextStyle(fontWeight: isSel ? FontWeight.w600 : FontWeight.w500)),
-                trailing: isSel ? Icon(Icons.check_rounded, color: AppColors.primary) : null,
+                trailing: isSel ? Icon(AppIcons.check, color: AppColors.primary) : null,
                 onTap: () {
                   setState(() => _paymentMethod = m);
                   Navigator.pop(ctx);
@@ -1665,7 +1663,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.onPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: const StadiumBorder(),
                 ),
                 child: const Text('Save Notes', style: TextStyle(fontWeight: FontWeight.w600)),
               ),
@@ -1696,7 +1694,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 final isSel = _status == s;
                 return ListTile(
                   title: Text(s.label, style: TextStyle(fontWeight: isSel ? FontWeight.w600 : FontWeight.w500)),
-                  trailing: isSel ? Icon(Icons.check_rounded, color: AppColors.primary) : null,
+                  trailing: isSel ? Icon(AppIcons.check, color: AppColors.primary) : null,
                   onTap: () {
                     Navigator.pop(ctx);
                     _setStatus(s);
@@ -1746,7 +1744,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         title: 'Discard changes?',
         message: 'You have unsaved changes. Leave without saving them?',
         variant: AppDialogVariant.danger,
-        icon: Icons.warning_amber_rounded,
+        icon: AppIcons.warning,
         confirmLabel: 'Discard',
         cancelLabel: 'Keep editing',
         isDestructive: true,
@@ -1793,7 +1791,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
           ),
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.ink),
+            icon: Icon(AppIcons.chevronBack, size: 18, color: AppColors.ink),
             // maybePop, so the unsaved-changes check runs.
             onPressed: () => Navigator.maybePop(context),
           ),
@@ -1805,14 +1803,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           actions: [
             if (!isPro)
               IconButton(
-                icon: Icon(Icons.workspace_premium_rounded, color: AppColors.proGold),
+                icon: Icon(AppIcons.premium, color: AppColors.proGold),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const PaywallScreen()),
                 ),
               ),
             PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert_rounded, color: AppColors.ink, size: 20),
+              icon: Icon(AppIcons.moreVert, color: AppColors.ink, size: 20),
               onSelected: (val) async {
                 if (val == 'clear') {
                   setState(() {
@@ -1829,13 +1827,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 AppPopupMenuItem.item(
                   value: 'clear',
                   title: 'Clear Items',
-                  icon: Icons.clear_all_rounded,
+                  icon: AppIcons.clearAll,
                   iconColor: AppColors.muted,
                 ),
                 AppPopupMenuItem.item(
                   value: 'reset_tips',
                   title: 'Reset Helpful Tips',
-                  icon: Icons.lightbulb_outline_rounded,
+                  icon: AppIcons.lightbulb,
                   iconColor: AppColors.ink,
                 ),
               ],
@@ -1892,7 +1890,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                   ),
                                 ],
                               ),
-                              Icon(Icons.edit_outlined, size: 18, color: AppColors.muted),
+                              Icon(AppIcons.edit, size: 18, color: AppColors.muted),
                             ],
                           ),
                           const SizedBox(height: 10),
@@ -1909,7 +1907,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                   ),
                                   child: Row(
                                     children: [
-                                      Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.muted),
+                                      Icon(AppIcons.calendar, size: 13, color: AppColors.muted),
                                       const SizedBox(width: 6),
                                       Expanded(
                                         child: Text(
@@ -1939,7 +1937,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                   child: Row(
                                     children: [
                                       Icon(
-                                        Icons.hourglass_bottom_rounded,
+                                        AppIcons.hourglass,
                                         size: 13,
                                         color: _dueDate != null
                                             ? AppColors.statusPartiallyPaid
@@ -2001,7 +1999,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 ),
                               ),
                               child: Icon(
-                                Icons.view_quilt_outlined,
+                                AppIcons.viewQuilt,
                                 color: _selectedTheme.previewPrimary,
                                 size: 20,
                               ),
@@ -2071,7 +2069,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
+                            Icon(AppIcons.chevronRight, color: AppColors.slate400),
                           ],
                         ),
                       ),
@@ -2096,7 +2094,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                     color: AppColors.squircleCyan,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(Icons.storefront_outlined, color: AppColors.squircleCyanIcon, size: 20),
+                                  child: Icon(AppIcons.storefront, color: AppColors.squircleCyanIcon, size: 20),
                                 ),
                                 const SizedBox(width: 14),
                                 Expanded(
@@ -2111,7 +2109,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                     ],
                                   ),
                                 ),
-                                Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
+                                Icon(AppIcons.chevronRight, color: AppColors.slate400),
                               ],
                             ),
                           ),
@@ -2145,7 +2143,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                     color: AppColors.statusPartiallyPaidBg,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(Icons.people_outline_rounded, color: AppColors.statusPartiallyPaid, size: 20),
+                                  child: Icon(AppIcons.clients, color: AppColors.statusPartiallyPaid, size: 20),
                                 ),
                                 const SizedBox(width: 14),
                                 Expanded(
@@ -2160,7 +2158,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                     ],
                                   ),
                                 ),
-                                Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
+                                Icon(AppIcons.chevronRight, color: AppColors.slate400),
                               ],
                             ),
                           ),
@@ -2194,7 +2192,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                   color: AppColors.squircleGreen,
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(Icons.inventory_2_outlined, color: AppColors.squircleGreenIcon, size: 20),
+                                child: Icon(AppIcons.items, color: AppColors.squircleGreenIcon, size: 20),
                               ),
                               const SizedBox(width: 14),
                               Expanded(
@@ -2227,7 +2225,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                     color: AppColors.squirclePurple,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(Icons.inventory_2_outlined, color: AppColors.squirclePurpleIcon, size: 18),
+                                  child: Icon(AppIcons.items, color: AppColors.squirclePurpleIcon, size: 18),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -2240,7 +2238,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                     color: AppColors.primary,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 20),
+                                  child: Icon(AppIcons.add, color: AppColors.onPrimary, size: 20),
                                 ),
                               ),
                             ],
@@ -2271,7 +2269,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                     color: AppColors.statusOverdueBg,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Icon(Icons.delete_outline_rounded, color: AppColors.accentRed, size: 20),
+                                  child: Icon(AppIcons.delete, color: AppColors.accentRed, size: 20),
                                 ),
                                 onDismissed: (_) {
                                   HapticFeedback.mediumImpact();
@@ -2298,11 +2296,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                                       ),
                                       IconButton(
-                                        icon: Icon(Icons.edit_outlined, size: 18, color: AppColors.slate500),
+                                        icon: Icon(AppIcons.edit, size: 18, color: AppColors.slate500),
                                         onPressed: () => _showAddItemSheet(editIndex: idx),
                                       ),
                                       IconButton(
-                                        icon: Icon(Icons.close_rounded, size: 18, color: AppColors.accentRed),
+                                        icon: Icon(AppIcons.close, size: 18, color: AppColors.accentRed),
                                         onPressed: () {
                                           HapticFeedback.lightImpact();
                                           setState(() => _items.removeAt(idx));
@@ -2325,7 +2323,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       child: Column(
                         children: [
                           _buildRowTile(
-                            icon: Icons.percent_rounded,
+                            icon: AppIcons.percent,
                             title: 'Discount',
                             subtitle: _hasDiscount ? '(${_discountCtrl.text}${_discountType == DiscountType.percentage ? "%" : ""})' : '(0%)',
                             value: _hasDiscount
@@ -2335,7 +2333,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           ),
                           const Divider(height: 16),
                           _buildRowTile(
-                            icon: Icons.account_balance_outlined,
+                            icon: AppIcons.bank,
                             title: taxShortName,
                             subtitle: _hasTax
                                 ? (isDual && !_useIGST
@@ -2347,7 +2345,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           ),
                           const Divider(height: 16),
                           _buildRowTile(
-                            icon: Icons.local_shipping_outlined,
+                            icon: AppIcons.shipping,
                             title: 'Shipping',
                             subtitle: '',
                             value: CurrencyFormatter.format(_shippingFee, currencyCode: _currency, currencySymbol: currencySymbol),
@@ -2394,7 +2392,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       child: Column(
                         children: [
                           _buildRowTile(
-                            icon: Icons.monetization_on_outlined,
+                            icon: AppIcons.coins,
                             title: 'Payments',
                             subtitle: '',
                             value: CurrencyFormatter.format(_paidAmount, currencyCode: _currency, currencySymbol: currencySymbol),
@@ -2429,7 +2427,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       child: Column(
                         children: [
                           _buildRowTile(
-                            icon: Icons.payments_outlined,
+                            icon: AppIcons.payments,
                             title: 'Currency',
                             subtitle: '',
                             value: '$_currency $_currencySymbol',
@@ -2437,7 +2435,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           ),
                           const Divider(height: 16),
                           _buildRowTile(
-                            icon: Icons.credit_card_outlined,
+                            icon: AppIcons.creditCard,
                             title: 'Payment Method',
                             subtitle: '',
                             value: _paymentMethod.isNotEmpty ? _paymentMethod : '',
@@ -2445,7 +2443,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           ),
                           const Divider(height: 16),
                           _buildRowTile(
-                            icon: Icons.draw_outlined,
+                            icon: AppIcons.draw,
                             title: 'Signature',
                             subtitle: '',
                             value: _signaturePath != null ? 'Signature Attached' : 'Add Signature',
@@ -2463,7 +2461,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           ),
                           const Divider(height: 16),
                           _buildRowTile(
-                            icon: Icons.assignment_outlined,
+                            icon: AppIcons.assignment,
                             title: 'Terms Or Notes',
                             subtitle: _notesCtrl.text.isNotEmpty ? _notesCtrl.text : 'Thanks for your business.',
                             value: '',
@@ -2495,7 +2493,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               color: AppColors.slate100,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Icon(Icons.attach_file_rounded, color: AppColors.slate700, size: 20),
+                            child: Icon(AppIcons.attach, color: AppColors.slate700, size: 20),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -2525,7 +2523,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 color: AppColors.primary,
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 20),
+                              child: Icon(AppIcons.add, color: AppColors.onPrimary, size: 20),
                             ),
                           ),
                         ],
@@ -2533,42 +2531,17 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Card 9: Status & Stamp Toggle
+                    // Card 9: Status
                     _buildCard(
                       padding: const EdgeInsets.all(14),
                       child: Column(
                         children: [
                           _buildRowTile(
-                            icon: Icons.fact_check_outlined,
+                            icon: AppIcons.factCheck,
                             title: 'Mark as',
                             subtitle: '',
                             value: _status.label,
                             onTap: _showStatusSheet,
-                          ),
-                          const Divider(height: 16),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AppColors.slate100,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(Icons.verified_outlined, size: 18, color: AppColors.slate700),
-                              ),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Text(
-                                  "Show 'PAID' Stamp on Invoice",
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                              Switch.adaptive(
-                                value: _showPaidStamp,
-                                activeTrackColor: AppColors.primary,
-                                onChanged: (v) => setState(() => _showPaidStamp = v),
-                              ),
-                            ],
                           ),
                         ],
                       ),
@@ -2582,7 +2555,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.delete_outline_rounded, color: AppColors.accentRed, size: 20),
+                            Icon(AppIcons.delete, color: AppColors.accentRed, size: 20),
                             SizedBox(width: 8),
                             Text(
                               'Delete Invoice',
@@ -2617,7 +2590,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       onPressed: _handlePreview,
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: AppColors.hairline, width: 1.0),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: const StadiumBorder(),
                         foregroundColor: AppColors.ink,
                         elevation: 0,
                       ),
@@ -2638,7 +2611,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.onPrimary,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: const StadiumBorder(),
                       ),
                       child: _isSaving
                           ? SizedBox(
@@ -2704,7 +2677,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   child: Text(
                     stepLabel,
                     style: GoogleFonts.inter(
-                      color: Colors.white,
+                      color: AppColors.onDark,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.3,
@@ -2718,9 +2691,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     onDismiss();
                   },
                   behavior: HitTestBehavior.opaque,
-                  child: const Padding(
-                    padding: EdgeInsets.all(2),
-                    child: Icon(Icons.close_rounded, color: Color(0xFF888888), size: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(AppIcons.close, color: AppColors.onDarkSoft, size: 16),
                   ),
                 ),
               ],
@@ -2728,12 +2701,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             const SizedBox(height: 6),
             Text(
               title,
-              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+              style: GoogleFonts.inter(color: AppColors.onDark, fontWeight: FontWeight.w600, fontSize: 13),
             ),
             const SizedBox(height: 2),
             Text(
               subtitle,
-              style: GoogleFonts.inter(color: const Color(0xFFAAAAAA), fontSize: 12),
+              style: GoogleFonts.inter(color: AppColors.onDarkSoft, fontSize: 12),
             ),
           ],
         ),
@@ -2805,7 +2778,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             Text(value, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.ink)),
             const SizedBox(width: 4),
           ],
-          Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20),
+          Icon(AppIcons.chevronRight, color: AppColors.muted, size: 20),
         ],
       ),
     );

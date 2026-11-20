@@ -1,3 +1,4 @@
+import '../../../core/app/app_review_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17,6 +18,8 @@ import '../../invoices/screens/create_invoice_screen.dart';
 import '../../invoices/screens/invoice_preview_screen.dart';
 import '../../invoices/services/invoice_actions.dart';
 import '../../settings/screens/settings_screen.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_animations.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -233,6 +236,11 @@ class DashboardScreenState extends State<DashboardScreen> {
     // The thud lands as the stamp hits the page.
     Future.delayed(const Duration(milliseconds: 250), Haptics.stamp);
     await _loadData();
+    // Getting paid is the best moment to ask for a review; wait until the
+    // Undo snackbar has gone.
+    Future.delayed(const Duration(milliseconds: 4600), () {
+      AppReviewService.instance.registerSignificantAction();
+    });
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -349,7 +357,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-          Icon(Icons.chevron_right_rounded, color: AppColors.mutedSoft, size: 20),
+          Icon(AppIcons.chevronRight, color: AppColors.mutedSoft, size: 20),
         ],
       ),
     );
@@ -390,19 +398,19 @@ class DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(invoice.clientName, style: AppTypography.serif(fontSize: 20, color: AppColors.ink)),
                 ),
-                action(Icons.visibility_outlined, 'View details', () => run(() => _openInvoicePreview(invoice))),
-                action(Icons.edit_outlined, 'Edit invoice', () => run(() {
+                action(AppIcons.visibility, 'View details', () => run(() => _openInvoicePreview(invoice))),
+                action(AppIcons.edit, 'Edit invoice', () => run(() {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => CreateInvoiceScreen(existingInvoice: invoice)),
                   ).then((_) => _loadData());
                 })),
-                action(Icons.payments_outlined, 'Payment status', () => run(() => _showQuickStatusPicker(invoice))),
-                action(Icons.ios_share_rounded, 'Share PDF', () => run(() => _sharePdf(invoice))),
-                action(Icons.download_rounded, 'Save PDF', () => run(() => InvoiceActions.saveToDevice(context, invoice))),
-                action(Icons.print_outlined, 'Print', () => run(() => InvoiceActions.printPdf(context, invoice))),
+                action(AppIcons.payments, 'Payment status', () => run(() => _showQuickStatusPicker(invoice))),
+                action(AppIcons.share, 'Share PDF', () => run(() => _sharePdf(invoice))),
+                action(AppIcons.download, 'Save PDF', () => run(() => InvoiceActions.saveToDevice(context, invoice))),
+                action(AppIcons.print, 'Print', () => run(() => InvoiceActions.printPdf(context, invoice))),
                 Divider(color: AppColors.hairline, height: 12),
-                action(Icons.delete_outline_rounded, 'Delete invoice', () => run(() => _deleteInvoice(invoice)),
+                action(AppIcons.delete, 'Delete invoice', () => run(() => _deleteInvoice(invoice)),
                     destructive: true),
               ],
             ),
@@ -497,7 +505,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           tooltip: _hasProfileAlert ? 'Profile incomplete' : 'Settings',
           onTap: _openSettings,
           dot: _hasProfileAlert,
-          child: Icon(Icons.settings_outlined, color: AppColors.ink, size: 21),
+          child: Icon(AppIcons.settings, color: AppColors.ink, size: 21),
         ),
       ],
     );
@@ -520,8 +528,8 @@ class DashboardScreenState extends State<DashboardScreen> {
             alignment: Alignment.centerLeft,
             child: TweenAnimationBuilder<double>(
               tween: Tween(end: _totalUnpaid),
-              duration: const Duration(milliseconds: 450),
-              curve: Curves.easeOutCubic,
+              duration: AppAnimations.slow,
+              curve: AppAnimations.defaultCurve,
               builder: (context, v, _) => Text(
                 money(v),
                 style: AppTypography.money(fontSize: 44, color: AppColors.ink, letterSpacing: -1.4),
@@ -539,8 +547,8 @@ class DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Positioned.fill(child: ColoredBox(color: AppColors.hairline)),
                   AnimatedFractionallySizedBox(
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeOutCubic,
+                    duration: AppAnimations.slow,
+                    curve: AppAnimations.defaultCurve,
                     widthFactor: collected,
                     heightFactor: 1,
                     alignment: Alignment.centerLeft,
@@ -844,14 +852,14 @@ class DashboardScreenState extends State<DashboardScreen> {
           alignLeft: true,
           color: AppColors.statusPaidBg,
           fg: AppColors.statusPaid,
-          icon: Icons.task_alt_rounded,
+          icon: AppIcons.checkCircle,
           label: 'Mark paid',
         ),
         secondaryBackground: _swipeBackground(
           alignLeft: false,
           color: AppColors.surfaceCard,
           fg: AppColors.ink,
-          icon: Icons.ios_share_rounded,
+          icon: AppIcons.share,
           label: 'Share',
         ),
         child: slip,
