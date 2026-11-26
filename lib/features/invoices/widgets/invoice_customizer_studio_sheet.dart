@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
+import '../../../core/localization/catalog_localization.dart';
+import '../../../core/localization/l10n.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -19,10 +21,11 @@ class InvoiceCustomizerStudioSheet extends StatefulWidget {
   final InvoiceCustomizationConfig initialConfig;
   final InvoiceModel? invoice;
   final BusinessProfile? businessProfile;
+  final DateTime? paidOn;
   final Function(InvoiceCustomizationConfig config, bool setAsDefault)
   onConfigSaved;
   final bool showSetAsDefault;
-  final String title;
+  final String? title;
 
   const InvoiceCustomizerStudioSheet({
     super.key,
@@ -30,8 +33,9 @@ class InvoiceCustomizerStudioSheet extends StatefulWidget {
     required this.onConfigSaved,
     this.invoice,
     this.businessProfile,
+    this.paidOn,
     this.showSetAsDefault = true,
-    this.title = 'Invoice Design Studio',
+    this.title,
   });
 
   static Future<InvoiceCustomizationConfig?> show(
@@ -39,8 +43,9 @@ class InvoiceCustomizerStudioSheet extends StatefulWidget {
     required InvoiceCustomizationConfig initialConfig,
     InvoiceModel? invoice,
     BusinessProfile? businessProfile,
+    DateTime? paidOn,
     bool showSetAsDefault = true,
-    String title = 'Invoice Design Studio',
+    String? title,
   }) async {
     return showModalBottomSheet<InvoiceCustomizationConfig>(
       context: context,
@@ -50,6 +55,7 @@ class InvoiceCustomizerStudioSheet extends StatefulWidget {
         initialConfig: initialConfig,
         invoice: invoice,
         businessProfile: businessProfile,
+        paidOn: paidOn,
         showSetAsDefault: showSetAsDefault,
         title: title,
         onConfigSaved: (savedConfig, setAsDefault) async {
@@ -81,6 +87,7 @@ class _InvoiceCustomizerStudioSheetState
     extends State<InvoiceCustomizerStudioSheet>
     with SingleTickerProviderStateMixin {
   late InvoiceCustomizationConfig _config;
+  PdfThemeCategory? _templateCategory;
   late TabController _tabController;
   late TextEditingController _footerMessageController;
 
@@ -138,6 +145,7 @@ class _InvoiceCustomizerStudioSheetState
       final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
         invoice: inv,
         businessProfile: profile,
+        paidOn: widget.paidOn,
         isPro: true,
         customizationConfig: _config,
         isSamplePreview: widget.invoice == null,
@@ -204,7 +212,7 @@ class _InvoiceCustomizerStudioSheetState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.title,
+                          widget.title ?? context.l10n.invoiceDesignStudio,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTypography.serif(
@@ -216,7 +224,7 @@ class _InvoiceCustomizerStudioSheetState
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Live preview updates instantly',
+                          context.l10n.livePreviewUpdatesInstantly,
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.slate500,
@@ -239,7 +247,7 @@ class _InvoiceCustomizerStudioSheetState
                       color: AppColors.slate600,
                     ),
                     label: Text(
-                      'Reset',
+                      context.l10n.reset,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -334,7 +342,7 @@ class _InvoiceCustomizerStudioSheetState
                             ),
                             SizedBox(width: 6),
                             Text(
-                              'Updating...',
+                              context.l10n.updating,
                               style: TextStyle(
                                 fontSize: 10,
                                 color: AppColors.onPrimary,
@@ -378,7 +386,7 @@ class _InvoiceCustomizerStudioSheetState
                             ),
                             SizedBox(width: 5),
                             Text(
-                              'Quick Look',
+                              context.l10n.quickLook,
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -425,7 +433,7 @@ class _InvoiceCustomizerStudioSheetState
                             ),
                             SizedBox(width: 4),
                             Text(
-                              'Fit',
+                              context.l10n.fit,
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
@@ -462,26 +470,26 @@ class _InvoiceCustomizerStudioSheetState
                   fontSize: 11.5,
                   fontWeight: FontWeight.w500,
                 ),
-                tabs: const [
+                tabs: [
                   Tab(
                     height: 52,
                     icon: Icon(AppIcons.palette, size: 16),
-                    text: 'Style',
+                    text: context.l10n.style,
                   ),
                   Tab(
                     height: 52,
                     icon: Icon(AppIcons.text, size: 16),
-                    text: 'Typo',
+                    text: context.l10n.typo,
                   ),
                   Tab(
                     height: 52,
                     icon: Icon(AppIcons.dashboardCustomize, size: 16),
-                    text: 'Layout',
+                    text: context.l10n.layout,
                   ),
                   Tab(
                     height: 52,
                     icon: Icon(AppIcons.tune, size: 16),
-                    text: 'Sections',
+                    text: context.l10n.sections,
                   ),
                 ],
               ),
@@ -530,7 +538,7 @@ class _InvoiceCustomizerStudioSheetState
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Set as default style for future documents',
+                            context.l10n.setAsDefaultStyleForFutureDocuments,
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -555,8 +563,8 @@ class _InvoiceCustomizerStudioSheetState
                         elevation: 0,
                         shape: const StadiumBorder(),
                       ),
-                      child: const Text(
-                        'Apply & Save Style',
+                      child: Text(
+                        context.l10n.applySaveStyle,
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -577,19 +585,28 @@ class _InvoiceCustomizerStudioSheetState
   // TAB 1: TEMPLATES & COLORS
   // -------------------------------------------------------------
   Widget _buildTemplatesAndColorsTab() {
+    final templates = PdfTheme.all
+        .where((theme) => _templateCategory == null || theme.category == _templateCategory)
+        .toList();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildSectionTitle('Paper Design Template'),
+        _buildSectionTitle(context.l10n.paperDesignTemplate),
+        const SizedBox(height: 8),
+        PdfThemeCategoryChips(
+          category: _templateCategory,
+          onChanged: (category) => setState(() => _templateCategory = category),
+        ),
         const SizedBox(height: 8),
         SizedBox(
           height: 94,
           child: ListView.separated(
+            key: ValueKey(_templateCategory),
             scrollDirection: Axis.horizontal,
-            itemCount: PdfTheme.all.length,
+            itemCount: templates.length,
             separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (ctx, idx) {
-              final theme = PdfTheme.all[idx];
+              final theme = templates[idx];
               final isSelected = _config.themeId == theme.id;
 
               return GestureDetector(
@@ -645,7 +662,7 @@ class _InvoiceCustomizerStudioSheetState
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        theme.name,
+                        context.l10n.catalogLabel(theme.name),
                         maxLines: 2,
                         textAlign: TextAlign.center,
                         style: TextStyle(
@@ -665,7 +682,7 @@ class _InvoiceCustomizerStudioSheetState
           ),
         ),
         const SizedBox(height: 20),
-        _buildSectionTitle('Color Palette Presets'),
+        _buildSectionTitle(context.l10n.colorPalettePresets),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -723,7 +740,7 @@ class _InvoiceCustomizerStudioSheetState
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        preset.name,
+                        context.l10n.catalogLabel(preset.name),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -752,7 +769,7 @@ class _InvoiceCustomizerStudioSheetState
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildSectionTitle('Font Family'),
+        _buildSectionTitle(context.l10n.fontFamily),
         const SizedBox(height: 8),
         ...InvoiceFontFamily.values.map((family) {
           final isSelected = _config.fontFamily == family;
@@ -788,7 +805,7 @@ class _InvoiceCustomizerStudioSheetState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          family.displayName,
+                          context.l10n.catalogLabel(family.displayName),
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -799,7 +816,7 @@ class _InvoiceCustomizerStudioSheetState
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          family.description,
+                          context.l10n.catalogLabel(family.description),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -816,7 +833,7 @@ class _InvoiceCustomizerStudioSheetState
           );
         }),
         const SizedBox(height: 18),
-        _buildSectionTitle('Document Density & Sizing'),
+        _buildSectionTitle(context.l10n.documentDensitySizing),
         const SizedBox(height: 8),
         Row(
           children: InvoiceDensity.values.map((density) {
@@ -847,7 +864,7 @@ class _InvoiceCustomizerStudioSheetState
                   child: Column(
                     children: [
                       Text(
-                        density.displayName,
+                        context.l10n.catalogLabel(density.displayName),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -859,10 +876,10 @@ class _InvoiceCustomizerStudioSheetState
                       const SizedBox(height: 3),
                       Text(
                         density == InvoiceDensity.compact
-                            ? '85% Scale'
+                            ? context.l10n.label85Scale
                             : (density == InvoiceDensity.regular
-                                  ? '100% Normal'
-                                  : '115% Large'),
+                                  ? context.l10n.label100Normal
+                                  : context.l10n.label115Large),
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w500,
@@ -889,7 +906,7 @@ class _InvoiceCustomizerStudioSheetState
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildSectionTitle('Header Alignment & Position'),
+        _buildSectionTitle(context.l10n.headerAlignmentPosition),
         const SizedBox(height: 8),
         ...HeaderPosition.values.map((pos) {
           final isSelected = _config.headerPosition == pos;
@@ -929,7 +946,7 @@ class _InvoiceCustomizerStudioSheetState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          pos.displayName,
+                          context.l10n.catalogLabel(pos.displayName),
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
@@ -939,7 +956,7 @@ class _InvoiceCustomizerStudioSheetState
                           ),
                         ),
                         Text(
-                          pos.description,
+                          context.l10n.catalogLabel(pos.description),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -962,7 +979,7 @@ class _InvoiceCustomizerStudioSheetState
           );
         }),
         const SizedBox(height: 18),
-        _buildSectionTitle('Address Block Arrangement'),
+        _buildSectionTitle(context.l10n.addressBlockArrangement),
         const SizedBox(height: 8),
         ...AddressLayout.values.map((layout) {
           final isSelected = _config.addressLayout == layout;
@@ -998,7 +1015,7 @@ class _InvoiceCustomizerStudioSheetState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          layout.displayName,
+                          context.l10n.catalogLabel(layout.displayName),
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
@@ -1041,60 +1058,60 @@ class _InvoiceCustomizerStudioSheetState
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildSectionTitle('Document Sections Visibility'),
+        _buildSectionTitle(context.l10n.documentSectionsVisibility),
         const SizedBox(height: 6),
         _buildSwitchTile(
-          title: 'Bank Payment Details',
-          subtitle: 'Bank name, account number & routing code',
+          title: context.l10n.bankPaymentDetails2,
+          subtitle: context.l10n.bankNameAccountNumberRoutingCode,
           value: _config.showBankDetails,
           onChanged: (val) =>
               _onConfigModified(_config.copyWith(showBankDetails: val)),
         ),
         _buildSwitchTile(
-          title: 'Digital UPI / Payment ID',
-          subtitle: 'UPI ID and fast payment handle',
+          title: context.l10n.digitalUpiPaymentId,
+          subtitle: context.l10n.upiIdAndFastPaymentHandle,
           value: _config.showUpiDetails,
           onChanged: (val) =>
               _onConfigModified(_config.copyWith(showUpiDetails: val)),
         ),
         _buildSwitchTile(
-          title: 'Signature & Sign-Off',
-          subtitle: 'Authorized signature box in footer',
+          title: context.l10n.signatureSignOff,
+          subtitle: context.l10n.authorizedSignatureBoxInFooter,
           value: _config.showSignature,
           onChanged: (val) =>
               _onConfigModified(_config.copyWith(showSignature: val)),
         ),
         _buildSwitchTile(
-          title: 'Notes & Terms',
-          subtitle: 'Customer notes container',
+          title: context.l10n.notesTerms,
+          subtitle: context.l10n.customerNotesContainer,
           value: _config.showNotes,
           onChanged: (val) =>
               _onConfigModified(_config.copyWith(showNotes: val)),
         ),
         const SizedBox(height: 16),
-        _buildSectionTitle('Table Columns'),
+        _buildSectionTitle(context.l10n.tableColumns),
         const SizedBox(height: 6),
         _buildSwitchTile(
-          title: 'Quantity (QTY) Column',
-          subtitle: 'Number of units or hours',
+          title: context.l10n.quantityQtyColumn,
+          subtitle: context.l10n.numberOfUnitsOrHours,
           value: _config.showQuantity,
           onChanged: (val) =>
               _onConfigModified(_config.copyWith(showQuantity: val)),
         ),
         _buildSwitchTile(
-          title: 'Unit Price Column',
-          subtitle: 'Individual item rate',
+          title: context.l10n.unitPriceColumn,
+          subtitle: context.l10n.individualItemRate,
           value: _config.showUnitPrice,
           onChanged: (val) =>
               _onConfigModified(_config.copyWith(showUnitPrice: val)),
         ),
         const SizedBox(height: 16),
-        _buildSectionTitle('Custom Footer Closing Message'),
+        _buildSectionTitle(context.l10n.customFooterClosingMessage),
         const SizedBox(height: 6),
         TextField(
           controller: _footerMessageController,
           decoration: InputDecoration(
-            hintText: 'e.g. Thank you for your business!',
+            hintText: context.l10n.eGThankYouForYourBusiness,
             hintStyle: TextStyle(fontSize: 13, color: AppColors.slate400),
             filled: true,
             fillColor: AppColors.slate50,
@@ -1121,6 +1138,21 @@ class _InvoiceCustomizerStudioSheetState
           onChanged: (val) {
             _onConfigModified(_config.copyWith(customFooterMessage: val));
           },
+        ),
+        const SizedBox(height: 16),
+        _buildSwitchTile(
+          title: context.l10n.attachments,
+          subtitle: context.l10n.photosOnAppendixPages,
+          value: _config.showAttachments,
+          onChanged: (val) =>
+              _onConfigModified(_config.copyWith(showAttachments: val)),
+        ),
+        _buildSwitchTile(
+          title: context.l10n.statusStampPaidOverdue,
+          subtitle: context.l10n.paymentStatusInTheInvoiceHeader,
+          value: _config.showStatusStamp,
+          onChanged: (val) =>
+              _onConfigModified(_config.copyWith(showStatusStamp: val)),
         ),
       ],
     );
@@ -1200,6 +1232,7 @@ class _InvoiceCustomizerStudioSheetState
           config: _config,
           invoice: widget.invoice,
           businessProfile: widget.businessProfile,
+          paidOn: widget.paidOn,
         ),
       ),
     );
@@ -1212,12 +1245,14 @@ class _FullScreenPreviewOverlay extends StatefulWidget {
   final InvoiceCustomizationConfig config;
   final InvoiceModel? invoice;
   final BusinessProfile? businessProfile;
+  final DateTime? paidOn;
 
   const _FullScreenPreviewOverlay({
     required this.previewBytes,
     required this.config,
     this.invoice,
     this.businessProfile,
+    this.paidOn,
   });
 
   @override
@@ -1258,6 +1293,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
       final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
         invoice: inv,
         businessProfile: profile,
+        paidOn: widget.paidOn,
         isPro: true,
         customizationConfig: widget.config,
         isSamplePreview: widget.invoice == null,
@@ -1328,7 +1364,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Quick Look Preview',
+              context.l10n.quickLookPreview,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -1374,7 +1410,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
                 color: AppColors.primary,
               ),
               label: Text(
-                'Fit',
+                context.l10n.fit,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -1490,7 +1526,7 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
                           ),
                           SizedBox(width: 8),
                           Text(
-                            'Rendering High-DPI (300 DPI)...',
+                            context.l10n.renderingHighDpi300Dpi,
                             style: TextStyle(
                               fontSize: 11.5,
                               color: AppColors.slate600,
@@ -1501,8 +1537,8 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
                       )
                     : Text(
                         _isZoomed
-                            ? 'Double-tap to reset view'
-                            : 'Pinch or double-tap to zoom in',
+                            ? context.l10n.doubleTapToResetView
+                            : context.l10n.pinchOrDoubleTapToZoomIn,
                         style: TextStyle(
                           fontSize: 11.5,
                           color: AppColors.slate600,
@@ -1512,6 +1548,51 @@ class _FullScreenPreviewOverlayState extends State<_FullScreenPreviewOverlay> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class PdfThemeCategoryChips extends StatelessWidget {
+  const PdfThemeCategoryChips({
+    super.key,
+    required this.category,
+    required this.onChanged,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final PdfThemeCategory? category;
+  final ValueChanged<PdfThemeCategory?> onChanged;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: padding,
+      child: Row(
+        children: [
+          for (final option in [null, ...PdfThemeCategory.values])
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 8),
+              child: ChoiceChip(
+                label: Text(option == null ? context.l10n.all : context.l10n.catalogLabel(option.label)),
+                selected: option == category,
+                onSelected: (selected) => onChanged(selected ? option : null),
+                showCheckmark: false,
+                backgroundColor: AppColors.surfaceCard,
+                selectedColor: AppColors.primary,
+                side: BorderSide(
+                  color: option == category
+                      ? AppColors.primary
+                      : AppColors.cardBorder,
+                ),
+                labelStyle: TextStyle(
+                  color: option == category ? AppColors.onPrimary : AppColors.ink,
+                ),
+              ),
+            ),
         ],
       ),
     );

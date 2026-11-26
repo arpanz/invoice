@@ -1,3 +1,4 @@
+import 'package:invoice/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -30,7 +31,12 @@ void main() {
           ChangeNotifierProvider(create: (_) => BillingService()),
           ChangeNotifierProvider(create: (_) => ThemeController()),
         ],
-        child: const MaterialApp(home: SettingsScreen()),
+        child: const MaterialApp(
+          locale: Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SettingsScreen(),
+        ),
       ),
     );
 
@@ -38,6 +44,7 @@ void main() {
 
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('WORKSPACE'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Default Design & Typography'), 100);
     expect(find.text('Default Design & Typography'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Rate Us on Play Store'), 100);
     expect(find.text('Rate Us on Play Store'), findsOneWidget);
@@ -57,16 +64,23 @@ void main() {
           ChangeNotifierProvider(create: (_) => BillingService()),
           ChangeNotifierProvider.value(value: controller),
         ],
-        child: const MaterialApp(home: SettingsScreen()),
+        child: const MaterialApp(
+          locale: Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SettingsScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(find.text('Appearance'), 100);
-    expect(find.text('Same as device'), findsOneWidget);
-    await tester.ensureVisible(find.text('Same as device'));
+    // Light until the person picks otherwise.
+    expect(controller.mode, ThemeMode.light);
+    expect(find.text('Light'), findsOneWidget);
+    await tester.ensureVisible(find.text('Light'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Same as device'));
+    await tester.tap(find.text('Light'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Dark'));
     await tester.pumpAndSettle();
@@ -90,6 +104,22 @@ void main() {
     expect(AppColors.isDark, isFalse);
   });
 
+  test('a fresh install loads light, and "system" stays system', () async {
+    addTearDown(() => AppColors.isDark = false);
+    SharedPreferences.setMockInitialValues({});
+    final fresh = ThemeController();
+    addTearDown(fresh.dispose);
+    await fresh.load();
+    expect(fresh.mode, ThemeMode.light);
+    expect(AppColors.isDark, isFalse);
+
+    SharedPreferences.setMockInitialValues({ThemeController.prefKey: 'system'});
+    final system = ThemeController();
+    addTearDown(system.dispose);
+    await system.load();
+    expect(system.mode, ThemeMode.system);
+  });
+
   testWidgets('tapping the settings icon on the dashboard opens settings', (
     WidgetTester tester,
   ) async {
@@ -100,7 +130,12 @@ void main() {
           ChangeNotifierProvider(create: (_) => BillingService()),
           ChangeNotifierProvider(create: (_) => ThemeController()),
         ],
-        child: const MaterialApp(home: DashboardScreen()),
+        child: const MaterialApp(
+          locale: Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DashboardScreen(),
+        ),
       ),
     );
 

@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../core/localization/l10n.dart';
 
 import '../core/theme/app_colors.dart';
 import '../features/invoices/models/invoice_model.dart';
@@ -26,16 +27,16 @@ class StampMark extends StatefulWidget {
   });
 
   /// The stamp for an invoice's payment state.
-  factory StampMark.forStatus(InvoiceStatus status, {double fontSize = 10, bool animate = false}) {
-    final (label, color) = stampFor(status);
+  factory StampMark.forStatus(BuildContext context, InvoiceStatus status, {double fontSize = 10, bool animate = false}) {
+    final (label, color) = stampFor(context, status);
     return StampMark(label: label, color: color, fontSize: fontSize, animate: animate);
   }
 
-  static (String, Color) stampFor(InvoiceStatus status) => switch (status) {
-    InvoiceStatus.paid => ('PAID', AppColors.statusPaid),
-    InvoiceStatus.partiallyPaid => ('PART PAID', AppColors.statusPartiallyPaid),
-    InvoiceStatus.overdue => ('OVERDUE', AppColors.statusOverdue),
-    InvoiceStatus.unpaid => ('DUE', AppColors.muted),
+  static (String, Color) stampFor(BuildContext context, InvoiceStatus status) => switch (status) {
+    InvoiceStatus.paid => (context.l10n.paidStamp, AppColors.statusPaid),
+    InvoiceStatus.partiallyPaid => (context.l10n.partPaidStamp, AppColors.statusPartiallyPaid),
+    InvoiceStatus.overdue => (context.l10n.overdueStamp, AppColors.statusOverdue),
+    InvoiceStatus.unpaid => (context.l10n.due, AppColors.muted),
   };
 
   @override

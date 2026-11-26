@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../core/localization/l10n.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_typography.dart';
 import '../core/theme/app_icons.dart';
@@ -23,8 +24,8 @@ class AppDialog extends StatelessWidget {
     this.variant = AppDialogVariant.primary,
     this.icon,
     this.content,
-    this.confirmLabel = 'Confirm',
-    this.cancelLabel = 'Cancel',
+    this.confirmLabel,
+    this.cancelLabel,
     this.onConfirm,
     this.onCancel,
     this.isDestructive = false,
@@ -36,8 +37,8 @@ class AppDialog extends StatelessWidget {
   final AppDialogVariant variant;
   final IconData? icon;
   final Widget? content;
-  final String confirmLabel;
-  final String cancelLabel;
+  final String? confirmLabel;
+  final String? cancelLabel;
   final VoidCallback? onConfirm;
   final VoidCallback? onCancel;
   final bool isDestructive;
@@ -157,7 +158,7 @@ class AppDialog extends StatelessWidget {
                             elevation: 0,
                           ),
                           child: Text(
-                            cancelLabel,
+                            cancelLabel ?? context.l10n.cancel,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -181,7 +182,7 @@ class AppDialog extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
                         child: Text(
-                          confirmLabel,
+                          confirmLabel ?? context.l10n.confirm,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -210,14 +211,14 @@ class AppDialog extends StatelessWidget {
     required String message,
     AppDialogVariant variant = AppDialogVariant.primary,
     IconData? icon,
-    String confirmLabel = 'Confirm',
-    String cancelLabel = 'Cancel',
+    String? confirmLabel,
+    String? cancelLabel,
     bool isDestructive = false,
   }) {
     return showGeneralDialog<bool>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Dismiss Dialog',
+      barrierLabel: context.l10n.dismissDialog,
       barrierColor: const Color.fromRGBO(0, 0, 0, 0.45),
       transitionDuration: AppAnimations.fast,
       pageBuilder: (ctx, anim1, anim2) => AppDialog(
@@ -250,8 +251,8 @@ class AppDialog extends StatelessWidget {
     required BuildContext context,
     required String title,
     required String message,
-    String confirmLabel = 'Delete',
-    String cancelLabel = 'Cancel',
+    String? confirmLabel,
+    String? cancelLabel,
   }) {
     return showConfirmation(
       context: context,
@@ -259,7 +260,7 @@ class AppDialog extends StatelessWidget {
       message: message,
       variant: AppDialogVariant.danger,
       icon: AppIcons.delete,
-      confirmLabel: confirmLabel,
+      confirmLabel: confirmLabel ?? context.l10n.delete,
       cancelLabel: cancelLabel,
       isDestructive: true,
     );
@@ -273,13 +274,13 @@ class AppDialog extends StatelessWidget {
   }) {
     return showConfirmation(
       context: context,
-      title: 'Convert to Invoice?',
+      title: context.l10n.convertToInvoiceQuestion,
       message:
-          'This will generate an active invoice from $estimateNumber for $clientName and mark this estimate as Converted.',
+          context.l10n.thisWillGenerateAnActiveInvoiceFromFor(estimateNumber, clientName),
       variant: AppDialogVariant.primary,
       icon: AppIcons.receipt,
-      confirmLabel: 'Convert to Invoice',
-      cancelLabel: 'Cancel',
+      confirmLabel: context.l10n.convertToInvoiceAction,
+      cancelLabel: context.l10n.cancel,
     );
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/localization/catalog_localization.dart';
+import '../../../core/localization/l10n.dart';
 
 import '../../../core/database/db_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -9,6 +11,8 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/number_text.dart';
 import '../../../shared_widgets/app_dialog.dart';
 import '../../../shared_widgets/custom_text_field.dart';
+import '../../receipts/receipt_pdf_service.dart';
+import '../../receipts/receipt_preview_screen.dart';
 import '../models/invoice_model.dart';
 import '../models/payment_model.dart';
 import '../../../core/theme/app_icons.dart';
@@ -20,19 +24,24 @@ const paymentMethods = ['Bank transfer', 'UPI', 'Cash', 'Card', 'Cheque', 'PayPa
 /// Returns true if anything changed.
 class PaymentsSheet extends StatefulWidget {
   final InvoiceModel invoice;
+  final VoidCallback? onChanged;
 
-  const PaymentsSheet({super.key, required this.invoice});
+  const PaymentsSheet({super.key, required this.invoice, this.onChanged});
 
   static Future<bool> show(BuildContext context, InvoiceModel invoice) async {
-    final changed = await showModalBottomSheet<bool>(
+    var changed = false;
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (_) => PaymentsSheet(invoice: invoice),
+      builder: (_) => PaymentsSheet(
+        invoice: invoice,
+        onChanged: () => changed = true,
+      ),
     );
-    return changed ?? false;
+    return changed;
   }
 
   @override
@@ -42,7 +51,7 @@ class PaymentsSheet extends StatefulWidget {
 class _PaymentsSheetState extends State<PaymentsSheet> {
   List<PaymentModel> _payments = [];
   bool _loading = true;
-  bool _changed = false;
+  final _messages = GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
@@ -72,121 +81,149 @@ class _PaymentsSheetState extends State<PaymentsSheet> {
     );
     if (payment == null) return;
     await DbProvider.addPayment(payment);
-    _changed = true;
+    widget.onChanged?.call();
     await _load();
+    if (!mounted) return;
+    _messages.currentState
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.paymentRecorded),
+          action: SnackBarAction(
+            label: context.l10n.sendReceipt,
+            onPressed: () => _openReceipt(payment),
+          ),
+        ),
+      );
+  }
+
+  void _openReceipt(PaymentModel payment) {
+    if (!_payments.any((entry) => entry.id == payment.id)) return;
+    ReceiptPreviewScreen.open(
+      context,
+      PaymentReceipt.fromPayments(widget.invoice, _payments, payment: payment),
+    );
   }
 
   Future<void> _delete(PaymentModel p) async {
     final ok = await AppDialog.showDelete(
       context: context,
-      title: 'Delete payment?',
-      message: 'Delete the ${_money(p.amount)} payment from '
-          '${DateFormat('d MMM yyyy').format(p.paidOn)}?',
+      title: context.l10n.deletePayment,
+      message: context.l10n.deleteThePaymentFrom(_money(p.amount), DateFormat('d MMM yyyy', context.localeName).format(p.paidOn)),
     );
     if (ok != true) return;
     await DbProvider.deletePayment(p.id);
-    _changed = true;
+    widget.onChanged?.call();
     await _load();
   }
 
   @override
   Widget build(BuildContext context) {
     final overpaid = -_balance;
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) Navigator.of(context).pop(_changed);
-      },
-      child: SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.hairline,
-                      borderRadius: BorderRadius.circular(2),
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
+        child: ScaffoldMessenger(
+          key: _messages,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.hairline,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Payments',
-                  style: AppTypography.serif(fontSize: 18, fontWeight: FontWeight.w500, color: AppColors.ink),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Invoice ${widget.invoice.invoiceNumber} · Total ${_money(widget.invoice.grandTotal)}',
-                  style: TextStyle(fontSize: 13, color: AppColors.muted),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    _summary('Received', _money(_paid), AppColors.statusPaid),
-                    const SizedBox(width: 10),
-                    overpaid > 0.005
-                        ? _summary('Overpaid by', _money(overpaid), AppColors.statusPartiallyPaid)
-                        : _summary('Balance due', _money(_balance < 0 ? 0 : _balance), AppColors.ink),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (_loading)
-                  const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_payments.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Text(
-                      'No payments recorded yet.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.muted),
-                    ),
-                  )
-                else
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: _payments.length,
-                      separatorBuilder: (_, _) => Divider(height: 1, color: AppColors.hairline),
-                      itemBuilder: (_, i) {
-                        final p = _payments[i];
-                        final details = [
-                          DateFormat('d MMM yyyy').format(p.paidOn),
-                          if (p.method != null && p.method!.isNotEmpty) p.method!,
-                          if (p.note != null && p.note!.isNotEmpty) p.note!,
-                        ].join(' · ');
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            _money(p.amount),
-                            style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.ink),
-                          ),
-                          subtitle: Text(details, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
-                          trailing: IconButton(
-                            tooltip: 'Delete payment',
-                            icon: Icon(AppIcons.delete, color: AppColors.muted),
-                            onPressed: () => _delete(p),
-                          ),
-                        );
-                      },
-                    ),
+                  const SizedBox(height: 16),
+                  Text(
+                    context.l10n.payments,
+                    style: AppTypography.serif(fontSize: 18, fontWeight: FontWeight.w500, color: AppColors.ink),
                   ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _loading ? null : _record,
-                  icon: const Icon(AppIcons.add),
-                  label: const Text('Record payment'),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    context.l10n.invoiceTotal(widget.invoice.invoiceNumber, _money(widget.invoice.grandTotal)),
+                    style: TextStyle(fontSize: 13, color: AppColors.muted),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _summary(context.l10n.received, _money(_paid), AppColors.statusPaid),
+                      const SizedBox(width: 10),
+                      overpaid > 0.005
+                          ? _summary(context.l10n.overpaidBy, _money(overpaid), AppColors.statusPartiallyPaid)
+                          : _summary(context.l10n.balanceDueLabel, _money(_balance < 0 ? 0 : _balance), AppColors.ink),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_loading)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_payments.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Text(
+                        context.l10n.noPaymentsRecordedYet,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.muted),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: _payments.length,
+                        separatorBuilder: (_, _) => Divider(height: 1, color: AppColors.hairline),
+                        itemBuilder: (_, i) {
+                          final p = _payments[i];
+                          final details = [
+                            DateFormat('d MMM yyyy', context.localeName).format(p.paidOn),
+                            if (p.method != null && p.method!.isNotEmpty) context.l10n.catalogLabel(p.method!),
+                            if (p.note != null && p.note!.isNotEmpty) p.note!,
+                          ].join(' · ');
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              _money(p.amount),
+                              style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.ink),
+                            ),
+                            subtitle: Text(details, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextButton(
+                                  onPressed: () => _openReceipt(p),
+                                  child: Text(context.l10n.receipt),
+                                ),
+                                IconButton(
+                                  tooltip: context.l10n.deletePayment2,
+                                  icon: Icon(AppIcons.delete, color: AppColors.muted),
+                                  onPressed: () => _delete(p),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _loading ? null : _record,
+                    icon: const Icon(AppIcons.add),
+                    label: Text(context.l10n.recordPayment),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -308,26 +345,26 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Record payment',
+                  context.l10n.recordPayment,
                   style: AppTypography.serif(fontSize: 18, fontWeight: FontWeight.w500, color: AppColors.ink),
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(
-                  label: 'Amount received',
+                  label: context.l10n.amountReceived,
                   controller: _amountCtrl,
                   prefixText: '$symbol ',
                   autofocus: true,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   validator: (v) {
                     final amount = NumberText.parse(v, fallback: double.nan);
-                    if (amount.isNaN || amount <= 0) return 'Enter an amount above 0';
+                    if (amount.isNaN || amount <= 0) return context.l10n.enterAnAmountAbove0;
                     return null;
                   },
                 ),
                 if (widget.balance > 0.005) ...[
                   const SizedBox(height: 6),
                   Text(
-                    'Balance due: ${CurrencyFormatter.format(widget.balance, currencyCode: widget.invoice.currency)}',
+                    context.l10n.remainingAmountLabel(CurrencyFormatter.format(widget.balance, currencyCode: widget.invoice.currency)),
                     style: TextStyle(fontSize: 12, color: AppColors.muted),
                   ),
                 ],
@@ -336,8 +373,8 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
                   borderRadius: BorderRadius.circular(8),
                   onTap: _pickDate,
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Date received'),
-                    child: Text(DateFormat('d MMM yyyy').format(_paidOn)),
+                    decoration: InputDecoration(labelText: context.l10n.dateReceived),
+                    child: Text(DateFormat('d MMM yyyy', context.localeName).format(_paidOn)),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -347,16 +384,16 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
                   children: [
                     for (final m in paymentMethods)
                       ChoiceChip(
-                        label: Text(m),
+                        label: Text(context.l10n.catalogLabel(m)),
                         selected: _method == m,
                         onSelected: (sel) => setState(() => _method = sel ? m : null),
                       ),
                   ],
                 ),
                 const SizedBox(height: 14),
-                CustomTextField(label: 'Note (optional)', controller: _noteCtrl),
+                CustomTextField(label: context.l10n.noteOptional, controller: _noteCtrl),
                 const SizedBox(height: 20),
-                FilledButton(onPressed: _save, child: const Text('Save payment')),
+                FilledButton(onPressed: _save, child: Text(context.l10n.savePayment)),
               ],
             ),
           ),

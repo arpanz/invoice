@@ -6,10 +6,14 @@ import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
+import '../../../core/notifications/client_reminder_sheet.dart';
+import '../../../core/notifications/reminder_schedule.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../paywall/paywall_screen.dart';
+import '../../receipts/receipt_pdf_service.dart';
+import '../../receipts/receipt_preview_screen.dart';
 import '../models/invoice_customization_config.dart';
 import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
@@ -20,6 +24,8 @@ import '../services/invoice_render_service.dart';
 import '../services/pdf_generator_service.dart';
 import '../../../core/billing/free_limits.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/localization/catalog_localization.dart';
+import '../../../core/localization/l10n.dart';
 import '../widgets/invoice_customizer_studio_sheet.dart';
 import 'create_invoice_screen.dart';
 import '../../../shared_widgets/document_pages.dart';
@@ -75,14 +81,16 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
 
   Future<void> _openThemePicker() async {
     final profile = await _getBusinessProfile();
+    final paidOn = await InvoiceRenderService.lastPaymentDate(_invoice);
     if (!mounted) return;
     final updated = await InvoiceCustomizerStudioSheet.show(
       context,
       initialConfig: _customConfig,
       invoice: _invoice,
       businessProfile: profile,
+      paidOn: paidOn,
       showSetAsDefault: true,
-      title: 'Invoice Design Studio',
+      title: context.l10n.invoiceDesignStudio,
     );
     if (updated != null && mounted) {
       await InvoiceRenderService.saveDesignForInvoice(_invoice.id, updated);
@@ -123,8 +131,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not show the preview. Please try again.'),
+          SnackBar(
+            content: Text(context.l10n.couldNotShowThePreviewPleaseTryAgain),
           ),
         );
       }
@@ -195,7 +203,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Change Invoice Status',
+                        context.l10n.changeInvoiceStatus,
                         style: AppTypography.serif(
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
@@ -204,7 +212,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Invoice ${_invoice.invoiceNumber}',
+                        context.l10n.invoiceWithNumber(_invoice.invoiceNumber),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -222,8 +230,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               const SizedBox(height: 16),
               _buildStatusOption(
                 InvoiceStatus.unpaid,
-                'Unpaid',
-                'Deletes recorded payments',
+                context.l10n.unpaid,
+                context.l10n.deletesRecordedPayments,
                 AppIcons.pendingActions,
                 AppColors.statusUnpaid,
                 AppColors.statusUnpaidBg,
@@ -231,8 +239,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               const SizedBox(height: 8),
               _buildStatusOption(
                 InvoiceStatus.partiallyPaid,
-                'Record a payment',
-                'Add a deposit or part payment',
+                context.l10n.recordAPayment,
+                context.l10n.addADepositOrPartPayment,
                 AppIcons.pieChart,
                 AppColors.statusPartiallyPaid,
                 AppColors.statusPartiallyPaidBg,
@@ -240,8 +248,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               const SizedBox(height: 8),
               _buildStatusOption(
                 InvoiceStatus.paid,
-                'Paid in Full',
-                'Payment received successfully',
+                context.l10n.paidInFull,
+                context.l10n.paymentReceivedSuccessfully,
                 AppIcons.checkCircleFilled,
                 AppColors.statusPaid,
                 AppColors.statusPaidBg,
@@ -359,6 +367,22 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     }
   }
 
+  Future<void> _openTotalReceipt() async {
+    final invoice = _invoice;
+    try {
+      final payments = await DbProvider.paymentsFor(invoice.id);
+      if (!mounted || payments.isEmpty) return;
+      ReceiptPreviewScreen.open(context, PaymentReceipt.fromPayments(invoice, payments));
+    } catch (e) {
+      debugPrint('Could not open receipt: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.couldNotOpenTheReceipt)),
+        );
+      }
+    }
+  }
+
   void _showMoreActions() {
     showModalBottomSheet(
       context: context,
@@ -385,7 +409,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'More Actions',
+                    context.l10n.moreActions,
                     style: AppTypography.serif(
                       fontSize: 18,
                       fontWeight: FontWeight.w500,
@@ -403,9 +427,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 icon: AppIcons.palette,
                 iconColor: AppColors.squirclePurpleIcon,
                 bgColor: AppColors.squirclePurple,
-                title: 'Change Design',
+                title: context.l10n.changeDesign,
                 subtitle:
-                    '${_currentTheme.name} · typography, colours & layout',
+                    context.l10n.designThemeSummary(context.l10n.catalogLabel(_currentTheme.name)),
                 // The template's accent as a swatch; the text stays readable.
                 trailing: Container(
                   width: 14,
@@ -426,8 +450,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 icon: AppIcons.copy,
                 iconColor: AppColors.squircleCyanIcon,
                 bgColor: AppColors.squircleCyan,
-                title: 'Duplicate Invoice',
-                subtitle: 'Create a new copy with same items',
+                title: context.l10n.duplicateInvoice,
+                subtitle: context.l10n.createANewCopyWithSameItems,
                 onTap: () async {
                   Navigator.pop(ctx);
                   await _duplicateInvoice();
@@ -445,11 +469,11 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                     ? AppColors.statusUnpaidBg
                     : AppColors.statusPaidBg,
                 title: _invoice.status == InvoiceStatus.paid
-                    ? 'Mark as Unpaid'
-                    : 'Mark as Paid',
+                    ? context.l10n.markAsUnpaid
+                    : context.l10n.markAsPaid,
                 subtitle: _invoice.status == InvoiceStatus.paid
-                    ? 'Deletes the recorded payments'
-                    : 'Records a payment for the balance',
+                    ? context.l10n.deletesTheRecordedPayments
+                    : context.l10n.recordsAPaymentForTheBalance,
                 onTap: () {
                   Navigator.pop(ctx);
                   _updateStatus(
@@ -464,20 +488,48 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 icon: AppIcons.payments,
                 iconColor: AppColors.squircleGreenIcon,
                 bgColor: AppColors.squircleGreen,
-                title: 'Payments',
-                subtitle: 'See, record or delete payments',
+                title: context.l10n.payments,
+                subtitle: context.l10n.seeRecordOrDeletePayments,
                 onTap: () {
                   Navigator.pop(ctx);
                   _openPayments();
                 },
               ),
+              if (hasReminderBalance(_invoice)) ...[
+                const SizedBox(height: 8),
+                _buildActionTile(
+                  icon: AppIcons.send,
+                  iconColor: AppColors.squircleCyanIcon,
+                  bgColor: AppColors.squircleCyan,
+                  title: context.l10n.sendReminder,
+                  subtitle: context.l10n.editAndShareAPaymentReminderWithYour,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    ClientReminderSheet.show(context, _invoice);
+                  },
+                ),
+              ],
+              if (_invoice.paidAmount > 0) ...[
+                const SizedBox(height: 8),
+                _buildActionTile(
+                  icon: AppIcons.receipt,
+                  iconColor: AppColors.squircleGreenIcon,
+                  bgColor: AppColors.squircleGreen,
+                  title: context.l10n.receipt,
+                  subtitle: context.l10n.previewAReceiptForAllRecordedPayments,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openTotalReceipt();
+                  },
+                ),
+              ],
               const SizedBox(height: 8),
               _buildActionTile(
                 icon: AppIcons.delete,
                 iconColor: AppColors.accentRed,
                 bgColor: AppColors.statusOverdueBg,
-                title: 'Delete Invoice',
-                subtitle: 'Permanently remove this invoice',
+                title: context.l10n.deleteInvoice,
+                subtitle: context.l10n.permanentlyRemoveThisInvoice,
                 isDestructive: true,
                 onTap: () async {
                   Navigator.pop(ctx);
@@ -569,7 +621,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Duplicated as ${copy.invoiceNumber}, dated today and unpaid',
+            context.l10n.duplicatedAsDatedTodayAndUnpaid(copy.invoiceNumber),
           ),
         ),
       );
@@ -581,8 +633,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       debugPrint('Duplicate invoice failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not duplicate the invoice. Please try again.'),
+          SnackBar(
+            content: Text(context.l10n.couldNotDuplicateTheInvoicePleaseTryAgain),
           ),
         );
       }
@@ -602,8 +654,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       _invoice.currency,
     );
     final dueDateFormatted = _invoice.dueDate != null
-        ? DateFormat('dd MMM yyyy').format(_invoice.dueDate!)
-        : DateFormat('dd MMM yyyy').format(_invoice.invoiceDate);
+        ? DateFormat('dd MMM yyyy', context.localeName).format(_invoice.dueDate!)
+        : DateFormat('dd MMM yyyy', context.localeName).format(_invoice.invoiceDate);
 
     return Scaffold(
       backgroundColor: AppColors.surfaceSoft,
@@ -636,7 +688,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
         actions: [
           IconButton(
             icon: Icon(AppIcons.palette, color: AppColors.ink, size: 20),
-            tooltip: 'Design',
+            tooltip: context.l10n.design,
             onPressed: _openThemePicker,
           ),
           if (!isPro)
@@ -727,7 +779,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Due $dueDateFormatted • ${_invoice.clientName}',
+                                  context.l10n.dueDateAndClient(dueDateFormatted, _invoice.clientName),
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
                                     color: AppColors.muted,
@@ -753,7 +805,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                           ),
                           IconButton(
                             onPressed: _sendInvoice,
-                            tooltip: 'Send Invoice',
+                            tooltip: context.l10n.sendInvoice,
                             icon: Container(
                               width: 38,
                               height: 38,
@@ -777,7 +829,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                               AppIcons.chevronUp,
                               color: AppColors.muted,
                             ),
-                            tooltip: 'Expand details',
+                            tooltip: context.l10n.expandDetails,
                           ),
                         ],
                       ),
@@ -788,7 +840,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              '${_invoice.clientName}  ·  Due $dueDateFormatted',
+                              context.l10n.clientAndDueDate(_invoice.clientName, dueDateFormatted),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.inter(
@@ -845,7 +897,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    _invoice.effectiveStatus.label,
+                                    context.l10n.catalogLabel(_invoice.effectiveStatus.label),
                                     style: GoogleFonts.inter(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -906,8 +958,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                           ),
                           Tooltip(
                             message: _isSent
-                                ? 'Tap to mark as not sent'
-                                : 'Tap to mark as sent',
+                                ? context.l10n.tapToMarkAsNotSent
+                                : context.l10n.tapToMarkAsSent,
                             child: InkWell(
                               borderRadius: BorderRadius.circular(9999),
                               onTap: () => _markSentStatus(!_isSent),
@@ -926,7 +978,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                                   border: Border.all(color: AppColors.hairline),
                                 ),
                                 child: Text(
-                                  _isSent ? 'Sent' : 'Not sent',
+                                  _isSent ? context.l10n.sent : context.l10n.notSent,
                                   style: GoogleFonts.inter(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -947,7 +999,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                         Row(
                           children: [
                             Text(
-                              'Paid: ${CurrencyFormatter.format(_invoice.paidAmount, currencyCode: _invoice.currency, currencySymbol: currencySymbol)}',
+                              context.l10n.paidAmountLabel(CurrencyFormatter.format(_invoice.paidAmount, currencyCode: _invoice.currency, currencySymbol: currencySymbol)),
                               style: GoogleFonts.inter(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
@@ -956,7 +1008,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              'Balance Due: ${CurrencyFormatter.format(_invoice.balanceDue, currencyCode: _invoice.currency, currencySymbol: currencySymbol)}',
+                              context.l10n.balanceDue(CurrencyFormatter.format(_invoice.balanceDue, currencyCode: _invoice.currency, currencySymbol: currencySymbol)),
                               style: GoogleFonts.inter(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
@@ -983,7 +1035,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             color: AppColors.onPrimary,
                           ),
                           label: Text(
-                            'Send Invoice',
+                            context.l10n.sendInvoice,
                             style: GoogleFonts.inter(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -1006,22 +1058,22 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                         children: [
                           _buildActionButton(
                             icon: AppIcons.download,
-                            label: 'Download',
+                            label: context.l10n.download,
                             onTap: _downloadPdf,
                           ),
                           _buildActionButton(
                             icon: AppIcons.print,
-                            label: 'Print',
+                            label: context.l10n.print,
                             onTap: _printPdf,
                           ),
                           _buildActionButton(
                             icon: AppIcons.edit,
-                            label: 'Edit',
+                            label: context.l10n.edit,
                             onTap: _editInvoice,
                           ),
                           _buildActionButton(
                             icon: AppIcons.moreHoriz,
-                            label: 'More',
+                            label: context.l10n.more,
                             onTap: _showMoreActions,
                           ),
                         ],

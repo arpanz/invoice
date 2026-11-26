@@ -160,6 +160,14 @@ class InvoiceRenderService {
     await prefs.setString('invoice_theme_$invoiceId', theme.id.value);
   }
 
+  static Future<DateTime?> lastPaymentDate(InvoiceModel invoice) async {
+    if (InvoiceModel.paymentStatusFor(invoice.paidAmount, invoice.grandTotal) != InvoiceStatus.paid) {
+      return null;
+    }
+    final payments = await DbProvider.paymentsFor(invoice.id);
+    return payments.isEmpty ? null : payments.last.paidOn;
+  }
+
   /// Renders [invoice]. [design] overrides the stored design (live preview).
   static Future<Uint8List> renderInvoice(
     InvoiceModel invoice, {
@@ -173,6 +181,7 @@ class InvoiceRenderService {
       businessProfile: profile,
       isPro: isPro,
       customizationConfig: config,
+      paidOn: config.showStatusStamp ? await lastPaymentDate(invoice) : null,
     );
   }
 

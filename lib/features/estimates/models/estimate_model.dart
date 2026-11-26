@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../invoices/models/document_custom_field.dart';
 import '../../invoices/models/invoice_model.dart';
 import '../../invoices/models/line_item_model.dart';
 import '../../../core/theme/app_icons.dart';
@@ -112,6 +113,7 @@ class EstimateModel {
   final EstimateStatus status;
   final String? convertedInvoiceId;
   final String? notes;
+  final List<DocumentCustomField> customFields;
   final String currency;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -140,6 +142,7 @@ class EstimateModel {
     this.status = EstimateStatus.pending,
     this.convertedInvoiceId,
     this.notes,
+    this.customFields = const [],
     this.currency = 'INR',
     required this.createdAt,
     required this.updatedAt,
@@ -190,6 +193,7 @@ class EstimateModel {
       ),
       convertedInvoiceId: map['converted_invoice_id'] as String?,
       notes: map['notes'] as String?,
+      customFields: DocumentCustomField.decode(map['custom_fields']),
       currency: map['currency'] as String? ?? 'INR',
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int),
@@ -221,6 +225,7 @@ class EstimateModel {
       'status': status.value,
       'converted_invoice_id': convertedInvoiceId,
       'notes': notes,
+      'custom_fields': DocumentCustomField.encode(customFields),
       'currency': currency,
       'created_at': createdAt.millisecondsSinceEpoch,
       'updated_at': updatedAt.millisecondsSinceEpoch,
@@ -250,6 +255,7 @@ class EstimateModel {
     EstimateStatus? status,
     String? convertedInvoiceId,
     String? notes,
+    List<DocumentCustomField>? customFields,
     String? currency,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -278,6 +284,7 @@ class EstimateModel {
       status: status ?? this.status,
       convertedInvoiceId: convertedInvoiceId ?? this.convertedInvoiceId,
       notes: notes ?? this.notes,
+      customFields: customFields ?? this.customFields,
       currency: currency ?? this.currency,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -315,6 +322,7 @@ class EstimateModel {
       grandTotal: grandTotal,
       status: InvoiceStatus.unpaid,
       notes: notes,
+      customFields: customFields,
       currency: currency,
       createdAt: now,
       updatedAt: now,

@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Store screenshot renders and demo APKs
+docs/store/out/
+/android/build/

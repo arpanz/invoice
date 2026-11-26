@@ -1,8 +1,14 @@
+import 'package:invoice/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/core/billing/billing_service.dart';
 import 'package:invoice/core/database/db_provider.dart';
 import 'package:invoice/core/providers/currency_provider.dart';
+import 'package:invoice/core/localization/locale_controller.dart';
+import 'package:invoice/core/theme/theme_controller.dart';
+import 'package:invoice/features/onboarding/screens/onboarding_screen.dart';
+import 'package:invoice/features/reports/screens/reports_screen.dart';
+import 'package:invoice/features/settings/screens/settings_screen.dart';
 import 'package:invoice/features/dashboard/screens/dashboard_screen.dart';
 import 'package:invoice/features/estimates/screens/estimate_list_screen.dart';
 import 'package:invoice/main.dart';
@@ -36,7 +42,11 @@ void main() {
   });
   tearDown(() async => db.close());
 
-  Future<void> pumpPhone(WidgetTester tester, Widget child) async {
+  Future<void> pumpPhone(
+    WidgetTester tester,
+    Widget child, {
+    Locale locale = const Locale('en'),
+  }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.625;
     addTearDown(tester.view.reset);
@@ -45,8 +55,15 @@ void main() {
         providers: [
           ChangeNotifierProvider(create: (_) => CurrencyProvider()),
           ChangeNotifierProvider(create: (_) => BillingService()),
+          ChangeNotifierProvider(create: (_) => ThemeController()),
+          ChangeNotifierProvider(create: (_) => LocaleController()),
         ],
-        child: MaterialApp(home: child),
+        child: MaterialApp(
+          locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: child,
+        ),
       ),
     );
     // Let the real (ffi) database answer: real time for the I/O, then a
@@ -95,4 +112,73 @@ void main() {
     expect(find.byType(TextField), findsNothing);
     expect(find.text('Estimates'), findsOneWidget);
   });
+
+  testWidgets('Hindi builds the main tabs and settings screens', (tester) async {
+    const hindi = Locale('hi');
+    await pumpPhone(tester, const MainNavigationShell(), locale: hindi);
+
+    for (final (tab, emptyState) in [
+      ('इनवॉइस', 'आपका पहला इनवॉइस'),
+      ('एस्टीमेट', 'अभी कोई एस्टीमेट नहीं है'),
+      ('ग्राहक', 'अभी कोई ग्राहक नहीं है'),
+      ('आइटम', 'अभी कोई आइटम नहीं है'),
+    ]) {
+      final dockLabel = find.descendant(
+        of: find.byKey(const ValueKey('tabs')),
+        matching: find.text(tab),
+      );
+      await tester.tap(dockLabel);
+      await tester.pumpAndSettle();
+      expect(find.text(emptyState), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+
+    await pumpPhone(tester, const SettingsScreen(), locale: hindi);
+    expect(find.text('सेटिंग्स'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await pumpPhone(tester, const ReportsScreen(), locale: hindi);
+    expect(find.text('रिपोर्ट'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Welcome picker switches the running app to Hindi', (tester) async {
+    final locale = LocaleController();
+    addTearDown(locale.dispose);
+    tester.binding.platformDispatcher.localesTestValue = [const Locale('en')];
+    addTearDown(tester.binding.platformDispatcher.clearLocalesTestValue);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => CurrencyProvider()),
+          ChangeNotifierProvider(create: (_) => BillingService()),
+          ChangeNotifierProvider<LocaleController>.value(value: locale),
+        ],
+        child: const InvoiceMakerProApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(OnboardingScreen), findsOneWidget);
+
+    await tester.tap(find.text('Language'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('हिन्दी'));
+    await tester.pumpAndSettle();
+
+    expect(locale.language, AppLanguage.hi);
+    expect(find.text('शुरू करें'), findsOneWidget);
+
+    await tester.tap(find.text('भाषा'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('डिवाइस की भाषा'));
+    await tester.pumpAndSettle();
+
+    expect(locale.language, AppLanguage.system);
+    expect(find.text('Get started'), findsOneWidget);
+
+    tester.binding.platformDispatcher.localesTestValue = [const Locale('hi', 'IN')];
+    await tester.pumpAndSettle();
+    expect(find.text('शुरू करें'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
 }

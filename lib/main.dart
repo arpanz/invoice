@@ -1,3 +1,7 @@
+import 'l10n/gen/app_localizations.dart';
+import 'dart:async';
+
+import 'core/utils/demo_seed.dart';
 import 'core/utils/image_store.dart';
 import 'core/utils/pdf_script_fonts.dart';
 import 'features/invoices/services/invoice_render_service.dart';
@@ -7,11 +11,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/localization/l10n.dart';
+import 'core/localization/locale_controller.dart';
 import 'core/app/app_review_service.dart';
 import 'core/app/app_update_service.dart';
 import 'core/billing/billing_service.dart';
 import 'core/database/db_provider.dart';
+import 'core/notifications/reminder_service.dart';
 import 'core/providers/currency_provider.dart';
+import 'core/security/app_lock_gate.dart';
+import 'core/security/app_lock_service.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_typography.dart';
 import 'core/theme/theme_controller.dart';
@@ -20,6 +29,7 @@ import 'features/dashboard/screens/dashboard_screen.dart';
 import 'features/estimates/screens/create_estimate_screen.dart';
 import 'features/estimates/screens/estimate_list_screen.dart';
 import 'features/invoices/screens/create_invoice_screen.dart';
+import 'features/invoices/screens/invoice_preview_screen.dart';
 import 'features/items/screens/item_list_screen.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
 import 'shared_widgets/paper.dart';
@@ -37,10 +47,17 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  // Debug-only screenshot data (--dart-define=DEMO_SEED=true); a no-op
+  // otherwise. Runs before anything reads preferences.
+  await DemoSeed.run();
+
   // Light/dark choice, applied before the first frame.
   final themeController = ThemeController();
   await themeController.load();
   SystemChrome.setSystemUIOverlayStyle(ThemeController.overlayStyle);
+
+  final localeController = LocaleController();
+  await localeController.load();
 
   // Initialize database
   await DbProvider.database;
@@ -55,16 +72,26 @@ void main() async {
 
   // Initialize billing (the single source of Pro entitlement)
   final billingService = BillingService();
-  await billingService.initialize();
+  if (DemoSeed.enabled) {
+    // The demo's Pro flag must not be revoked by the store's restore.
+    await billingService.loadCachedEntitlement();
+  } else {
+    await billingService.initialize();
+  }
 
+  final appLock = await AppLockService.load();
+  final reminders = ReminderService.instance;
+  localeController.addListener(() => unawaited(reminders.resyncAll()));
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
         ChangeNotifierProvider<BillingService>.value(value: billingService),
         ChangeNotifierProvider<ThemeController>.value(value: themeController),
+        ChangeNotifierProvider<LocaleController>.value(value: localeController),
+        ChangeNotifierProvider<AppLockService>.value(value: appLock),
       ],
-      child: const InvoiceMakerProApp(),
+      child: InvoiceMakerProApp(appLock: appLock, reminders: reminders),
     ),
   );
 }
@@ -182,23 +209,139 @@ bool isDemoProfile(
   return true;
 }
 
-class InvoiceMakerProApp extends StatelessWidget {
-  const InvoiceMakerProApp({super.key});
+class InvoiceMakerProApp extends StatefulWidget {
+  const InvoiceMakerProApp({super.key, this.appLock, this.reminders});
+
+  final AppLockService? appLock;
+  final ReminderService? reminders;
+
+  @override
+  State<InvoiceMakerProApp> createState() => _InvoiceMakerProAppState();
+}
+
+class _InvoiceMakerProAppState extends State<InvoiceMakerProApp>
+    with WidgetsBindingObserver {
+  final _navigator = GlobalKey<NavigatorState>();
+  bool _openingReminder = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final binding = WidgetsBinding.instance;
+    binding.addObserver(this);
+    final state = binding.lifecycleState;
+    if (state != null) widget.appLock?.updateLifecycle(state);
+    widget.appLock?.addListener(_queueReminderNavigation);
+    widget.reminders?.invoiceToOpen.addListener(_queueReminderNavigation);
+    unawaited(widget.reminders?.resyncAll());
+    _queueReminderNavigation();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    widget.appLock?.removeListener(_queueReminderNavigation);
+    widget.reminders?.invoiceToOpen.removeListener(_queueReminderNavigation);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    widget.appLock?.updateLifecycle(state);
+    if (state == AppLifecycleState.resumed) {
+      unawaited(widget.reminders?.resyncAll());
+      _queueReminderNavigation();
+    }
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    unawaited(widget.reminders?.resyncAll());
+  }
+
+  @override
+  Future<bool> didPopRoute() async => widget.appLock?.covered ?? false;
+
+  @override
+  bool handleStartBackGesture(PredictiveBackEvent backEvent) =>
+      widget.appLock?.covered ?? false;
+
+  void _queueReminderNavigation() {
+    if (widget.reminders?.invoiceToOpen.value == null || _openingReminder) {
+      return;
+    }
+    final binding = WidgetsBinding.instance;
+    binding.addPostFrameCallback((_) {
+      if (mounted) unawaited(_openReminder());
+    });
+    binding.ensureVisualUpdate();
+  }
+
+  bool get _canOpenReminder =>
+      mounted &&
+      widget.appLock?.covered != true &&
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+
+  Future<void> _openReminder() async {
+    final reminders = widget.reminders!;
+    final pending = reminders.invoiceToOpen;
+    final id = pending.value;
+    final navigator = _navigator.currentState;
+    if (!_canOpenReminder ||
+        _openingReminder ||
+        id == null ||
+        navigator == null) {
+      return;
+    }
+    _openingReminder = true;
+    try {
+      final invoices = await DbProvider.loadInvoices();
+      if (!_canOpenReminder || pending.value != id) return;
+      pending.value = null;
+      for (final invoice in invoices) {
+        if (invoice.id == id) {
+          unawaited(
+            navigator
+                .push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) => InvoicePreviewScreen(invoice: invoice),
+                  ),
+                )
+                .then((_) => reminders.resyncAll()),
+          );
+          break;
+        }
+      }
+    } catch (error) {
+      debugPrint('Could not open invoice from a reminder: $error');
+      if (pending.value == id) pending.value = null;
+    } finally {
+      _openingReminder = false;
+      if (_canOpenReminder) _queueReminderNavigation();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     // Rebuilds when the theme changes; AppColors already reflects it.
     context.watch<ThemeController?>();
     final overlay = ThemeController.overlayStyle;
+    final appLock = widget.appLock;
     return MaterialApp(
+      navigatorKey: _navigator,
       title: 'Invoice Maker Pro',
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: context.watch<LocaleController?>()?.locale,
       debugShowCheckedModeBanner: false,
       theme: AppTypography.theme,
       // Colours switch instantly, so the theme must not tween.
       themeAnimationDuration: Duration.zero,
       builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
         value: overlay,
-        child: child!,
+        child: appLock == null
+            ? child!
+            : AppLockGate(service: appLock, child: child!),
       ),
       home: const AppStartup(),
       routes: {'/home': (context) => const MainNavigationShell()},
@@ -268,6 +411,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         _dashboardKey.currentState?.reload();
         if (!mounted) return;
       }
+      if (DemoSeed.enabled) return;
       await AppReviewService.instance.registerLaunch();
       if (!mounted) return;
       await _maybePromptForAppUpdate();
@@ -314,15 +458,15 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               behavior: SnackBarBehavior.floating,
               content: Text(switch (updateResult) {
                 AppUpdateStartResult.started || AppUpdateStartResult.downloaded =>
-                  'Update flow started. Follow the system prompt to finish.',
+                  context.l10n.updateFlowStartedFollowTheSystemPromptTo,
                 AppUpdateStartResult.cancelled =>
-                  'Update cancelled. You can install it later when prompted again.',
+                  context.l10n.updateCancelledYouCanInstallItLaterWhen,
                 AppUpdateStartResult.unavailable =>
-                  'This update is not ready to install yet.',
+                  context.l10n.thisUpdateIsNotReadyToInstallYet,
                 AppUpdateStartResult.unsupported =>
-                  'In-app updates are only supported on Android.',
+                  context.l10n.inAppUpdatesAreOnlySupportedOnAndroid,
                 AppUpdateStartResult.failed =>
-                  'The update could not be started. Please try again later.',
+                  context.l10n.theUpdateCouldNotBeStartedPleaseTry,
               }),
             ),
           );
@@ -341,9 +485,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 12),
         persist: false,
-        content: const Text('Update downloaded. Restart to finish installing.'),
+        content: Text(context.l10n.updateDownloadedRestartToFinishInstalling),
         action: SnackBarAction(
-          label: 'Restart',
+          label: context.l10n.restart,
           onPressed: () => AppUpdateService.instance.completeDownloadedUpdate(),
         ),
       ),
@@ -355,7 +499,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
 
-  static const _searchHints = ['Search invoices', 'Search estimates', 'Search clients', 'Search items'];
+  List<String> get _searchHints => [context.l10n.searchInvoices, context.l10n.searchEstimates, context.l10n.searchClients, context.l10n.searchItems];
 
   void _applySearch(int index, String q) {
     switch (index) {
@@ -474,12 +618,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       padding: const EdgeInsets.symmetric(horizontal: 5),
       child: Row(
         children: [
-          _buildNavItem(index: 0, icon: AppIcons.receipt, activeIcon: AppIcons.receiptFilled, label: 'Invoices'),
-          _buildNavItem(index: 1, icon: AppIcons.estimate, activeIcon: AppIcons.estimateFilled, label: 'Estimates'),
-          _buildNavItem(index: 2, icon: AppIcons.clients, activeIcon: AppIcons.clientsFilled, label: 'Clients'),
-          _buildNavItem(index: 3, icon: AppIcons.items, activeIcon: AppIcons.itemsFilled, label: 'Items'),
+          _buildNavItem(index: 0, icon: AppIcons.receipt, activeIcon: AppIcons.receiptFilled, label: context.l10n.invoices),
+          _buildNavItem(index: 1, icon: AppIcons.estimate, activeIcon: AppIcons.estimateFilled, label: context.l10n.estimates),
+          _buildNavItem(index: 2, icon: AppIcons.clients, activeIcon: AppIcons.clientsFilled, label: context.l10n.clients),
+          _buildNavItem(index: 3, icon: AppIcons.items, activeIcon: AppIcons.itemsFilled, label: context.l10n.items),
           Tooltip(
-            message: 'Search',
+            message: context.l10n.search,
             child: InkResponse(
               onTap: _openSearch,
               radius: 24,
@@ -525,7 +669,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             ),
           ),
           IconButton(
-            tooltip: 'Close search',
+            tooltip: context.l10n.closeSearch,
             onPressed: _closeSearch,
             icon: Icon(AppIcons.close, color: AppColors.ink, size: 20),
           ),
@@ -583,7 +727,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   Widget _buildCenterActionButton() {
     return Semantics(
       button: true,
-      label: 'Create',
+      label: context.l10n.create,
       child: PressScale(
         pressedScale: 0.9,
         child: GestureDetector(
@@ -653,21 +797,21 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.only(left: 4),
-                  child: Text('Create New Document', style: AppTypography.serif(fontSize: 22, color: AppColors.ink)),
+                  child: Text(context.l10n.createNewDocument, style: AppTypography.serif(fontSize: 22, color: AppColors.ink)),
                 ),
                 const SizedBox(height: 14),
                 _CreateOption(
                   primary: true,
                   icon: AppIcons.receipt,
-                  title: 'New Invoice',
-                  subtitle: 'Bill a client for work or items',
+                  title: context.l10n.newInvoice,
+                  subtitle: context.l10n.billAClientForWorkOrItems,
                   onTap: () => go(_newInvoice),
                 ),
                 const SizedBox(height: 8),
                 _CreateOption(
                   icon: AppIcons.estimate,
-                  title: 'New Estimate / Quote',
-                  subtitle: 'Send a price before you bill',
+                  title: context.l10n.newEstimateQuote,
+                  subtitle: context.l10n.sendAPriceBeforeYouBill,
                   onTap: () => go(_newEstimate),
                 ),
                 const SizedBox(height: 8),
@@ -677,7 +821,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       child: _CreateOption(
                         compact: true,
                         icon: AppIcons.personAdd,
-                        title: 'Client',
+                        title: context.l10n.client,
                         onTap: () => go(() {
                           _selectTab(2);
                           _clientsKey.currentState?.createNew();
@@ -689,7 +833,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       child: _CreateOption(
                         compact: true,
                         icon: AppIcons.addBox,
-                        title: 'Item',
+                        title: context.l10n.item,
                         onTap: () => go(() {
                           _selectTab(3);
                           _itemsKey.currentState?.createNew();
@@ -750,7 +894,7 @@ class _CreateOption extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        compact ? 'New $title' : title,
+                        compact ? context.l10n.newEntity(title) : title,
                         style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: fg),
                       ),
                       if (subtitle != null) ...[
@@ -829,7 +973,7 @@ class _StartupUpdateSheet extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'Update available',
+                context.l10n.updateAvailable,
                 style: AppTypography.serif(
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
@@ -839,7 +983,7 @@ class _StartupUpdateSheet extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'A newer version of Invoice Maker Pro is ready with the latest fixes and improvements.',
+                context.l10n.aNewerVersionOfInvoiceMakerProIs,
                 style: TextStyle(
                   fontSize: 13.5,
                   height: 1.45,
@@ -859,7 +1003,7 @@ class _StartupUpdateSheet extends StatelessWidget {
                           shape: const StadiumBorder(),
                           foregroundColor: AppColors.ink,
                         ),
-                        child: const Text('Later'),
+                        child: Text(context.l10n.later),
                       ),
                     ),
                   ),
@@ -875,7 +1019,7 @@ class _StartupUpdateSheet extends StatelessWidget {
                           elevation: 0,
                           shape: const StadiumBorder(),
                         ),
-                        child: const Text('Update now'),
+                        child: Text(context.l10n.updateNow),
                       ),
                     ),
                   ),

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../l10n/gen/app_localizations.dart';
+import '../../l10n/gen/app_localizations_en.dart';
 
 /// Where a saved file went, and how to open it.
 class SavedFile {
@@ -32,7 +34,8 @@ class FileExport {
   static String pdfName(String kind, String number) =>
       '${kind}_${number.replaceAll(RegExp(r'[^\w-]'), '_')}.pdf';
 
-  static Future<SavedFile?> savePdf(Uint8List bytes, String fileName) async {
+  static Future<SavedFile?> savePdf(Uint8List bytes, String fileName, {AppLocalizations? localizations}) async {
+    final l10n = localizations ?? AppLocalizationsEn();
     try {
       if (Platform.isAndroid) {
         final uri = await _channel.invokeMethod<String>('saveToDownloads', {
@@ -40,13 +43,13 @@ class FileExport {
           'fileName': fileName,
           'mimeType': 'application/pdf',
         });
-        return uri == null ? null : SavedFile(uri, 'Downloads');
+        return uri == null ? null : SavedFile(uri, l10n.downloads);
       }
       if (Platform.isIOS) {
         final dir = await getApplicationDocumentsDirectory();
         final file = File('${dir.path}/$fileName');
         await file.writeAsBytes(bytes, flush: true);
-        return SavedFile(file.path, 'Files › On My iPhone › Invoice Maker Pro');
+        return SavedFile(file.path, l10n.filesOnMyIphoneInvoiceMakerPro);
       }
     } catch (e) {
       debugPrint('Save to device failed: $e');

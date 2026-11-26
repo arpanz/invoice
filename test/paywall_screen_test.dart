@@ -1,3 +1,4 @@
+import 'package:invoice/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/core/billing/billing_service.dart';
@@ -15,7 +16,12 @@ void main() {
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
         ChangeNotifierProvider(create: (_) => BillingService()),
       ],
-      child: MaterialApp(home: child),
+      child: MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: child,
+      ),
     );
   }
 
@@ -81,6 +87,9 @@ void main() {
           ChangeNotifierProvider(create: (_) => BillingService()),
         ],
         child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => Scaffold(
               body: TextButton(

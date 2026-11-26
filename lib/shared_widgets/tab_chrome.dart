@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../core/localization/l10n.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_typography.dart';
@@ -66,7 +67,7 @@ class ProStampButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Upgrade to Pro',
+      label: context.l10n.upgradeToPro,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
@@ -75,7 +76,7 @@ class ProStampButton extends StatelessWidget {
         },
         child: Padding(
           padding: const EdgeInsets.all(10),
-          child: ExcludeSemantics(child: StampMark(label: 'GO PRO', color: AppColors.brandAccent)),
+          child: ExcludeSemantics(child: StampMark(label: context.l10n.goProStamp, color: AppColors.brandAccent)),
         ),
       ),
     );

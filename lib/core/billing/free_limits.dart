@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../localization/l10n.dart';
 
 import '../../features/paywall/paywall_screen.dart';
 import '../database/db_provider.dart';
@@ -30,10 +31,8 @@ class FreeLimits {
     if (!context.mounted) return false;
     await _explain(
       context,
-      title: 'Monthly invoice limit reached',
-      message: 'The free plan includes $invoicesPerMonth new invoices each calendar month. '
-          'You can still open, edit, share and get paid on every invoice you already have. '
-          'Upgrade to Pro for unlimited invoices.',
+      title: context.l10n.monthlyInvoiceLimitReached,
+      message: context.l10n.monthlyInvoiceLimitDetails(invoicesPerMonth),
     );
     return false;
   }
@@ -46,9 +45,8 @@ class FreeLimits {
     if (!context.mounted) return false;
     await _explain(
       context,
-      title: 'Monthly estimate limit reached',
-      message: 'The free plan includes $estimatesPerMonth new estimates each calendar month. '
-          'Upgrade to Pro for unlimited estimates.',
+      title: context.l10n.monthlyEstimateLimitReached,
+      message: context.l10n.monthlyEstimateLimitDetails(estimatesPerMonth),
     );
     return false;
   }
@@ -59,9 +57,8 @@ class FreeLimits {
     if (currentCount < savedClients) return true;
     await _explain(
       context,
-      title: 'Saved client limit reached',
-      message: 'The free plan saves up to $savedClients clients. You can still type any '
-          'client\'s details straight into an invoice. Upgrade to Pro to save unlimited clients.',
+      title: context.l10n.savedClientLimitReached,
+      message: context.l10n.savedClientLimitDetails(savedClients),
     );
     return false;
   }
@@ -77,8 +74,8 @@ class FreeLimits {
         title: Text(title),
         content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not now')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('See Pro')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.notNow)),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.seePro)),
         ],
       ),
     );

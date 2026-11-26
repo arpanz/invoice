@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/localization/catalog_localization.dart';
+import '../../../core/localization/l10n.dart';
 import '../../../core/billing/free_limits.dart';
 import '../../../core/database/db_provider.dart';
 import '../../../core/providers/currency_provider.dart';
@@ -142,7 +144,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              client == null ? 'Add New Client' : 'Edit Client',
+                              client == null ? context.l10n.addNewClient : context.l10n.editClient,
                               style: AppTypography.serif(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w500,
@@ -152,8 +154,8 @@ class ClientListScreenState extends State<ClientListScreen> {
                             const SizedBox(height: 2),
                             Text(
                               client == null
-                                  ? 'Save details for fast invoicing'
-                                  : 'Update client information',
+                                  ? context.l10n.saveDetailsForFastInvoicing
+                                  : context.l10n.updateClientInformation,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.slate500,
@@ -171,31 +173,31 @@ class ClientListScreenState extends State<ClientListScreen> {
                 ),
                 const SizedBox(height: 18),
                 CustomTextField(
-                  label: 'Client Name *',
-                  hint: 'John Doe / Acme Corp',
+                  label: context.l10n.clientName,
+                  hint: context.l10n.johnDoeAcmeCorp,
                   controller: nameCtrl,
                   textCapitalization: TextCapitalization.words,
                   validator: (v) =>
-                      v == null || v.trim().isEmpty ? 'Required' : null,
+                      v == null || v.trim().isEmpty ? context.l10n.required : null,
                 ),
                 const SizedBox(height: 12),
                 CustomTextField(
-                  label: 'Email',
+                  label: context.l10n.email,
                   hint: 'client@example.com',
                   controller: emailCtrl,
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 12),
                 CustomTextField(
-                  label: 'Phone',
+                  label: context.l10n.phone,
                   hint: '+1 (555) 012-3456',
                   controller: phoneCtrl,
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 12),
                 CustomTextField(
-                  label: 'Address',
-                  hint: '123 Main St, City',
+                  label: context.l10n.address,
+                  hint: context.l10n.label123MainStCity,
                   controller: addressCtrl,
                   maxLines: 2,
                   textCapitalization: TextCapitalization.sentences,
@@ -209,7 +211,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                 ),
                 const SizedBox(height: 22),
                 PrimaryButton(
-                  label: client == null ? 'Add Client' : 'Save Changes',
+                  label: client == null ? context.l10n.addClient : context.l10n.saveChanges,
                   onPressed: () {
                     if (formKey.currentState!.validate()) {
                       Navigator.pop(ctx, true);
@@ -256,7 +258,7 @@ class ClientListScreenState extends State<ClientListScreen> {
         debugPrint('Save client failed: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not save the client. Please try again.')),
+            SnackBar(content: Text(context.l10n.couldNotSaveTheClientPleaseTryAgain)),
           );
         }
       }
@@ -267,8 +269,8 @@ class ClientListScreenState extends State<ClientListScreen> {
   Future<void> _deleteClient(ClientModel client) async {
     final confirm = await AppDialog.showDelete(
       context: context,
-      title: 'Delete Client?',
-      message: 'Delete "${client.name}"? Their invoices and estimates keep the client details. This cannot be undone.',
+      title: context.l10n.deleteClient,
+      message: context.l10n.deleteTheirInvoicesAndEstimatesKeepTheClient(client.name),
     );
     if (confirm == true) {
       await DbProvider.deleteClient(client.id);
@@ -328,10 +330,10 @@ class ClientListScreenState extends State<ClientListScreen> {
             slivers: [
               SliverToBoxAdapter(
                 child: TabHeader(
-                  title: 'Clients',
+                  title: context.l10n.clients,
                   caption: _clients.isEmpty
-                      ? 'Who you bill'
-                      : '${_clients.length} ${_clients.length == 1 ? 'client' : 'clients'}',
+                      ? context.l10n.whoYouBill
+                      : context.l10n.clientCount(_clients.length),
                 ),
               ),
               if (_isLoading)
@@ -346,11 +348,11 @@ class ClientListScreenState extends State<ClientListScreen> {
                     padding: const EdgeInsets.only(bottom: 100),
                     child: EmptyStateView(
                       icon: AppIcons.clients,
-                      title: _searchQuery.isEmpty ? 'No Clients Yet' : 'No Results',
+                      title: _searchQuery.isEmpty ? context.l10n.noClientsYet : context.l10n.noResults,
                       subtitle: _searchQuery.isEmpty
-                          ? 'Save a client once and fill their details into every invoice'
-                          : 'Try a different search term',
-                      actionLabel: _searchQuery.isEmpty ? 'Add Client' : null,
+                          ? context.l10n.saveAClientOnceAndFillTheirDetails
+                          : context.l10n.tryADifferentSearchTerm,
+                      actionLabel: _searchQuery.isEmpty ? context.l10n.addClient : null,
                       onAction: _searchQuery.isEmpty ? () => _showAddEditDialog() : null,
                       isDarkBackground: false,
                     ),
@@ -371,7 +373,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                     },
                   ),
                 ),
-                const SliverToBoxAdapter(child: ListFootnote('Tap for history · hold to edit')),
+                SliverToBoxAdapter(child: ListFootnote(context.l10n.tapForHistoryHoldToEdit)),
               ],
             ],
           ),
@@ -398,7 +400,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                 onPressed: () => Navigator.pop(context),
               )
             : null,
-        title: Text(widget.selectionMode ? 'Select Client' : 'Clients'),
+        title: Text(widget.selectionMode ? context.l10n.selectClient : context.l10n.clients),
       ),
       body: Column(
         children: [
@@ -419,7 +421,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                   Expanded(
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: 'Search clients...',
+                        hintText: context.l10n.searchClientsHint,
                         hintStyle: GoogleFonts.inter(color: AppColors.mutedSoft, fontSize: 14),
                         border: InputBorder.none,
                         isDense: true,
@@ -442,12 +444,12 @@ class ClientListScreenState extends State<ClientListScreen> {
                     ? EmptyStateView(
                         icon: AppIcons.clients,
                         title: _searchQuery.isEmpty
-                            ? 'No Clients Yet'
-                            : 'No Results',
+                            ? context.l10n.noClientsYet
+                            : context.l10n.noResults,
                         subtitle: _searchQuery.isEmpty
-                            ? 'Add your first client to start sending invoices'
-                            : 'Try a different search term',
-                        actionLabel: _searchQuery.isEmpty ? 'Add Client' : null,
+                            ? context.l10n.addYourFirstClientToStartSendingInvoices
+                            : context.l10n.tryADifferentSearchTerm,
+                        actionLabel: _searchQuery.isEmpty ? context.l10n.addClient : null,
                         onAction: _searchQuery.isEmpty
                             ? () => _showAddEditDialog()
                             : null,
@@ -474,7 +476,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                 onPressed: () => _showAddEditDialog(),
                 icon: Icon(AppIcons.personAdd, color: AppColors.onPrimary, size: 18),
                 label: Text(
-                  'Add Client',
+                  context.l10n.addClient,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.onPrimary, fontSize: 13),
                 ),
                 backgroundColor: AppColors.primary,
@@ -579,10 +581,10 @@ class ClientListScreenState extends State<ClientListScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(client.name, style: AppTypography.serif(fontSize: 20, color: AppColors.ink)),
                 ),
-                action(AppIcons.history, 'Invoices & balance', () => _showClientDetailSheet(client)),
-                action(AppIcons.edit, 'Edit client', () => _showAddEditDialog(client: client)),
+                action(AppIcons.history, context.l10n.invoicesBalance, () => _showClientDetailSheet(client)),
+                action(AppIcons.edit, context.l10n.editClientMenu, () => _showAddEditDialog(client: client)),
                 Divider(color: AppColors.hairline, height: 12),
-                action(AppIcons.delete, 'Delete client', () => _deleteClient(client), color: AppColors.error),
+                action(AppIcons.delete, context.l10n.deleteClientMenu, () => _deleteClient(client), color: AppColors.error),
               ],
             ),
           ),
@@ -699,7 +701,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                       ),
                       IconButton(
                         icon: Icon(AppIcons.edit, color: AppColors.primary),
-                        tooltip: 'Edit Client',
+                        tooltip: context.l10n.editClient,
                         onPressed: () async {
                           Navigator.pop(ctx);
                           await _showAddEditDialog(client: client);
@@ -729,7 +731,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Total Invoiced', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                              Text(context.l10n.totalInvoiced, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
                               const SizedBox(height: 4),
                               Text(
                                 CurrencyFormatter.format(
@@ -754,7 +756,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Paid', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.statusPaid)),
+                              Text(context.l10n.paid, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.statusPaid)),
                               const SizedBox(height: 4),
                               Text(
                                 CurrencyFormatter.format(
@@ -780,7 +782,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Due Balance',
+                                context.l10n.dueBalance,
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -810,7 +812,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                     child: Text(
-                      'Totals are for $homeCurrency invoices only; $otherCurrencyCount in other currencies are not included.',
+                      context.l10n.totalsAreForInvoicesOnlyInOtherCurrencies(homeCurrency, otherCurrencyCount),
                       style: TextStyle(fontSize: 11.5, color: AppColors.slate500),
                     ),
                   ),
@@ -821,7 +823,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Invoices (${clientInvoices.length})',
+                        context.l10n.invoiceHistoryCount(clientInvoices.length),
                         style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                       ),
                       TextButton.icon(
@@ -839,7 +841,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                           ).then((_) => _loadClients());
                         },
                         icon: const Icon(AppIcons.add, size: 16),
-                        label: const Text('New Invoice', style: TextStyle(fontWeight: FontWeight.w600)),
+                        label: Text(context.l10n.newInvoice, style: TextStyle(fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
@@ -855,7 +857,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                               children: [
                                 Icon(AppIcons.receipt, size: 40, color: AppColors.slate300),
                                 SizedBox(height: 8),
-                                Text('No invoices created for this client yet', style: TextStyle(color: AppColors.slate500, fontSize: 13)),
+                                Text(context.l10n.noInvoicesCreatedForThisClientYet, style: TextStyle(color: AppColors.slate500, fontSize: 13)),
                               ],
                             ),
                           ),
@@ -896,7 +898,7 @@ class ClientListScreenState extends State<ClientListScreen> {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            inv.effectiveStatus.label,
+                                            context.l10n.catalogLabel(inv.effectiveStatus.label),
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w600,

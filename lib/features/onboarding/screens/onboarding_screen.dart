@@ -5,9 +5,16 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/localization/catalog_localization.dart';
+import '../../../core/localization/l10n.dart';
+import '../../../core/localization/language_picker.dart';
+import '../../../core/localization/locale_controller.dart';
 
+import '../../../core/billing/billing_service.dart';
+import '../../../core/billing/free_limits.dart';
 import '../../../core/models/currency_model.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -16,12 +23,17 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/image_store.dart';
 import '../../../core/utils/number_text.dart';
 import '../../../shared_widgets/currency_picker_sheet.dart';
+import '../../../shared_widgets/document_pages.dart';
 import '../../../shared_widgets/paper.dart';
+import '../../invoices/models/invoice_model.dart';
 import '../../invoices/screens/create_invoice_screen.dart';
+import '../../invoices/services/dummy_invoice_data.dart';
+import '../../invoices/services/invoice_render_service.dart';
+import '../../invoices/services/pdf_generator_service.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_animations.dart';
 
-/// First run: welcome, your business, how you bill, done.
+/// First run: welcome, your business, how you bill, getting paid, done.
 ///
 /// Nothing is saved until the last step, so backing out part-way leaves no
 /// half-set profile. As a replay from Settings it saves nothing at all.
@@ -99,12 +111,78 @@ class OnboardingScreen extends StatefulWidget {
 
   static const paymentTerms = ['Due on Receipt', 'Net 15', 'Net 30', 'Net 60'];
 
+  /// India's 15-character GSTIN: state code, PAN, entity number, Z, check.
+  static final gstinPattern = RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$');
+
+  /// A UPI ID is name@handle, where the handle is the bank or app's letters.
+  static final upiPattern = RegExp(r'^[A-Za-z0-9._-]{2,}@[A-Za-z]{2,}$');
+
+  /// The issuer details the sample preview draws, from what was typed so
+  /// far. Blank fields are left out, as on a real invoice, and the tax ID only
+  /// prints when the person charges tax.
+  @visibleForTesting
+  static BusinessProfile previewProfile({
+    required String currencyCode,
+    required double taxRate,
+    String name = '',
+    String address = '',
+    String email = '',
+    String phone = '',
+    String taxId = '',
+    String upi = '',
+    String bankName = '',
+    String account = '',
+    String routing = '',
+    String? logoPath,
+  }) {
+    String? opt(String v) => v.trim().isEmpty ? null : v.trim();
+    return BusinessProfile(
+      businessName: opt(name) ?? 'Your Business',
+      address: opt(address),
+      email: opt(email),
+      phone: opt(phone),
+      gstin: taxRate == 0 ? null : opt(taxId.toUpperCase()),
+      upiId: opt(upi),
+      bankName: opt(bankName),
+      accountNumber: opt(account),
+      ifscCode: opt(routing),
+      logoPath: logoPath,
+      currency: currencyCode,
+    );
+  }
+
+  /// The demo invoice in [currencyCode], taxed at [taxRate] the way a new
+  /// invoice would be (split in two for dual-tax countries such as India).
+  @visibleForTesting
+  static InvoiceModel previewInvoice({
+    required String currencyCode,
+    required double taxRate,
+    String? terms,
+    DateTime? now,
+  }) {
+    final dual = SupportedCurrencies.getByCode(currencyCode)?.defaultTax.isDualTax ?? false;
+    final sample = DummyInvoiceData.getSampleInvoice(currencyCode);
+    final days = {'Net 15': 15, 'Net 30': 30, 'Net 60': 60}[terms] ?? 0;
+    // Dated today and unpaid, so a brand-new account's sample is never
+    // stamped overdue by the stock sample's fixed date.
+    final n = now ?? DateTime.now();
+    final today = DateTime(n.year, n.month, n.day);
+    return sample.copyWith(
+      sgstRate: dual ? taxRate / 2 : 0,
+      cgstRate: dual ? taxRate / 2 : 0,
+      igstRate: dual ? 0 : taxRate,
+      invoiceDate: today,
+      dueDate: today.add(Duration(days: days)),
+      status: InvoiceStatus.unpaid,
+    );
+  }
+
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  static const _pages = 4;
+  static const _pages = 5;
   final _pageController = PageController();
   int _page = 0;
   bool _finishing = false;
@@ -112,7 +190,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  final _taxIdCtrl = TextEditingController();
+  final _upiCtrl = TextEditingController();
+  final _bankNameCtrl = TextEditingController();
+  final _accountCtrl = TextEditingController();
+  final _routingCtrl = TextEditingController();
   String? _logoPath;
+
+  /// Every text field, so listeners and disposal cover all of them.
+  late final _controllers = [
+    _nameCtrl,
+    _emailCtrl,
+    _phoneCtrl,
+    _addressCtrl,
+    _taxIdCtrl,
+    _upiCtrl,
+    _bankNameCtrl,
+    _accountCtrl,
+    _routingCtrl,
+  ];
 
   late Currency _currency;
   late double _taxRate;
@@ -135,7 +232,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _currency = SupportedCurrencies.getByCode(code) ?? SupportedCurrencies.popular.first;
       _taxRate = _currency.defaultTax.rate;
     }
-    for (final c in [_nameCtrl, _emailCtrl, _phoneCtrl]) {
+    for (final c in _controllers) {
       c.addListener(() => setState(() {}));
     }
     _buildTimer = Timer.periodic(const Duration(milliseconds: 380), (t) {
@@ -160,6 +257,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _nameCtrl.text = prefs.getString('biz_name') ?? '';
     _emailCtrl.text = prefs.getString('biz_email') ?? '';
     _phoneCtrl.text = prefs.getString('biz_phone') ?? '';
+    _addressCtrl.text = prefs.getString('biz_address') ?? '';
+    _taxIdCtrl.text = prefs.getString('biz_gstin') ?? '';
+    _upiCtrl.text = prefs.getString('biz_upi') ?? '';
+    _bankNameCtrl.text = prefs.getString('biz_bank_name') ?? '';
+    _accountCtrl.text = prefs.getString('biz_account') ?? '';
+    _routingCtrl.text = prefs.getString('biz_ifsc') ?? '';
     final terms = prefs.getString('default_payment_terms');
     setState(() {
       _logoPath = prefs.getString('biz_logo_path');
@@ -171,9 +274,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void dispose() {
     _buildTimer?.cancel();
     _pageController.dispose();
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _phoneCtrl.dispose();
+    for (final c in _controllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -185,6 +288,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _setCurrency(Currency c) {
     Haptics.tap();
+    // A GSTIN means nothing outside India, so don't carry it to the new
+    // country's tax ID field. Anything else stays: it is on screen to fix.
+    final leavingIndia = _isIndia && c.code != 'INR';
+    if (leavingIndia && OnboardingScreen.gstinPattern.hasMatch(_taxIdCtrl.text.trim().toUpperCase())) {
+      _taxIdCtrl.clear();
+    }
     setState(() {
       _currency = c;
       _taxRate = c.defaultTax.rate;
@@ -229,6 +338,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       await put('biz_name', _nameCtrl.text);
       await put('biz_email', _emailCtrl.text);
       await put('biz_phone', _phoneCtrl.text);
+      await put('biz_address', _addressCtrl.text);
+      // A tax ID only belongs on invoices that charge tax.
+      if (_taxRate != 0) await put('biz_gstin', _taxIdCtrl.text.toUpperCase());
+      await put('biz_upi', _upiCtrl.text);
+      await put('biz_bank_name', _bankNameCtrl.text);
+      await put('biz_account', _accountCtrl.text);
+      await put('biz_ifsc', _routingCtrl.text);
       if (_logoPath != null) await prefs.setString('biz_logo_path', _logoPath!);
       await prefs.setString('default_payment_terms', _terms);
 
@@ -246,7 +362,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _finishing = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save your details. Please try again.')),
+          SnackBar(content: Text(context.l10n.couldNotSaveYourDetailsPleaseTryAgain)),
         );
       }
     }
@@ -254,7 +370,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final showBar = _page == 1 || _page == 2;
+    final showBar = _page >= 1 && _page < _pages - 1;
     return PopScope(
       canPop: _page == 0,
       onPopInvokedWithResult: (didPop, _) {
@@ -278,7 +394,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     FocusManager.instance.primaryFocus?.unfocus();
                     setState(() => _page = i);
                   },
-                  children: [_buildWelcome(), _buildBusiness(), _buildDefaults(), _buildDone()],
+                  children: [_buildWelcome(), _buildBusiness(), _buildDefaults(), _buildPayment(), _buildDone()],
                 ),
               ),
             ],
@@ -294,13 +410,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Row(
         children: [
           IconButton(
-            tooltip: 'Back',
+            tooltip: context.l10n.back,
             onPressed: () => _goTo(_page - 1),
             icon: Icon(AppIcons.arrowBack, color: AppColors.ink),
           ),
           const Spacer(),
-          // Two steps, two dashes.
-          for (var i = 1; i <= 2; i++)
+          // One dash per step between the welcome and done pages.
+          for (var i = 1; i < _pages - 1; i++)
             AnimatedContainer(
               duration: AppAnimations.medium,
               width: i == _page ? 28 : 14,
@@ -315,7 +431,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           TextButton(
             onPressed: () => _goTo(_pages - 1),
             style: TextButton.styleFrom(foregroundColor: AppColors.muted),
-            child: Text('Skip', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+            child: Text(context.l10n.skip, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -363,26 +479,37 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('INVOICE MAKER PRO', style: _caption),
+          Row(
+            children: [
+              Expanded(child: Text('INVOICE MAKER PRO', style: _caption)),
+              if (context.watch<LocaleController?>() != null)
+                TextButton.icon(
+                  onPressed: () => showLanguagePicker(context),
+                  icon: const Icon(AppIcons.globe, size: 16),
+                  label: Text(context.l10n.language),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.ink),
+                ),
+            ],
+          ),
           Expanded(
             child: Center(
               child: FittedBox(fit: BoxFit.scaleDown, child: _sampleInvoice()),
             ),
           ),
           Text(
-            'Get paid,\nbeautifully.',
+            context.l10n.getPaidBeautifully,
             style: AppTypography.serif(fontSize: 40, color: AppColors.ink, letterSpacing: -1.3, height: 1.05),
           ),
           const SizedBox(height: 10),
           Text(
-            'Make an invoice in under a minute. Stamp it paid when the money lands.',
+            context.l10n.makeAnInvoiceInUnderAMinuteStamp,
             style: GoogleFonts.inter(fontSize: 15, color: AppColors.muted, height: 1.45),
           ),
           const SizedBox(height: 28),
-          _primaryButton(widget.isReplay ? 'Start the tour' : 'Get started', () => _goTo(1)),
+          _primaryButton(widget.isReplay ? context.l10n.startTheTour : context.l10n.getStarted, () => _goTo(1)),
           const SizedBox(height: 10),
           Center(
-            child: Text('Takes about 30 seconds', style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.mutedSoft)),
+            child: Text(context.l10n.takesAboutAMinute, style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.mutedSoft)),
           ),
         ],
       ),
@@ -439,16 +566,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   1,
                   Row(
                     children: [
-                      Text('Invoice', style: AppTypography.serif(fontSize: 22, color: AppColors.ink)),
+                      Text(context.l10n.invoiceLabel, style: AppTypography.serif(fontSize: 22, color: AppColors.ink)),
                       const Spacer(),
                       Text('#0001', style: small),
                     ],
                   ),
                 ),
                 const SizedBox(height: 12),
-                line(2, Text('Bill to  ·  Studio North', style: small)),
+                line(2, Text(context.l10n.billToStudioNorth, style: small)),
                 const SizedBox(height: 14),
-                line(3, Column(children: [item('Logo design', 1200), item('Brand guide', 600)])),
+                line(3, Column(children: [item(context.l10n.logoDesign, 1200), item(context.l10n.brandGuide, 600)])),
                 const SizedBox(height: 8),
                 line(
                   4,
@@ -459,7 +586,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Row(
                         children: [
                           Text(
-                            'Total',
+                            context.l10n.total,
                             style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.ink),
                           ),
                           const Spacer(),
@@ -476,7 +603,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Positioned(
               right: 18,
               top: 56,
-              child: StampMark(label: 'PAID', color: AppColors.statusPaid, fontSize: 22, animate: true),
+              child: StampMark(label: context.l10n.paidStamp, color: AppColors.statusPaid, fontSize: 22, animate: true),
             ),
         ],
       ),
@@ -493,25 +620,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
             children: [
-              _stepTitle('Your business', 'This sits at the top of every invoice. You can change it any time.'),
+              _stepTitle(context.l10n.yourBusiness, context.l10n.thisSitsAtTheTopOfEveryInvoice),
               const SizedBox(height: 20),
               _letterheadPreview(),
               const SizedBox(height: 20),
               _field(
                 _nameCtrl,
-                'Business or your name',
+                context.l10n.businessOrYourName,
                 TextInputType.name,
                 TextInputAction.next,
                 capitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 12),
-              _field(_emailCtrl, 'Email (optional)', TextInputType.emailAddress, TextInputAction.next),
+              _field(
+                _addressCtrl,
+                context.l10n.addressOptional,
+                TextInputType.streetAddress,
+                TextInputAction.newline,
+                capitalization: TextCapitalization.words,
+                minLines: 2,
+                maxLines: 3,
+              ),
               const SizedBox(height: 12),
-              _field(_phoneCtrl, 'Phone (optional)', TextInputType.phone, TextInputAction.done),
+              _field(_emailCtrl, context.l10n.emailOptional, TextInputType.emailAddress, TextInputAction.next),
+              const SizedBox(height: 12),
+              _field(_phoneCtrl, context.l10n.phoneOptional, TextInputType.phone, TextInputAction.done),
             ],
           ),
         ),
-        Padding(padding: const EdgeInsets.fromLTRB(24, 8, 24, 20), child: _primaryButton('Continue', () => _goTo(2))),
+        Padding(padding: const EdgeInsets.fromLTRB(24, 8, 24, 20), child: _primaryButton(context.l10n.continueAction, () => _goTo(2))),
       ],
     );
   }
@@ -519,6 +656,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   /// How the top of their invoices will look, updated as they type.
   Widget _letterheadPreview() {
     final contact = [_emailCtrl.text.trim(), _phoneCtrl.text.trim()].where((s) => s.isNotEmpty).join('  ·  ');
+    // The address prints on one line here; the PDF gives it room.
+    final address = _addressCtrl.text.trim().replaceAll(RegExp(r'\s*\n\s*'), ', ');
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -530,7 +669,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           Semantics(
             button: true,
-            label: _logoPath == null ? 'Add logo' : 'Change logo',
+            label: _logoPath == null ? context.l10n.addLogo : context.l10n.changeLogo,
             child: GestureDetector(
               // The replay tour is read-only, so it does not copy a logo in.
               onTap: widget.isReplay ? null : _pickLogo,
@@ -551,7 +690,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         children: [
                           Icon(AppIcons.addPhoto, color: AppColors.muted, size: 20),
                           const SizedBox(height: 2),
-                          Text('Logo', style: GoogleFonts.inter(fontSize: 10.5, color: AppColors.muted)),
+                          Text(context.l10n.logo, style: GoogleFonts.inter(fontSize: 10.5, color: AppColors.muted)),
                         ],
                       ),
               ),
@@ -563,7 +702,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _bizName.isEmpty ? 'Your Business' : _bizName,
+                  _bizName.isEmpty ? context.l10n.yourBusinessPlaceholder : _bizName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.serif(
@@ -571,9 +710,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     color: _bizName.isEmpty ? AppColors.mutedSoft : AppColors.ink,
                   ),
                 ),
+                if (address.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.muted),
+                  ),
+                ],
                 const SizedBox(height: 3),
                 Text(
-                  contact.isEmpty ? 'email  ·  phone' : contact,
+                  contact.isEmpty ? context.l10n.emailPhone : contact,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
@@ -595,16 +743,45 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     TextInputType type,
     TextInputAction action, {
     TextCapitalization capitalization = TextCapitalization.none,
+    String? hint,
+    String? softHint,
+    int minLines = 1,
+    int maxLines = 1,
   }) {
     return TextField(
       controller: ctrl,
       keyboardType: type,
       textInputAction: action,
       textCapitalization: capitalization,
+      minLines: minLines,
+      maxLines: maxLines,
       readOnly: widget.isReplay,
       style: GoogleFonts.inter(fontSize: 15.5, color: AppColors.ink),
-      decoration: InputDecoration(labelText: label),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        // A gentle nudge, never an error: odd-looking IDs still save.
+        helperText: softHint,
+        helperMaxLines: 2,
+        helperStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.muted),
+      ),
     );
+  }
+
+  bool get _isIndia => _currency.code == 'INR';
+
+  /// Shown under the tax ID when an Indian GSTIN doesn't look right.
+  String? get _taxIdSoftHint {
+    final v = _taxIdCtrl.text.trim().toUpperCase();
+    if (!_isIndia || v.isEmpty || OnboardingScreen.gstinPattern.hasMatch(v)) return null;
+    return context.l10n.aGstinIs15CharactersLike(_currency.defaultTax.taxIdHint);
+  }
+
+  /// Shown under the UPI ID when it isn't shaped like name@handle.
+  String? get _upiSoftHint {
+    final v = _upiCtrl.text.trim();
+    if (!_isIndia || v.isEmpty || OnboardingScreen.upiPattern.hasMatch(v)) return null;
+    return context.l10n.aUpiIdLooksLikeNameBank;
   }
 
   // ── 3. How you bill ────────────────────────────────────────────────────────
@@ -621,9 +798,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
             children: [
-              _stepTitle('How you bill', 'New invoices start with these. Each invoice can still change them.'),
+              _stepTitle(context.l10n.howYouBill, context.l10n.newInvoicesStartWithTheseEachInvoiceCan),
               const SizedBox(height: 24),
-              Text('CURRENCY', style: _caption),
+              Text(context.l10n.currencyHeading, style: _caption),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
@@ -636,7 +813,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       onTap: widget.isReplay ? null : () => _setCurrency(c),
                     ),
                   _choice(
-                    label: 'More…',
+                    label: context.l10n.moreChoices,
                     selected: false,
                     onTap: widget.isReplay
                         ? null
@@ -653,11 +830,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                '${_currency.name} · ${_currency.symbol}',
+                '${context.l10n.catalogLabel(_currency.name)} · ${_currency.symbol}',
                 style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.muted),
               ),
               const SizedBox(height: 26),
-              Text(tax.shortName.isEmpty ? 'TAX' : 'TAX · ${tax.shortName.toUpperCase()}', style: _caption),
+              Text(tax.shortName.isEmpty ? context.l10n.taxHeading : context.l10n.namedTaxHeading(tax.shortName.toUpperCase()), style: _caption),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
@@ -665,7 +842,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   for (final r in rates)
                     _choice(
-                      label: r == 0 ? 'No tax' : '${NumberText.trim(r)}%',
+                      label: r == 0 ? context.l10n.noTax : '${NumberText.trim(r)}%',
                       selected: r == _taxRate,
                       onTap: widget.isReplay
                           ? null
@@ -676,8 +853,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                 ],
               ),
+              // Only someone who charges tax needs their tax ID on invoices.
+              if (_taxRate != 0) ...[
+                const SizedBox(height: 16),
+                _field(
+                  _taxIdCtrl,
+                  context.l10n.optionalField(context.l10n.catalogLabel(tax.taxIdLabel)),
+                  TextInputType.text,
+                  TextInputAction.done,
+                  capitalization: TextCapitalization.characters,
+                  hint: context.l10n.catalogLabel(tax.taxIdHint),
+                  softHint: _taxIdSoftHint,
+                ),
+              ],
               const SizedBox(height: 26),
-              Text('PAYMENT DUE', style: _caption),
+              Text(context.l10n.paymentDue, style: _caption),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
@@ -685,7 +875,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   for (final t in OnboardingScreen.paymentTerms)
                     _choice(
-                      label: t,
+                      label: context.l10n.catalogLabel(t),
                       selected: t == _terms,
                       onTap: widget.isReplay
                           ? null
@@ -699,7 +889,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
         ),
-        Padding(padding: const EdgeInsets.fromLTRB(24, 8, 24, 20), child: _primaryButton('Continue', () => _goTo(3))),
+        Padding(padding: const EdgeInsets.fromLTRB(24, 8, 24, 20), child: _primaryButton(context.l10n.continueAction, () => _goTo(3))),
       ],
     );
   }
@@ -738,109 +928,334 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // ── 4. Done ────────────────────────────────────────────────────────────────
+  // ── 4. Getting paid ────────────────────────────────────────────────────────
+
+  Widget _buildPayment() {
+    final tax = _currency.defaultTax;
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            children: [
+              _stepTitle(
+                context.l10n.gettingPaid,
+                context.l10n.printedOnEveryInvoiceSoClientsKnowHow,
+              ),
+              const SizedBox(height: 24),
+              _field(
+                _upiCtrl,
+                context.l10n.catalogLabel(tax.digitalPaymentLabel),
+                TextInputType.emailAddress,
+                TextInputAction.next,
+                hint: context.l10n.catalogLabel(tax.digitalPaymentHint),
+                softHint: _upiSoftHint,
+              ),
+              const SizedBox(height: 26),
+              Text(context.l10n.bankTransfer, style: _caption),
+              const SizedBox(height: 10),
+              _field(
+                _bankNameCtrl,
+                context.l10n.bankNameSentenceCase,
+                TextInputType.text,
+                TextInputAction.next,
+                capitalization: TextCapitalization.words,
+                hint: context.l10n.catalogLabel(tax.bankNameHint),
+              ),
+              const SizedBox(height: 12),
+              _field(
+                _accountCtrl,
+                context.l10n.catalogLabel(tax.bankAccountLabel),
+                TextInputType.text,
+                TextInputAction.next,
+                hint: context.l10n.catalogLabel(tax.bankAccountHint),
+              ),
+              const SizedBox(height: 12),
+              _field(
+                _routingCtrl,
+                context.l10n.catalogLabel(tax.bankRoutingLabel),
+                TextInputType.text,
+                TextInputAction.done,
+                capitalization: TextCapitalization.characters,
+                hint: context.l10n.catalogLabel(tax.bankRoutingHint),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+          child: Column(
+            children: [
+              _primaryButton(context.l10n.continueAction, () => _goTo(_pages - 1)),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: TextButton(
+                  onPressed: () => _goTo(_pages - 1),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.muted),
+                  child: Text(context.l10n.skipForNow, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Opens the sample document drawn with what was typed so far. Nothing is
+  /// saved and no invoice is created, so it never counts toward a limit.
+  void _openSamplePreview() {
+    Haptics.tap();
+    FocusScope.of(context).unfocus();
+    final profile = OnboardingScreen.previewProfile(
+      currencyCode: _currency.code,
+      taxRate: _taxRate,
+      name: _nameCtrl.text,
+      address: _addressCtrl.text,
+      email: _emailCtrl.text,
+      phone: _phoneCtrl.text,
+      taxId: _taxIdCtrl.text,
+      upi: _upiCtrl.text,
+      bankName: _bankNameCtrl.text,
+      account: _accountCtrl.text,
+      routing: _routingCtrl.text,
+      logoPath: _logoPath,
+    );
+    final invoice = OnboardingScreen.previewInvoice(currencyCode: _currency.code, taxRate: _taxRate, terms: _terms);
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => _SamplePreviewScreen(invoice: invoice, profile: profile)),
+    );
+  }
+
+  // ── 5. Done ────────────────────────────────────────────────────────────────
 
   Widget _buildDone() {
-    final active = _page == 3;
+    final active = _page == _pages - 1;
+    final isPro = context.watch<BillingService>().isPro;
     final firstName = _bizName.split(RegExp(r'\s+')).first;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Transform.rotate(
-                        angle: 0.02,
-                        child: Container(
-                          width: 290,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: AppColors.canvas,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.hairline),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _bizName.isEmpty ? 'Your Business' : _bizName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.serif(fontSize: 22, color: AppColors.ink),
-                              ),
-                              const SizedBox(height: 14),
-                              for (final w in [0.8, 0.55, 0.7]) ...[
-                                FractionallySizedBox(
-                                  widthFactor: w,
-                                  child: Container(
-                                    height: 7,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surfaceCard,
-                                      borderRadius: BorderRadius.circular(4),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Transform.rotate(
+                          angle: 0.02,
+                          child: Container(
+                            width: 290,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppColors.canvas,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.hairline),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _bizName.isEmpty ? context.l10n.yourBusinessPlaceholder : _bizName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.serif(fontSize: 22, color: AppColors.ink),
+                                ),
+                                const SizedBox(height: 14),
+                                for (final w in [0.8, 0.55, 0.7]) ...[
+                                  FractionallySizedBox(
+                                    widthFactor: w,
+                                    child: Container(
+                                      height: 7,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceCard,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 10),
-                              ],
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Text(_currency.code, style: _caption),
-                                  const Spacer(),
-                                  Text(_terms, style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.muted)),
+                                  const SizedBox(height: 10),
                                 ],
-                              ),
-                            ],
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Text(_currency.code, style: _caption),
+                                    const Spacer(),
+                                    Text(context.l10n.catalogLabel(_terms), style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.muted)),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      // Only stamped once the page is actually on screen.
-                      if (active)
-                        Positioned(
-                          right: -6,
-                          bottom: -16,
-                          child: StampMark(label: 'READY', color: AppColors.brandAccent, fontSize: 20, animate: true),
-                        ),
-                    ],
+                        // Only stamped once the page is actually on screen.
+                        if (active)
+                          Positioned(
+                            right: -6,
+                            bottom: -16,
+                            child: StampMark(label: context.l10n.ready, color: AppColors.brandAccent, fontSize: 20, animate: true),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          Text(
-            firstName.isEmpty ? 'You\'re all set.' : 'You\'re all set,\n$firstName.',
-            style: AppTypography.serif(fontSize: 36, color: AppColors.ink, letterSpacing: -1.1, height: 1.08),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            widget.isReplay
-                ? 'That\'s the tour. Nothing was changed.'
-                : 'Your first invoice is one tap away. Tap + at the bottom any time to make another.',
-            style: GoogleFonts.inter(fontSize: 15, color: AppColors.muted, height: 1.45),
-          ),
-          const SizedBox(height: 28),
-          _primaryButton('Create my first invoice', () => _finishOnboarding(openCreateInvoice: true)),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: TextButton(
-              onPressed: () => _finishOnboarding(),
-              style: TextButton.styleFrom(foregroundColor: AppColors.ink),
-              child: Text(
-                widget.isReplay ? 'Back to settings' : 'I\'ll look around first',
-                style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+            // The illustration shrinks first; on a small phone with large text
+            // the words and buttons scroll instead of running off the page.
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: constraints.maxHeight),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      firstName.isEmpty ? context.l10n.youReAllSet : context.l10n.setupCompleteFor(firstName),
+                      style: AppTypography.serif(fontSize: 36, color: AppColors.ink, letterSpacing: -1.1, height: 1.08),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      widget.isReplay
+                          ? context.l10n.thatSTheTourNothingWasChanged
+                          : context.l10n.yourFirstInvoiceIsOneTapAwayTap,
+                      style: GoogleFonts.inter(fontSize: 15, color: AppColors.muted, height: 1.45),
+                    ),
+                    if (!isPro && !widget.isReplay) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.onboardingFreePlanLimit(FreeLimits.invoicesPerMonth),
+                        style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.mutedSoft, height: 1.4),
+                      ),
+                    ],
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: _openSamplePreview,
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.ink,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          minimumSize: const Size(0, 44),
+                        ),
+                        child: Text(
+                          context.l10n.seeASampleWithYourDetails,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                            decorationColor: AppColors.hairline,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _primaryButton(context.l10n.createMyFirstInvoice, () => _finishOnboarding(openCreateInvoice: true)),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: TextButton(
+                        onPressed: () => _finishOnboarding(),
+                        style: TextButton.styleFrom(foregroundColor: AppColors.ink),
+                        child: Text(
+                          widget.isReplay ? context.l10n.backToSettings : context.l10n.iLlLookAroundFirst,
+                          style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The demo invoice drawn with the details typed during onboarding.
+///
+/// Rendered in memory only: no invoice row, no saved design, no limit used.
+class _SamplePreviewScreen extends StatefulWidget {
+  final InvoiceModel invoice;
+  final BusinessProfile profile;
+
+  const _SamplePreviewScreen({required this.invoice, required this.profile});
+
+  @override
+  State<_SamplePreviewScreen> createState() => _SamplePreviewScreenState();
+}
+
+class _SamplePreviewScreenState extends State<_SamplePreviewScreen> {
+  List<MemoryImage>? _pages;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _render();
+  }
+
+  Future<void> _render() async {
+    try {
+      // Free users see the same watermark their real invoices will carry.
+      final isPro = context.read<BillingService>().isPro;
+      // The default design from Settings, if one is set; reading changes nothing.
+      final design = await InvoiceRenderService.designForInvoice(null);
+      final bytes = await PdfGeneratorService.generateInvoicePdf(
+        invoice: widget.invoice,
+        businessProfile: widget.profile,
+        isPro: isPro,
+        customizationConfig: design,
+      );
+      final images = <MemoryImage>[];
+      await for (final page in Printing.raster(bytes, dpi: 150)) {
+        images.add(MemoryImage(await page.toPng()));
+      }
+      if (mounted) {
+        setState(() {
+          _pages = images;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Sample preview failed: $e');
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.canvas,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        title: Text(context.l10n.sampleInvoice, style: AppTypography.serif(fontSize: 20, color: AppColors.ink)),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        ),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+            child: Text(
+              context.l10n.yourDetailsOnAMadeUpInvoiceNothing,
+              style: GoogleFonts.inter(fontSize: 13, color: AppColors.muted),
+            ),
           ),
+          Expanded(child: DocumentPagesView(pages: _pages, loading: _loading)),
         ],
       ),
     );

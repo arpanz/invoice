@@ -11,6 +11,8 @@ import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/localization/catalog_localization.dart';
+import '../../../core/localization/l10n.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared_widgets/empty_state_view.dart';
 import '../../invoices/models/line_item_model.dart';
@@ -159,7 +161,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
   Future<void> _quickUpdateStatus(EstimateModel estimate, EstimateStatus status) async {
     if (EstimateActions.isLocked(estimate)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A converted estimate keeps its status. Delete its invoice to change it.')),
+        SnackBar(content: Text(context.l10n.aConvertedEstimateKeepsItsStatusDeleteIts)),
       );
       return;
     }
@@ -181,10 +183,10 @@ class EstimateListScreenState extends State<EstimateListScreen> {
     if (invoice == null || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Converted to Invoice ${invoice.invoiceNumber}'),
+        content: Text(context.l10n.convertedToInvoice(invoice.invoiceNumber)),
         persist: false,
         action: SnackBarAction(
-          label: 'VIEW',
+          label: context.l10n.viewActionUppercase,
           onPressed: () {
             Navigator.push(
               context,
@@ -199,6 +201,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
   }
 
   Future<void> _sharePdf(EstimateModel estimate) async {
+    final l10n = context.l10n;
     try {
       final pdfBytes = await EstimateActions.render(
         estimate,
@@ -211,14 +214,14 @@ class EstimateListScreenState extends State<EstimateListScreen> {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(path)],
-          text: 'Estimate ${estimate.estimateNumber} for ${estimate.clientName}',
+          text: l10n.estimateFor(estimate.estimateNumber, estimate.clientName),
         ),
       );
     } catch (e) {
       debugPrint('Share estimate failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not share the estimate. Please try again.')),
+          SnackBar(content: Text(l10n.couldNotShareTheEstimatePleaseTryAgain)),
         );
       }
     }
@@ -265,10 +268,10 @@ class EstimateListScreenState extends State<EstimateListScreen> {
             slivers: [
               SliverToBoxAdapter(
                 child: TabHeader(
-                  title: 'Estimates',
+                  title: context.l10n.estimates,
                   caption: _allEstimates.isEmpty
-                      ? 'Quotes & proposals'
-                      : '${_allEstimates.length} ${_allEstimates.length == 1 ? 'quote' : 'quotes'}',
+                      ? context.l10n.quotesProposals
+                      : context.l10n.estimateCount(_allEstimates.length),
                   showPro: !isPro,
                 ),
               ),
@@ -278,9 +281,9 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                     child: Row(
                       children: [
-                        _stat('Pending', money(_totalPending), AppColors.ink),
-                        _stat('Accepted', money(_totalAccepted), AppColors.statusPaid),
-                        _stat('Estimated', money(_totalEstimated), AppColors.muted),
+                        _stat(context.l10n.pending, money(_totalPending), AppColors.ink),
+                        _stat(context.l10n.accepted, money(_totalAccepted), AppColors.statusPaid),
+                        _stat(context.l10n.estimated, money(_totalEstimated), AppColors.muted),
                       ],
                     ),
                   ),
@@ -290,11 +293,11 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                   delegate: PinnedBarDelegate(
                     child: FilterRow(
                       children: [
-                        pill('all', 'All', counted: false),
-                        pill('pending', 'Pending'),
-                        pill('accepted', 'Accepted'),
-                        pill('converted', 'Converted'),
-                        pill('declined', 'Declined'),
+                        pill('all', context.l10n.all, counted: false),
+                        pill('pending', context.l10n.pending),
+                        pill('accepted', context.l10n.accepted),
+                        pill('converted', context.l10n.converted),
+                        pill('declined', context.l10n.declined),
                       ],
                     ),
                   ),
@@ -312,11 +315,11 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                     padding: const EdgeInsets.only(bottom: 100),
                     child: EmptyStateView(
                       icon: AppIcons.estimate,
-                      title: _allEstimates.isEmpty ? 'No Estimates Yet' : 'No Results Found',
+                      title: _allEstimates.isEmpty ? context.l10n.noEstimatesYet : context.l10n.noResultsFound,
                       subtitle: _allEstimates.isEmpty
-                          ? 'Send a price before you bill. Accepted quotes turn into invoices in one tap.'
-                          : 'Try another search or filter',
-                      actionLabel: _allEstimates.isEmpty ? 'Create Estimate' : null,
+                          ? context.l10n.sendAPriceBeforeYouBillAcceptedQuotes
+                          : context.l10n.tryAnotherSearchOrFilter,
+                      actionLabel: _allEstimates.isEmpty ? context.l10n.createEstimate : null,
                       onAction: _allEstimates.isEmpty ? _createNewEstimate : null,
                       isDarkBackground: false,
                     ),
@@ -330,7 +333,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                     itemBuilder: (context, index) => _buildEstimateCard(filtered[index]),
                   ),
                 ),
-                const SliverToBoxAdapter(child: ListFootnote('Swipe right to convert · hold for more')),
+                SliverToBoxAdapter(child: ListFootnote(context.l10n.swipeRightToConvertHoldForMore)),
               ],
             ],
           ),
@@ -400,23 +403,23 @@ class EstimateListScreenState extends State<EstimateListScreen> {
                   ),
                 ),
                 if (estimate.canConvert)
-                  action(AppIcons.convert, 'Convert to Invoice', () => _convertToInvoice(estimate),
+                  action(AppIcons.convert, context.l10n.convertToInvoiceAction, () => _convertToInvoice(estimate),
                       color: AppColors.statusPaid),
-                action(AppIcons.visibility, 'View details', () => _openEstimatePreview(estimate)),
-                action(AppIcons.share, 'Share PDF', () => _sharePdf(estimate)),
+                action(AppIcons.visibility, context.l10n.viewDetails, () => _openEstimatePreview(estimate)),
+                action(AppIcons.share, context.l10n.sharePdf, () => _sharePdf(estimate)),
                 if (!locked) ...[
                   if (estimate.status != EstimateStatus.accepted)
-                    action(AppIcons.checkCircle, 'Mark accepted',
+                    action(AppIcons.checkCircle, context.l10n.markAccepted,
                         () => _quickUpdateStatus(estimate, EstimateStatus.accepted)),
                   if (estimate.status != EstimateStatus.declined)
-                    action(AppIcons.cancel, 'Mark declined',
+                    action(AppIcons.cancel, context.l10n.markDeclined,
                         () => _quickUpdateStatus(estimate, EstimateStatus.declined)),
                   if (estimate.status != EstimateStatus.pending)
-                    action(AppIcons.schedule, 'Mark pending',
+                    action(AppIcons.schedule, context.l10n.markPending,
                         () => _quickUpdateStatus(estimate, EstimateStatus.pending)),
                 ],
                 Divider(color: AppColors.hairline, height: 12),
-                action(AppIcons.delete, 'Delete estimate', () => _deleteEstimate(estimate),
+                action(AppIcons.delete, context.l10n.deleteEstimate, () => _deleteEstimate(estimate),
                     color: AppColors.error),
               ],
             ),
@@ -448,14 +451,14 @@ class EstimateListScreenState extends State<EstimateListScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  estimate.clientName.isEmpty ? 'No client' : estimate.clientName,
+                  estimate.clientName.isEmpty ? context.l10n.noClient : estimate.clientName,
                   style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${estimate.estimateNumber} · ${DateFormat('d MMM yyyy').format(estimate.estimateDate)}',
+                  '${estimate.estimateNumber} · ${DateFormat('d MMM yyyy', context.localeName).format(estimate.estimateDate)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.muted),
@@ -471,7 +474,7 @@ class EstimateListScreenState extends State<EstimateListScreen> {
               const SizedBox(height: 6),
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: StampMark(label: status.stamp, color: status.color, fontSize: 9.5),
+                child: StampMark(label: context.l10n.catalogLabel(status.stamp), color: status.color, fontSize: 9.5),
               ),
             ],
           ),
@@ -494,8 +497,8 @@ class EstimateListScreenState extends State<EstimateListScreen> {
           }
           return false;
         },
-        background: _swipeBackground(true, AppColors.statusPaidBg, AppColors.statusPaid, AppIcons.convert, 'Convert'),
-        secondaryBackground: _swipeBackground(false, AppColors.surfaceCard, AppColors.ink, AppIcons.share, 'Share'),
+        background: _swipeBackground(true, AppColors.statusPaidBg, AppColors.statusPaid, AppIcons.convert, context.l10n.convert),
+        secondaryBackground: _swipeBackground(false, AppColors.surfaceCard, AppColors.ink, AppIcons.share, context.l10n.share),
         child: slip,
       ),
     );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../core/localization/l10n.dart';
 
 import '../../../core/app/app_review_service.dart';
 import '../../../core/billing/billing_service.dart';
@@ -30,6 +31,7 @@ class InvoiceActions {
     InvoiceModel invoice, {
     Uint8List? pdfBytes,
   }) async {
+    final l10n = context.l10n;
     try {
       final bytes = pdfBytes ??
           await InvoiceRenderService.renderInvoice(
@@ -40,7 +42,7 @@ class InvoiceActions {
       final result = await SharePlus.instance.share(
         ShareParams(
           files: [XFile(path)],
-          text: 'Invoice ${invoice.invoiceNumber} for ${invoice.clientName}',
+          text: l10n.invoiceFor(invoice.invoiceNumber, invoice.clientName),
         ),
       );
       // Counted now; the review card waits until the question below is
@@ -59,11 +61,11 @@ class InvoiceActions {
       final mark = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Mark as sent?'),
-          content: Text('Did you send ${invoice.invoiceNumber} to ${invoice.clientName}?'),
+          title: Text(l10n.markAsSent),
+          content: Text(l10n.didYouSendTo(invoice.invoiceNumber, invoice.clientName)),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not yet')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Mark as sent')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.notYet)),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l10n.markAsSentAction)),
           ],
         ),
       );
@@ -76,7 +78,7 @@ class InvoiceActions {
       debugPrint('Share invoice failed: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not share the invoice. Please try again.')),
+          SnackBar(content: Text(l10n.couldNotShareTheInvoicePleaseTryAgain)),
         );
       }
       return null;
@@ -90,6 +92,7 @@ class InvoiceActions {
     InvoiceModel invoice, {
     Uint8List? pdfBytes,
   }) async {
+    final l10n = context.l10n;
     try {
       final bytes = pdfBytes ??
           await InvoiceRenderService.renderInvoice(
@@ -97,7 +100,7 @@ class InvoiceActions {
             isPro: context.read<BillingService>().isPro,
           );
       final name = FileExport.pdfName('Invoice', invoice.invoiceNumber);
-      final saved = await FileExport.savePdf(bytes, name);
+      final saved = await FileExport.savePdf(bytes, name, localizations: l10n);
       await AppReviewService.instance.registerSignificantAction();
       if (saved == null) {
         await FileExport.saveViaShareSheet(bytes, name);
@@ -108,14 +111,14 @@ class InvoiceActions {
       messenger.showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
-          content: Text('Saved $name to ${saved.placeLabel}'),
+          content: Text(l10n.savedTo(name, saved.placeLabel)),
           persist: false,
           action: SnackBarAction(
-            label: 'View',
+            label: l10n.view,
             onPressed: () async {
               if (!await FileExport.open(saved)) {
                 messenger.showSnackBar(
-                  const SnackBar(content: Text('No app found to open PDFs. Install a PDF viewer to open it.')),
+                  SnackBar(content: Text(l10n.noAppFoundToOpenPdfsInstallA)),
                 );
               }
             },
@@ -126,7 +129,7 @@ class InvoiceActions {
       debugPrint('Save invoice failed: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save the PDF. Please try again.')),
+          SnackBar(content: Text(l10n.couldNotSaveThePdfPleaseTryAgain)),
         );
       }
     }
@@ -162,13 +165,11 @@ class InvoiceActions {
           if (!context.mounted) return false;
           final ok = await AppDialog.showConfirmation(
             context: context,
-            title: 'Mark as unpaid?',
-            message: count == 1
-                ? 'This deletes the 1 payment recorded for ${invoice.invoiceNumber}.'
-                : 'This deletes the $count payments recorded for ${invoice.invoiceNumber}.',
+            title: context.l10n.markUnpaidQuestion,
+            message: context.l10n.deleteRecordedPayments(count, invoice.invoiceNumber),
             variant: AppDialogVariant.danger,
             icon: AppIcons.warning,
-            confirmLabel: 'Delete payments',
+            confirmLabel: context.l10n.deletePayments,
             isDestructive: true,
           );
           if (ok != true) return false;
@@ -182,7 +183,7 @@ class InvoiceActions {
       debugPrint('Change payment status failed: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not update the payment. Please try again.')),
+          SnackBar(content: Text(context.l10n.couldNotUpdateThePaymentPleaseTryAgain)),
         );
       }
       return false;
@@ -204,7 +205,7 @@ class InvoiceActions {
       debugPrint('Print invoice failed: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open printing. Please try again.')),
+          SnackBar(content: Text(context.l10n.couldNotOpenPrintingPleaseTryAgain)),
         );
       }
     }
@@ -227,8 +228,8 @@ class InvoiceActions {
   static Future<bool> confirmAndDelete(BuildContext context, InvoiceModel invoice) async {
     final confirm = await AppDialog.showDelete(
       context: context,
-      title: 'Delete Invoice?',
-      message: 'Delete ${invoice.invoiceNumber}? This cannot be undone.',
+      title: context.l10n.deleteInvoiceQuestion,
+      message: context.l10n.deleteThisCannotBeUndone(invoice.invoiceNumber),
     );
     if (confirm != true) return false;
     try {
@@ -240,7 +241,7 @@ class InvoiceActions {
       debugPrint('Delete invoice failed: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not delete the invoice. Please try again.')),
+          SnackBar(content: Text(context.l10n.couldNotDeleteTheInvoicePleaseTryAgain)),
         );
       }
       return false;

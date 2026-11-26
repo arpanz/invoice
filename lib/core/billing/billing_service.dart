@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../l10n/gen/app_localizations.dart';
+import '../../l10n/gen/app_localizations_en.dart';
 
 /// The single source of truth for Pro entitlement.
 ///
@@ -42,13 +44,14 @@ class BillingService extends ChangeNotifier {
   bool _isLoading = false;
   bool _storeAvailable = false;
   bool _awaitingStartupRestore = false;
-  String? _errorMessage;
+  String Function(AppLocalizations)? _errorMessage;
   List<ProductDetails> _products = const [];
 
   bool get isPro => _isPro;
   bool get isLoading => _isLoading;
   bool get storeAvailable => _storeAvailable;
-  String? get errorMessage => _errorMessage;
+  String? get errorMessage => localizedError(AppLocalizationsEn());
+  String? localizedError(AppLocalizations l10n) => _errorMessage?.call(l10n);
   List<ProductDetails> get products => _products;
 
   /// Increments every time a purchase or restore grants Pro, so a screen can
@@ -61,6 +64,13 @@ class BillingService extends ChangeNotifier {
       if (p.id == id) return p;
     }
     return null;
+  }
+
+  /// Reads the saved Pro flag without contacting the store.
+  Future<void> loadCachedEntitlement() async {
+    final prefs = await SharedPreferences.getInstance();
+    _isPro = prefs.getBool(_prefKeyIsPro) ?? false;
+    notifyListeners();
   }
 
   Future<void> initialize() async {
@@ -110,7 +120,7 @@ class BillingService extends ChangeNotifier {
   Future<void> buy(String productId) async {
     _errorMessage = null;
     if (!_storeAvailable) {
-      _errorMessage = 'The Play Store is not available right now. Please try again later.';
+      _errorMessage = (l10n) => l10n.playStoreUnavailable;
       notifyListeners();
       return;
     }
@@ -120,7 +130,7 @@ class BillingService extends ChangeNotifier {
       product = productFor(productId);
     }
     if (product == null) {
-      _errorMessage = 'This plan is not available right now. Please try again later.';
+      _errorMessage = (l10n) => l10n.planUnavailable;
       notifyListeners();
       return;
     }
@@ -133,7 +143,7 @@ class BillingService extends ChangeNotifier {
     } catch (e) {
       debugPrint('BillingService: buy failed: $e');
       _isLoading = false;
-      _errorMessage = 'The purchase could not be started. Please try again.';
+      _errorMessage = (l10n) => l10n.purchaseStartFailed;
       notifyListeners();
     }
   }
@@ -142,7 +152,7 @@ class BillingService extends ChangeNotifier {
   /// arrives on the purchase stream.
   Future<void> restorePurchases() async {
     if (!_storeAvailable) {
-      _errorMessage = 'The Play Store is not available right now. Please try again later.';
+      _errorMessage = (l10n) => l10n.playStoreUnavailable;
       notifyListeners();
       return;
     }
@@ -151,7 +161,7 @@ class BillingService extends ChangeNotifier {
       await _iap.restorePurchases();
     } catch (e) {
       debugPrint('BillingService: restore failed: $e');
-      _errorMessage = 'Could not reach the Play Store to restore purchases.';
+      _errorMessage = (l10n) => l10n.restorePurchasesFailed;
       notifyListeners();
     }
   }
@@ -170,8 +180,7 @@ class BillingService extends ChangeNotifier {
           break;
         case PurchaseStatus.error:
           debugPrint('Purchase error: ${purchase.error}');
-          _errorMessage = 'The purchase did not go through. You have not been charged. '
-              'Please check your connection and Google Play payment method, then try again.';
+          _errorMessage = (l10n) => l10n.purchaseFailed;
           _isLoading = false;
           break;
         case PurchaseStatus.canceled:

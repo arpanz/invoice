@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import '../../../core/utils/image_store.dart';
 import '../../../core/utils/document_totals.dart';
@@ -10,6 +13,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/localization/catalog_localization.dart';
+import '../../../core/localization/l10n.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/billing/free_limits.dart';
 import '../../../core/database/db_provider.dart';
@@ -22,6 +27,8 @@ import '../../clients/models/client_model.dart';
 import '../../clients/screens/client_list_screen.dart';
 import '../../paywall/paywall_screen.dart';
 import '../models/invoice_customization_config.dart';
+import '../models/document_custom_field.dart';
+import '../widgets/custom_fields_card.dart';
 import '../models/invoice_model.dart';
 import '../models/line_item_model.dart';
 import '../models/pdf_theme.dart';
@@ -62,7 +69,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   DateTime? _dueDate;
 
   // Business (Bill From)
-  String _bizName = 'My Business';
+  String? _bizName;
   String? _bizAddress;
   String? _bizPhone;
   String? _bizEmail;
@@ -103,8 +110,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   String _currency = 'INR';
   String _paymentMethod = '';
   String? _signaturePath;
+  List<DocumentCustomField> _customFields = const [];
+  List<String> _recentFieldLabels = const [];
   final _notesCtrl = TextEditingController(text: 'Thanks for your business.');
+  static const _maxAttachments = 5;
   final List<String> _attachments = [];
+  final Set<String> _newAttachments = {};
+  bool _pickingAttachment = false;
+  Future<void>? _attachmentSave;
   InvoiceStatus _status = InvoiceStatus.unpaid;
   PdfTheme _selectedTheme = PdfTheme.defaultTheme;
 
@@ -117,11 +130,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   @override
   void initState() {
     super.initState();
+    _attachments.addAll(widget.existingInvoice?.attachments ?? const []);
     _loadInitialData();
   }
 
   @override
   void dispose() {
+    unawaited(_discardUnsavedAttachments());
     _invoiceNumberCtrl.dispose();
     _clientNameCtrl.dispose();
     _clientEmailCtrl.dispose();
@@ -143,7 +158,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final defaultTax = currencyProvider.defaultTax.rate;
 
     final prefs = await SharedPreferences.getInstance();
-    _bizName = prefs.getString('biz_name') ?? 'My Business';
+    if (!mounted) return;
+    _recentFieldLabels = DocumentFieldPreferences.recent(prefs);
+    _customFields = widget.existingInvoice?.customFields ?? DocumentFieldPreferences.defaults(prefs);
+
+    _bizName = prefs.getString('biz_name');
     _bizAddress = prefs.getString('biz_address');
     _bizPhone = prefs.getString('biz_phone');
     _bizEmail = prefs.getString('biz_email');
@@ -314,20 +333,202 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       // changed) total, e.g. a "Paid" invoice whose total went up.
       paidAmount: _paidAmount.clamp(0, totals.grandTotal).toDouble(),
       status: InvoiceModel.paymentStatusFor(_paidAmount, totals.grandTotal),
+      customFields: DocumentCustomField.forSave(_customFields),
       notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       currency: _currency,
       createdAt: widget.existingInvoice?.createdAt ?? now,
       updatedAt: now,
       lineItems: lineItems,
+      attachments: List.unmodifiable(_attachments),
       issuerSnapshot: issuerSnapshot ?? widget.existingInvoice?.issuerSnapshot,
       sentAt: widget.existingInvoice?.sentAt,
     );
   }
 
+  Future<void> _discardUnsavedAttachments() async {
+    try {
+      await _attachmentSave;
+    } catch (_) {
+      // A failed save leaves the newly picked files owned by this editor.
+    }
+    await Future.wait(_newAttachments.map(ImageStore.deleteAttachment));
+  }
+
+  Future<void> _pickAttachment() async {
+    if (_pickingAttachment || _isSaving || _attachments.length >= _maxAttachments) return;
+    setState(() => _pickingAttachment = true);
+    try {
+      final source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        builder: (sheetContext) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(AppIcons.camera),
+                title: Text(context.l10n.camera),
+                onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(AppIcons.image),
+                title: Text(context.l10n.gallery),
+                onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (source == null || !mounted) return;
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+        requestFullMetadata: false,
+      );
+      if (picked == null || !mounted) return;
+      final path = await ImageStore.keep(picked.path, 'attachment');
+      if (path == picked.path) throw StateError('Could not store the selected photo');
+      if (!mounted) {
+        await ImageStore.deleteAttachment(path);
+        return;
+      }
+      setState(() {
+        _newAttachments.add(path);
+        _attachments.add(path);
+      });
+    } catch (e) {
+      debugPrint('Attachment could not be added: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.couldNotAddThePhotoPleaseTryAgain)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _pickingAttachment = false);
+    }
+  }
+
+  void _viewAttachment(String path, int number) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: AppColors.canvas,
+          appBar: AppBar(title: Text(context.l10n.numberedAttachment(number))),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.file(
+                File(path),
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => Text(context.l10n.photoUnavailable),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentsCard() {
+    return _buildCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(AppIcons.attach, color: AppColors.body, size: 20),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.attachments, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                    Text(
+                      context.l10n.photoCount(_attachments.length, _maxAttachments),
+                      style: TextStyle(fontSize: 13, color: AppColors.muted),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton.filled(
+                tooltip: context.l10n.addAttachment,
+                onPressed: _isSaving || _pickingAttachment || _attachments.length >= _maxAttachments
+                    ? null
+                    : _pickAttachment,
+                icon: const Icon(AppIcons.add),
+              ),
+            ],
+          ),
+          if (_attachments.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final (index, path) in _attachments.indexed)
+                  SizedBox.square(
+                    dimension: 84,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Semantics(
+                            button: true,
+                            label: context.l10n.viewNumberedAttachment(index + 1),
+                            child: InkWell(
+                              onTap: () => _viewAttachment(path, index + 1),
+                              child: Image.file(
+                                File(path),
+                                cacheWidth: 240,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => ColoredBox(
+                                  color: AppColors.surfaceStrong,
+                                  child: Icon(AppIcons.image, color: AppColors.muted),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: IconButton(
+                            tooltip: context.l10n.removeNumberedAttachment(index + 1),
+                            style: IconButton.styleFrom(
+                              backgroundColor: AppColors.canvas,
+                              foregroundColor: AppColors.ink,
+                              minimumSize: const Size.square(32),
+                              padding: EdgeInsets.zero,
+                            ),
+                            iconSize: 16,
+                            onPressed: _isSaving
+                                ? null
+                                : () {
+                                    setState(() => _attachments.removeAt(index));
+                                    if (_newAttachments.remove(path)) {
+                                      unawaited(ImageStore.deleteAttachment(path));
+                                    }
+                                  },
+                            icon: const Icon(AppIcons.close),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Future<InvoiceModel?> _saveInvoiceToDb() async {
+    if (_isSaving || _pickingAttachment) return null;
     if (_clientNameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add a client name (Bill To).')),
+        SnackBar(content: Text(context.l10n.pleaseAddAClientNameBillTo)),
       );
       _showClientSheet();
       return null;
@@ -335,25 +536,32 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
     if (_items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add at least one line item.')),
+        SnackBar(content: Text(context.l10n.pleaseAddAtLeastOneLineItem)),
       );
       _showAddItemSheet();
       return null;
     }
 
-    if (_invoiceNumberCtrl.text.trim().isEmpty) {
-      _invoiceNumberCtrl.text = await DbProvider.getNextInvoiceNumber();
-    }
-
     setState(() => _isSaving = true);
     try {
+      if (_invoiceNumberCtrl.text.trim().isEmpty) {
+        final number = await DbProvider.getNextInvoiceNumber();
+        if (!mounted) return null;
+        _invoiceNumberCtrl.text = number;
+      }
+
       // The issuer details are frozen onto the invoice each time it is saved
       // from the editor, so later profile edits don't rewrite sent invoices.
       final snapshot = await InvoiceRenderService.captureIssuerSnapshot(
         signaturePath: _signaturePath,
       );
+      if (!mounted) return null;
       final invoice = _buildInvoiceModel(issuerSnapshot: snapshot);
-      await DbProvider.saveInvoice(invoice);
+      _attachmentSave = DbProvider.saveInvoice(invoice).then((_) {
+        _newAttachments.removeAll(invoice.attachments);
+      });
+      await _attachmentSave;
+      await DocumentFieldPreferences.remember(invoice.customFields);
       await _persistThemeChoice(invoice.id);
 
       if (mounted) setState(() => _isSaving = false);
@@ -362,7 +570,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       if (mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Invoice number ${e.number} is already used. Pick another number.')),
+          SnackBar(content: Text(context.l10n.invoiceNumberIsAlreadyUsedPickAnotherNumber(e.number))),
         );
       }
       return null;
@@ -371,7 +579,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       if (mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save the invoice. Please try again.')),
+          SnackBar(content: Text(context.l10n.couldNotSaveTheInvoicePleaseTryAgain)),
         );
       }
       return null;
@@ -467,7 +675,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Invoice Details & Dates',
+                        context.l10n.invoiceDetailsDates,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -484,15 +692,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
                   // 1. Invoice Number Input
                   CustomTextField(
-                    label: 'Invoice Number',
-                    hint: 'e.g. INV00001',
+                    label: context.l10n.invoiceNumber,
+                    hint: context.l10n.eGInv00001,
                     controller: numCtrl,
                   ),
                   const SizedBox(height: 16),
 
                   // 2. Invoice Issue Date
                   Text(
-                    'Invoice Issue Date',
+                    context.l10n.invoiceIssueDate,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -534,7 +742,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               Icon(AppIcons.calendar, size: 16, color: AppColors.primary),
                               const SizedBox(width: 10),
                               Text(
-                                DateFormat('dd MMMM yyyy').format(tempDate),
+                                DateFormat('dd MMMM yyyy', context.localeName).format(tempDate),
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -558,7 +766,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Payment Terms & Due Date',
+                            context.l10n.paymentTermsDueDate,
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -566,7 +774,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             ),
                           ),
                           Text(
-                            'Optional credit period for payment',
+                            context.l10n.optionalCreditPeriodForPayment,
                             style: TextStyle(
                               fontSize: 11,
                               color: AppColors.slate500,
@@ -576,7 +784,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       ),
                       if (!isNoDueDate)
                         Text(
-                          DateFormat('dd MMM yyyy').format(tempDueDate!),
+                          DateFormat('dd MMM yyyy', context.localeName).format(tempDueDate!),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -593,7 +801,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     runSpacing: 8,
                     children: [
                       _buildDueDatePresetChip(
-                        label: 'No Due Date',
+                        label: context.l10n.noDueDate,
                         isSelected: isNoDueDate,
                         onTap: () {
                           setSheetState(() {
@@ -602,7 +810,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         },
                       ),
                       _buildDueDatePresetChip(
-                        label: 'Due on Receipt',
+                        label: context.l10n.dueOnReceipt,
                         isSelected: tempDueDate != null &&
                             tempDueDate!.year == tempDate.year &&
                             tempDueDate!.month == tempDate.month &&
@@ -614,7 +822,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         },
                       ),
                       _buildDueDatePresetChip(
-                        label: '+7 Days',
+                        label: context.l10n.label7Days,
                         isSelected: tempDueDate != null &&
                             tempDueDate!.difference(tempDate).inDays == 7,
                         onTap: () {
@@ -624,7 +832,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         },
                       ),
                       _buildDueDatePresetChip(
-                        label: '+15 Days',
+                        label: context.l10n.label15Days,
                         isSelected: tempDueDate != null &&
                             tempDueDate!.difference(tempDate).inDays == 15,
                         onTap: () {
@@ -634,7 +842,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         },
                       ),
                       _buildDueDatePresetChip(
-                        label: '+30 Days',
+                        label: context.l10n.label30Days,
                         isSelected: tempDueDate != null &&
                             tempDueDate!.difference(tempDate).inDays == 30,
                         onTap: () {
@@ -644,7 +852,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         },
                       ),
                       _buildDueDatePresetChip(
-                        label: 'Custom Date...',
+                        label: context.l10n.customDate,
                         isSelected: tempDueDate != null &&
                             ![0, 7, 15, 30].contains(
                               tempDueDate!.difference(tempDate).inDays,
@@ -689,8 +897,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         shape: const StadiumBorder(),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'Apply Changes',
+                      child: Text(
+                        context.l10n.applyChanges,
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -729,7 +937,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   void _showBusinessSheet() {
-    final nameCtrl = TextEditingController(text: _bizName);
+    final nameCtrl = TextEditingController(text: _bizName ?? context.l10n.myBusinessPlaceholder);
     final addressCtrl = TextEditingController(text: _bizAddress ?? '');
     final phoneCtrl = TextEditingController(text: _bizPhone ?? '');
     final emailCtrl = TextEditingController(text: _bizEmail ?? '');
@@ -768,20 +976,20 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
-                'Bill From (Your Business)',
+              Text(
+                context.l10n.billFromYourBusiness,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 16),
-              CustomTextField(label: 'Business Name *', controller: nameCtrl),
+              CustomTextField(label: context.l10n.businessName, controller: nameCtrl),
               const SizedBox(height: 12),
-              CustomTextField(label: 'Address', controller: addressCtrl),
+              CustomTextField(label: context.l10n.address, controller: addressCtrl),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: CustomTextField(label: 'Phone', controller: phoneCtrl, keyboardType: TextInputType.phone)),
+                  Expanded(child: CustomTextField(label: context.l10n.phone, controller: phoneCtrl, keyboardType: TextInputType.phone)),
                   const SizedBox(width: 12),
-                  Expanded(child: CustomTextField(label: 'Email', controller: emailCtrl, keyboardType: TextInputType.emailAddress)),
+                  Expanded(child: CustomTextField(label: context.l10n.email, controller: emailCtrl, keyboardType: TextInputType.emailAddress)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -817,7 +1025,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     foregroundColor: AppColors.onPrimary,
                     shape: const StadiumBorder(),
                   ),
-                  child: const Text('Save Business Info', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: Text(context.l10n.saveBusinessInfo, style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
@@ -903,13 +1111,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    editIndex != null ? 'Edit Item' : 'Add Item',
+                    editIndex != null ? context.l10n.editItem : context.l10n.addItem,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
-                    label: 'Description *',
-                    hint: 'e.g. Consulting, Design, Product',
+                    label: context.l10n.description,
+                    hint: context.l10n.eGConsultingDesignProduct,
                     controller: descCtrl,
                     textCapitalization: TextCapitalization.sentences,
                   ),
@@ -918,7 +1126,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     children: [
                       Expanded(
                         child: CustomTextField(
-                          label: 'Quantity',
+                          label: context.l10n.quantity,
                           hint: '1',
                           controller: qtyCtrl,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -960,7 +1168,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: CustomTextField(
-                          label: 'Unit Price',
+                          label: context.l10n.unitPrice,
                           hint: '0.00',
                           controller: priceCtrl,
                           prefixText: '$_currencySymbol ',
@@ -985,7 +1193,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            showDiscountsAndTax ? 'Hide Item Discount & Tax' : '+ Add Item Discount & Tax',
+                            showDiscountsAndTax ? context.l10n.hideItemDiscountTax : context.l10n.addItemDiscountTax,
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -1002,7 +1210,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       children: [
                         Expanded(
                           child: CustomTextField(
-                            label: 'Discount (%)',
+                            label: context.l10n.discountRequiredAmountLabel,
                             hint: '0',
                             controller: discountCtrl,
                             suffixText: '%',
@@ -1013,8 +1221,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: CustomTextField(
-                            label: 'Tax Rate (%)',
-                            hint: 'Invoice rate',
+                            label: context.l10n.taxRate,
+                            hint: context.l10n.invoiceRate,
                             controller: taxCtrl,
                             suffixText: '%',
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1037,7 +1245,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Base Amount:', style: TextStyle(fontSize: 12, color: AppColors.slate600)),
+                              Text(context.l10n.baseAmount, style: TextStyle(fontSize: 12, color: AppColors.slate600)),
                               Text(CurrencyFormatter.format(baseTotal, currencySymbol: _currencySymbol), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                             ],
                           ),
@@ -1045,7 +1253,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Discount (${NumberText.trim(discountPercent)}%):', style: TextStyle(fontSize: 12, color: AppColors.statusPartiallyPaid)),
+                                Text(context.l10n.discountPercentLabel(NumberText.trim(discountPercent)), style: TextStyle(fontSize: 12, color: AppColors.statusPartiallyPaid)),
                                 Text('-${CurrencyFormatter.format(discountAmount, currencySymbol: _currencySymbol)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.statusPartiallyPaid)),
                               ],
                             ),
@@ -1053,7 +1261,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Tax at ${NumberText.trim(taxPercent)}% (added in totals):', style: TextStyle(fontSize: 12, color: AppColors.squircleGreenIcon)),
+                                Text(context.l10n.taxAtAddedInTotals(NumberText.trim(taxPercent)), style: TextStyle(fontSize: 12, color: AppColors.squircleGreenIcon)),
                                 Text('+${CurrencyFormatter.format(taxAmount, currencySymbol: _currencySymbol)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.squircleGreenIcon)),
                               ],
                             ),
@@ -1062,7 +1270,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Line amount (before tax):', style: TextStyle(fontWeight: FontWeight.w600)),
+                            Text(context.l10n.lineAmountBeforeTax, style: TextStyle(fontWeight: FontWeight.w600)),
                             Text(
                               CurrencyFormatter.format(netTotal, currencySymbol: _currencySymbol),
                               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.primary),
@@ -1080,13 +1288,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       onPressed: () {
                         if (descCtrl.text.trim().isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please enter an item description')),
+                            SnackBar(content: Text(context.l10n.pleaseEnterAnItemDescription)),
                           );
                           return;
                         }
                         if (qty <= 0) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Quantity must be more than 0')),
+                            SnackBar(content: Text(context.l10n.quantityMustBeMoreThan0)),
                           );
                           return;
                         }
@@ -1117,7 +1325,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         foregroundColor: AppColors.onPrimary,
                         shape: const StadiumBorder(),
                       ),
-                      child: Text(editIndex != null ? 'Update Item' : 'Add to Invoice', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(editIndex != null ? context.l10n.updateItem : context.l10n.addToInvoice, style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -1148,13 +1356,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.slate300, borderRadius: BorderRadius.circular(2))),
               ),
               const SizedBox(height: 18),
-              const Text('Add Discount', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              Text(context.l10n.addDiscount, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
               const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
                     child: ChoiceChip(
-                      label: const Center(child: Text('Percentage (%)')),
+                      label: Center(child: Text(context.l10n.percentage)),
                       selected: tempType == DiscountType.percentage,
                       onSelected: (_) => setSheetState(() => tempType = DiscountType.percentage),
                     ),
@@ -1162,7 +1370,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: ChoiceChip(
-                      label: Center(child: Text('Flat Amount ($_currencySymbol)')),
+                      label: Center(child: Text(context.l10n.flatAmount(_currencySymbol))),
                       selected: tempType == DiscountType.flat,
                       onSelected: (_) => setSheetState(() => tempType = DiscountType.flat),
                     ),
@@ -1171,7 +1379,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               ),
               const SizedBox(height: 14),
               CustomTextField(
-                label: tempType == DiscountType.percentage ? 'Discount Percentage (%)' : 'Discount Amount',
+                label: tempType == DiscountType.percentage ? context.l10n.discountPercentage : context.l10n.discountAmount,
                 controller: valCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
@@ -1194,7 +1402,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     foregroundColor: AppColors.onPrimary,
                     shape: const StadiumBorder(),
                   ),
-                  child: const Text('Apply Discount', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: Text(context.l10n.applyDiscount, style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
@@ -1208,7 +1416,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final currencyProvider = context.read<CurrencyProvider>();
     final isDual = currencyProvider.isDualTax;
     final defaultTax = currencyProvider.defaultTax;
-    final taxName = defaultTax.shortName;
+    final taxName = context.l10n.catalogLabel(defaultTax.shortName);
 
     final igstCtrl = TextEditingController(text: _igstCtrl.text);
     final sgstCtrl = TextEditingController(text: _sgstCtrl.text);
@@ -1245,14 +1453,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               ),
               const SizedBox(height: 18),
               Text(
-                '$taxName Configuration',
+                context.l10n.configureNamedTax(taxName),
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
               Text(
                 isDual
-                    ? 'Choose CGST + SGST (intra-state) or IGST (inter-state)'
-                    : 'Set $taxName percentage to apply to this invoice.',
+                    ? context.l10n.chooseCgstSgstIntraStateOrIgstInter
+                    : context.l10n.setPercentageToApplyToThisInvoice(taxName),
                 style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 14),
@@ -1272,7 +1480,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     return ActionChip(
                       label: Text(
                         rate == 0
-                            ? 'No Tax (0%)'
+                            ? context.l10n.noTax0
                             : '$taxName ${NumberText.trim(rate)}%',
                         style: TextStyle(
                           fontSize: 12,
@@ -1321,7 +1529,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: ChoiceChip(
-                        label: const Center(child: Text('IGST (Single)')),
+                        label: Center(child: Text(context.l10n.igstSingle)),
                         selected: useIGST,
                         onSelected: (_) {
                           setSheetState(() {
@@ -1337,7 +1545,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 const SizedBox(height: 14),
                 if (useIGST)
                   CustomTextField(
-                    label: 'IGST Rate (%)',
+                    label: context.l10n.igstRate,
                     controller: igstCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   )
@@ -1364,8 +1572,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               ] else ...[
                 // Clean Single Tax Field
                 CustomTextField(
-                  label: '$taxName Rate (%)',
-                  hint: 'e.g. ${defaultTax.rate}',
+                  label: context.l10n.namedTaxRatePercent(taxName),
+                  hint: context.l10n.exampleValue(defaultTax.rate.toString()),
                   controller: igstCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
@@ -1390,7 +1598,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         shape: const StadiumBorder(),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: const Text('Remove Tax'),
+                      child: Text(context.l10n.removeTax),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1415,7 +1623,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         shape: const StadiumBorder(),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: const Text('Apply Tax', style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(context.l10n.applyTax, style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -1443,10 +1651,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.slate300, borderRadius: BorderRadius.circular(2))),
             ),
             const SizedBox(height: 18),
-            const Text('Shipping Charges', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text(context.l10n.shippingCharges, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 14),
             CustomTextField(
-              label: 'Shipping Fee ($_currencySymbol)',
+              label: context.l10n.shippingFee(_currencySymbol),
               controller: ctrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
@@ -1464,7 +1672,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   foregroundColor: AppColors.onPrimary,
                   shape: const StadiumBorder(),
                 ),
-                child: const Text('Save Shipping Fee', style: TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(context.l10n.saveShippingFee, style: TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -1545,10 +1753,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.slate300, borderRadius: BorderRadius.circular(2))),
             ),
             const SizedBox(height: 18),
-            const Text('Amount already received', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text(context.l10n.amountAlreadyReceived, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 14),
             CustomTextField(
-              label: 'Amount Paid ($_currencySymbol)',
+              label: context.l10n.amountPaid(_currencySymbol),
               controller: ctrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
@@ -1576,7 +1784,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   foregroundColor: AppColors.onPrimary,
                   shape: const StadiumBorder(),
                 ),
-                child: const Text('Save', style: TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(context.l10n.save, style: TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -1606,14 +1814,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           shrinkWrap: true,
           padding: const EdgeInsets.symmetric(vertical: 16),
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Text('Select Payment Method', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              child: Text(context.l10n.selectPaymentMethod, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             ),
             ...methods.map((m) {
               final isSel = _paymentMethod == m;
               return ListTile(
-                title: Text(m, style: TextStyle(fontWeight: isSel ? FontWeight.w600 : FontWeight.w500)),
+                title: Text(context.l10n.catalogLabel(m), style: TextStyle(fontWeight: isSel ? FontWeight.w600 : FontWeight.w500)),
                 trailing: isSel ? Icon(AppIcons.check, color: AppColors.primary) : null,
                 onTap: () {
                   setState(() => _paymentMethod = m);
@@ -1643,11 +1851,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.slate300, borderRadius: BorderRadius.circular(2))),
             ),
             const SizedBox(height: 18),
-            const Text('Terms & Notes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text(context.l10n.termsNotes, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 14),
             CustomTextField(
-              label: 'Terms / Notes',
-              hint: 'e.g. Thanks for your business.',
+              label: context.l10n.termsSlashNotes,
+              hint: context.l10n.eGThanksForYourBusiness,
               controller: ctrl,
               maxLines: 3,
             ),
@@ -1665,7 +1873,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   foregroundColor: AppColors.onPrimary,
                   shape: const StadiumBorder(),
                 ),
-                child: const Text('Save Notes', style: TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(context.l10n.saveNotes, style: TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -1686,14 +1894,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             children: [
               Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.slate300, borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 16),
-              const Text('Mark Invoice As', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              Text(context.l10n.markInvoiceAs, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
               // Overdue is not picked: it shows automatically once the due
               // date passes with a balance left.
               ...[InvoiceStatus.unpaid, InvoiceStatus.partiallyPaid, InvoiceStatus.paid].map((s) {
                 final isSel = _status == s;
                 return ListTile(
-                  title: Text(s.label, style: TextStyle(fontWeight: isSel ? FontWeight.w600 : FontWeight.w500)),
+                  title: Text(context.l10n.catalogLabel(s.label), style: TextStyle(fontWeight: isSel ? FontWeight.w600 : FontWeight.w500)),
                   trailing: isSel ? Icon(AppIcons.check, color: AppColors.primary) : null,
                   onTap: () {
                     Navigator.pop(ctx);
@@ -1711,8 +1919,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   Future<void> _handleDeleteInvoice() async {
     final confirm = await AppDialog.showDelete(
       context: context,
-      title: 'Delete Invoice?',
-      message: 'Are you sure you want to delete this invoice? This action cannot be undone.',
+      title: context.l10n.deleteInvoiceQuestion,
+      message: context.l10n.areYouSureYouWantToDeleteThis,
     );
 
     if (confirm == true && _activeInvoiceId != null) {
@@ -1732,6 +1940,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         for (final i in _items) '${i.description}|${i.quantity}|${i.unitPrice}|${i.discountRate}|${i.taxRate}',
         _hasDiscount, _discountType, _discountCtrl.text, _hasTax, _useIGST,
         _sgstCtrl.text, _cgstCtrl.text, _igstCtrl.text, _notesCtrl.text,
+        DocumentCustomField.encode(_customFields),
         _shippingFee, _status, _paidAmount, _currency, _signaturePath, _selectedTheme.id,
       ].join('\u0001');
 
@@ -1741,12 +1950,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     if (dirty) {
       final discard = await AppDialog.showConfirmation(
         context: context,
-        title: 'Discard changes?',
-        message: 'You have unsaved changes. Leave without saving them?',
+        title: context.l10n.discardChanges,
+        message: context.l10n.youHaveUnsavedChangesLeaveWithoutSavingThem,
         variant: AppDialogVariant.danger,
         icon: AppIcons.warning,
-        confirmLabel: 'Discard',
-        cancelLabel: 'Keep editing',
+        confirmLabel: context.l10n.discard,
+        cancelLabel: context.l10n.keepEditing,
         isDestructive: true,
       );
       if (discard != true) return;
@@ -1759,11 +1968,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final isPro = context.watch<BillingService>().isPro;
     final currencyProvider = context.watch<CurrencyProvider>();
     final isDual = currencyProvider.isDualTax;
-    final taxShortName = currencyProvider.defaultTax.shortName;
+    final taxShortName = context.l10n.catalogLabel(currencyProvider.defaultTax.shortName);
     final currencySymbol = _currencySymbol;
 
     // Sequential coachmarks state evaluation
-    final bool hasClient = _clientNameCtrl.text.trim().isNotEmpty && _clientNameCtrl.text.trim() != 'Add Clients';
+    final bool hasClient = _clientNameCtrl.text.trim().isNotEmpty && _clientNameCtrl.text.trim() != context.l10n.addClients;
     final bool hasItems = _items.isNotEmpty;
     final bool hasFinancials = _hasTax || _hasDiscount || _shippingFee > 0;
     final bool hasSettings = _paymentMethod.isNotEmpty || _signaturePath != null;
@@ -1796,7 +2005,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             onPressed: () => Navigator.maybePop(context),
           ),
           title: Text(
-            widget.existingInvoice != null ? 'Edit Invoice' : 'Create Invoice',
+            widget.existingInvoice != null ? context.l10n.editInvoice : context.l10n.createInvoice,
             style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.ink, letterSpacing: -0.3),
           ),
           centerTitle: true,
@@ -1826,13 +2035,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               itemBuilder: (_) => [
                 AppPopupMenuItem.item(
                   value: 'clear',
-                  title: 'Clear Items',
+                  title: context.l10n.clearItems,
                   icon: AppIcons.clearAll,
                   iconColor: AppColors.muted,
                 ),
                 AppPopupMenuItem.item(
                   value: 'reset_tips',
-                  title: 'Reset Helpful Tips',
+                  title: context.l10n.resetHelpfulTips,
                   icon: AppIcons.lightbulb,
                   iconColor: AppColors.ink,
                 ),
@@ -1868,7 +2077,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                       border: Border.all(color: AppColors.hairline),
                                     ),
                                     child: Text(
-                                      'INVOICE',
+                                      context.l10n.invoiceHeading,
                                       style: GoogleFonts.inter(
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.w600,
@@ -1911,7 +2120,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                       const SizedBox(width: 6),
                                       Expanded(
                                         child: Text(
-                                          DateFormat('dd MMM yyyy').format(_invoiceDate),
+                                          DateFormat('dd MMM yyyy', context.localeName).format(_invoiceDate),
                                           style: GoogleFonts.inter(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w500,
@@ -1947,8 +2156,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                       Expanded(
                                         child: Text(
                                           _dueDate != null
-                                              ? 'Due ${DateFormat('dd MMM').format(_dueDate!)}'
-                                              : 'No Due Date',
+                                              ? context.l10n.dueDateLabel(DateFormat('dd MMM', context.localeName).format(_dueDate!))
+                                              : context.l10n.noDueDate,
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
@@ -2010,7 +2219,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Templates',
+                                    context.l10n.templates,
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
@@ -2019,7 +2228,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Choose style & paper design',
+                                    context.l10n.chooseStylePaperDesign,
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
@@ -2101,9 +2310,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text('Bill From', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                      Text(context.l10n.billFrom, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                                       Text(
-                                        _bizName.isNotEmpty ? _bizName : 'Add Business',
+                                        _bizName == null
+                                            ? context.l10n.myBusinessPlaceholder
+                                            : _bizName!.isNotEmpty
+                                                ? _bizName!
+                                                : context.l10n.addBusiness,
                                         style: TextStyle(fontSize: 13, color: AppColors.slate500),
                                       ),
                                     ],
@@ -2150,9 +2363,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text('Bill To', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                      Text(context.l10n.billTo, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                                       Text(
-                                        _clientNameCtrl.text.isNotEmpty ? _clientNameCtrl.text : 'Add Clients',
+                                        _clientNameCtrl.text.isNotEmpty ? _clientNameCtrl.text : context.l10n.addClients,
                                         style: TextStyle(fontSize: 13, color: AppColors.slate500),
                                       ),
                                     ],
@@ -2166,9 +2379,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           // Sequential Coachmark 1: Add Client
                           if (showClientTip) ...[
                             _buildCoachmarkBalloon(
-                              stepLabel: 'Step 1 of 4',
-                              title: 'Add your client or customer',
-                              subtitle: 'Select an existing client or create a new one to bill',
+                              stepLabel: context.l10n.stepOfTotal(1, 4),
+                              title: context.l10n.addYourClientOrCustomer,
+                              subtitle: context.l10n.selectAnExistingClientOrCreateANew,
                               onTap: _showClientSheet,
                               onDismiss: () => _dismissTip('client'),
                             ),
@@ -2199,9 +2412,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('Items', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                    Text(context.l10n.items, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                                     Text(
-                                      _items.isEmpty ? 'Add Items' : '${_items.length} item(s) added',
+                                      _items.isEmpty ? context.l10n.addItems : context.l10n.addedItemCount(_items.length),
                                       style: TextStyle(fontSize: 13, color: AppColors.slate500),
                                     ),
                                   ],
@@ -2247,9 +2460,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           // Sequential Coachmark 2: Add Items
                           if (showItemsTip) ...[
                             _buildCoachmarkBalloon(
-                              stepLabel: 'Step 2 of 4',
-                              title: 'Create your item or service',
-                              subtitle: 'Add name, price, quantity and details',
+                              stepLabel: context.l10n.stepOfTotal(2, 4),
+                              title: context.l10n.createYourItemOrService,
+                              subtitle: context.l10n.addNamePriceQuantityAndDetails,
                               onTap: () => _showAddItemSheet(),
                               onDismiss: () => _dismissTip('items'),
                             ),
@@ -2324,7 +2537,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         children: [
                           _buildRowTile(
                             icon: AppIcons.percent,
-                            title: 'Discount',
+                            title: context.l10n.discount,
                             subtitle: _hasDiscount ? '(${_discountCtrl.text}${_discountType == DiscountType.percentage ? "%" : ""})' : '(0%)',
                             value: _hasDiscount
                                 ? '-${CurrencyFormatter.format(_discountAmount, currencyCode: _currency, currencySymbol: currencySymbol)}'
@@ -2346,7 +2559,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           const Divider(height: 16),
                           _buildRowTile(
                             icon: AppIcons.shipping,
-                            title: 'Shipping',
+                            title: context.l10n.shipping,
                             subtitle: '',
                             value: CurrencyFormatter.format(_shippingFee, currencyCode: _currency, currencySymbol: currencySymbol),
                             onTap: _showShippingSheet,
@@ -2362,7 +2575,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Total', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                                Text(context.l10n.total, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                                 Text(
                                   CurrencyFormatter.format(_grandTotal, currencyCode: _currency, currencySymbol: currencySymbol),
                                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
@@ -2374,9 +2587,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           // Sequential Coachmark 3: Configure Discounts & Taxes
                           if (showFinancialsTip) ...[
                             _buildCoachmarkBalloon(
-                              stepLabel: 'Step 3 of 4',
-                              title: 'Configure discount, tax or shipping',
-                              subtitle: 'Apply $taxShortName rates, discounts or shipping charges',
+                              stepLabel: context.l10n.stepOfTotal(3, 4),
+                              title: context.l10n.configureDiscountTaxOrShipping,
+                              subtitle: context.l10n.applyRatesDiscountsOrShippingCharges(taxShortName),
                               onTap: _showTaxSheet,
                               onDismiss: () => _dismissTip('financials'),
                             ),
@@ -2393,7 +2606,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         children: [
                           _buildRowTile(
                             icon: AppIcons.coins,
-                            title: 'Payments',
+                            title: context.l10n.payments,
                             subtitle: '',
                             value: CurrencyFormatter.format(_paidAmount, currencyCode: _currency, currencySymbol: currencySymbol),
                             onTap: _openPayments,
@@ -2408,7 +2621,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Balance Due', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                                Text(context.l10n.balanceDueHeading, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                                 Text(
                                   CurrencyFormatter.format(_balanceDue, currencyCode: _currency, currencySymbol: currencySymbol),
                                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primary),
@@ -2428,7 +2641,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         children: [
                           _buildRowTile(
                             icon: AppIcons.payments,
-                            title: 'Currency',
+                            title: context.l10n.currency,
                             subtitle: '',
                             value: '$_currency $_currencySymbol',
                             onTap: _showCurrencySheet,
@@ -2436,17 +2649,17 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           const Divider(height: 16),
                           _buildRowTile(
                             icon: AppIcons.creditCard,
-                            title: 'Payment Method',
+                            title: context.l10n.paymentMethod,
                             subtitle: '',
-                            value: _paymentMethod.isNotEmpty ? _paymentMethod : '',
+                            value: context.l10n.catalogLabel(_paymentMethod),
                             onTap: _showPaymentMethodSheet,
                           ),
                           const Divider(height: 16),
                           _buildRowTile(
                             icon: AppIcons.draw,
-                            title: 'Signature',
+                            title: context.l10n.signature,
                             subtitle: '',
-                            value: _signaturePath != null ? 'Signature Attached' : 'Add Signature',
+                            value: _signaturePath != null ? context.l10n.signatureAttached : context.l10n.addSignature,
                             onTap: () async {
                               final picker = ImagePicker();
                               final img = await picker.pickImage(source: ImageSource.gallery);
@@ -2462,8 +2675,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           const Divider(height: 16),
                           _buildRowTile(
                             icon: AppIcons.assignment,
-                            title: 'Terms Or Notes',
-                            subtitle: _notesCtrl.text.isNotEmpty ? _notesCtrl.text : 'Thanks for your business.',
+                            title: context.l10n.termsOrNotes,
+                            subtitle: _notesCtrl.text.isNotEmpty ? _notesCtrl.text : context.l10n.thanksForYourBusiness,
                             value: '',
                             onTap: _showNotesSheet,
                           ),
@@ -2471,9 +2684,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           // Sequential Coachmark 4: Payment Method & Signature
                           if (showSettingsTip) ...[
                             _buildCoachmarkBalloon(
-                              stepLabel: 'Step 4 of 4',
-                              title: 'Set payment method & signature',
-                              subtitle: 'Add UPI, bank details, notes or your signature',
+                              stepLabel: context.l10n.stepOfTotal(4, 4),
+                              title: context.l10n.setPaymentMethodSignature,
+                              subtitle: context.l10n.addUpiBankDetailsNotesOrYourSignature,
                               onTap: _showPaymentMethodSheet,
                               onDismiss: () => _dismissTip('settings'),
                             ),
@@ -2483,53 +2696,17 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Card 8: Attachments
-                    _buildCard(
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppColors.slate100,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(AppIcons.attach, color: AppColors.slate700, size: 20),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Attachments', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                                Text(
-                                  _attachments.isEmpty ? 'Add attachments' : '${_attachments.length} attached',
-                                  style: TextStyle(fontSize: 13, color: AppColors.slate500),
-                                ),
-                              ],
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () async {
-                              final picker = ImagePicker();
-                              final img = await picker.pickImage(source: ImageSource.gallery);
-                              if (img != null) {
-                                setState(() => _attachments.add(img.path));
-                              }
-                            },
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(AppIcons.add, color: AppColors.onPrimary, size: 20),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _buildAttachmentsCard(),
                     const SizedBox(height: 12),
+
+                    if (_initialSignature != null) ...[
+                      CustomFieldsCard(
+                        initialFields: _customFields,
+                        recentLabels: _recentFieldLabels,
+                        onChanged: (fields) => setState(() => _customFields = fields),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
 
                     // Card 9: Status
                     _buildCard(
@@ -2538,9 +2715,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         children: [
                           _buildRowTile(
                             icon: AppIcons.factCheck,
-                            title: 'Mark as',
+                            title: context.l10n.markAs,
                             subtitle: '',
-                            value: _status.label,
+                            value: context.l10n.catalogLabel(_status.label),
                             onTap: _showStatusSheet,
                           ),
                         ],
@@ -2558,7 +2735,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                             Icon(AppIcons.delete, color: AppColors.accentRed, size: 20),
                             SizedBox(width: 8),
                             Text(
-                              'Delete Invoice',
+                              context.l10n.deleteInvoice,
                               style: TextStyle(color: AppColors.accentRed, fontWeight: FontWeight.w600, fontSize: 15),
                             ),
                           ],
@@ -2587,7 +2764,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   child: SizedBox(
                     height: 48,
                     child: OutlinedButton(
-                      onPressed: _handlePreview,
+                      onPressed: _isSaving || _pickingAttachment ? null : _handlePreview,
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: AppColors.hairline, width: 1.0),
                         shape: const StadiumBorder(),
@@ -2595,7 +2772,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         elevation: 0,
                       ),
                       child: Text(
-                        'Preview',
+                        context.l10n.preview,
                         style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
                       ),
                     ),
@@ -2606,7 +2783,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   child: SizedBox(
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: _isSaving ? null : _handleSaveAndOpenPreview,
+                      onPressed: _isSaving || _pickingAttachment ? null : _handleSaveAndOpenPreview,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.onPrimary,
@@ -2620,7 +2797,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               child: CircularProgressIndicator(color: AppColors.onPrimary, strokeWidth: 2),
                             )
                           : Text(
-                              'Save',
+                              context.l10n.save,
                               style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.onPrimary),
                             ),
                     ),

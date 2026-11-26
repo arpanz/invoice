@@ -1,13 +1,16 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 import '../../features/estimates/models/estimate_model.dart';
+import '../../features/invoices/models/document_numbering.dart';
 import '../../features/invoices/models/invoice_model.dart';
 import '../../features/invoices/models/line_item_model.dart';
 import '../../features/invoices/models/payment_model.dart';
 import 'package:uuid/uuid.dart';
 import '../../features/clients/models/client_model.dart';
+import '../utils/image_store.dart';
 
 /// Thrown when a document number is already used by another document.
 class DuplicateNumberException implements Exception {
@@ -30,7 +33,7 @@ class DbProvider {
   static Database? _database;
 
   static const String _dbName = 'invoice_maker_pro.db';
-  static const int _dbVersion = 6;
+  static const int _dbVersion = 8;
 
   // Table names
   static const String tableClients = 'clients';
@@ -97,11 +100,13 @@ class DbProvider {
         paid_amount REAL DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'unpaid',
         notes TEXT,
+        custom_fields TEXT,
         currency TEXT DEFAULT 'INR',
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         issuer_snapshot TEXT,
         sent_at INTEGER,
+        attachments TEXT,
         FOREIGN KEY (client_id) REFERENCES $tableClients(id)
       )
     ''');
@@ -147,6 +152,7 @@ class DbProvider {
         status TEXT NOT NULL DEFAULT 'pending',
         converted_invoice_id TEXT,
         notes TEXT,
+        custom_fields TEXT,
         currency TEXT DEFAULT 'INR',
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
@@ -323,6 +329,14 @@ class DbProvider {
     if (oldVersion < 6) {
       await _upgradeToV6(db);
     }
+    if (oldVersion < 7 && newVersion >= 7) {
+      await _addColumnIfMissing(db, tableInvoices, 'attachments', 'TEXT');
+    }
+    if (oldVersion < 8 && newVersion >= 8) {
+      for (final table in [tableInvoices, tableEstimates]) {
+        await _addColumnIfMissing(db, table, 'custom_fields', 'TEXT');
+      }
+    }
   }
 
   static Future<void> _onConfigure(Database db) async {
@@ -488,31 +502,47 @@ class DbProvider {
 
   // ─── Numbering ─────────────────────────────────────────────────────────────
 
-  static Future<String> getNextEstimateNumber() async =>
-      nextNumber(await database, tableEstimates, 'estimate_number', 'EST');
+  static Future<String> getNextEstimateNumber({DocumentNumbering? numbering}) async =>
+      _nextDocumentNumber(await database, estimate: true, numbering: numbering);
 
-  static Future<String> getNextInvoiceNumber() async =>
-      nextNumber(await database, tableInvoices, 'invoice_number', 'INV');
+  static Future<String> getNextInvoiceNumber({DocumentNumbering? numbering}) async =>
+      _nextDocumentNumber(await database, estimate: false, numbering: numbering);
 
-  /// Next number in the PREFIX + five digits series (INV00001, ...).
-  ///
-  /// Uses the highest number in that exact series, not a row count, so
-  /// deleting a document never makes the next number collide with an existing
-  /// one. Numbers outside the series (typed by the user, or the old
-  /// epoch-based duplicate numbers) are ignored, and the result is checked
-  /// against every existing number before it is returned.
+  static Future<String> _nextDocumentNumber(
+    DatabaseExecutor db, {
+    required bool estimate,
+    DocumentNumbering? numbering,
+    DateTime? date,
+  }) async {
+    final settings = numbering ??
+        DocumentNumbering.read(await SharedPreferences.getInstance());
+    return nextNumber(
+      db,
+      estimate ? tableEstimates : tableInvoices,
+      estimate ? 'estimate_number' : 'invoice_number',
+      settings.prefix(estimate: estimate, date: date ?? DateTime.now()),
+      digits: settings.digits,
+      startAt: estimate ? settings.nextEstimate : settings.nextInvoice,
+    );
+  }
+
+  /// Advances past the highest number in the exact prefix and width series.
+  /// The start value is a floor. Check every candidate for exact collisions,
+  /// including when the counter grows beyond the configured padding.
   @visibleForTesting
   static Future<String> nextNumber(
     DatabaseExecutor db,
     String table,
     String column,
-    String prefix,
-  ) async {
+    String prefix, {
+    int digits = 5,
+    int startAt = 1,
+  }) async {
     final rows = await db.rawQuery(
-      'SELECT $column AS n FROM $table WHERE $column LIKE ?',
-      ['$prefix%'],
+      'SELECT $column AS n FROM $table WHERE instr($column, ?) = 1',
+      [prefix],
     );
-    final series = RegExp('^${RegExp.escape(prefix)}(\\d{5})\$');
+    final series = RegExp('^${RegExp.escape(prefix)}([0-9]{$digits})' r'$');
     var maxN = 0;
     final existing = <String>{};
     for (final row in rows) {
@@ -524,12 +554,12 @@ class DbProvider {
         if (v > maxN) maxN = v;
       }
     }
-    var next = maxN + 1;
-    String format(int v) => '$prefix${v.toString().padLeft(5, '0')}';
-    while (existing.contains(format(next))) {
-      next++;
+    var next = BigInt.from(startAt > maxN ? startAt : maxN + 1);
+    String format() => '$prefix${next.toString().padLeft(digits, '0')}';
+    while (existing.contains(format())) {
+      next += BigInt.one;
     }
-    return format(next);
+    return format();
   }
 
   static bool _isUniqueViolation(Object e) =>
@@ -542,9 +572,12 @@ class DbProvider {
   static Future<void> saveInvoice(InvoiceModel invoice) async {
     final db = await database;
     try {
-      await db.transaction((txn) async {
+      final removedAttachments = await db.transaction((txn) async {
+        final previous = await _invoiceAttachments(txn, invoice.id);
         await _saveInvoiceTxn(txn, invoice);
+        return previous.toSet().difference(invoice.attachments.toSet());
       });
+      await _deleteUnusedAttachments(db, removedAttachments);
     } catch (e) {
       if (_isUniqueViolation(e)) throw DuplicateNumberException(invoice.invoiceNumber);
       rethrow;
@@ -729,10 +762,11 @@ class DbProvider {
               current.first['status'] == EstimateStatus.converted.value)) {
         throw const AlreadyConvertedException();
       }
-      final number = await nextNumber(txn, tableInvoices, 'invoice_number', 'INV');
+      final number = await _nextDocumentNumber(txn, estimate: false);
       final draft = buildInvoice(number);
       final invoice = draft.copyWith(
         invoiceNumber: number,
+        customFields: estimate.customFields,
         lineItems: [
           for (final l in draft.lineItems) l.copyWith(id: newId(), invoiceId: draft.id),
         ],
@@ -779,9 +813,15 @@ class DbProvider {
     final db = await database;
     final today = now ?? DateTime.now();
     return db.transaction((txn) async {
-      final number = await nextNumber(txn, tableInvoices, 'invoice_number', 'INV');
+      final number = await _nextDocumentNumber(txn, estimate: false, date: today);
       final termDays = source.dueDate?.difference(source.invoiceDate).inDays;
+      final attachments = await _invoiceAttachments(
+        txn,
+        source.id,
+        fallback: source.attachments,
+      );
       final invoice = source.copyWith(
+        attachments: attachments,
         id: newInvoiceId,
         invoiceNumber: number,
         invoiceDate: today,
@@ -800,10 +840,11 @@ class DbProvider {
     });
   }
 
-  /// Deletes an invoice and its lines.
+  /// Deletes an invoice, its lines and payments, and any unshared photos.
   static Future<void> deleteInvoice(String id) async {
     final db = await database;
-    await db.transaction((txn) async {
+    final attachments = await db.transaction((txn) async {
+      final paths = await _invoiceAttachments(txn, id);
       await txn.delete(tableLineItems, where: 'invoice_id = ?', whereArgs: [id]);
       await txn.delete(tablePayments, where: 'invoice_id = ?', whereArgs: [id]);
       await txn.delete(tableInvoices, where: 'id = ?', whereArgs: [id]);
@@ -818,7 +859,46 @@ class DbProvider {
           },
           where: 'converted_invoice_id = ?',
           whereArgs: [id]);
+      return paths;
     });
+    await _deleteUnusedAttachments(db, attachments.toSet());
+  }
+
+  static Future<List<String>> _invoiceAttachments(
+    DatabaseExecutor db,
+    String id, {
+    List<String> fallback = const [],
+  }) async {
+    final rows = await db.query(
+      tableInvoices,
+      columns: ['attachments'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return rows.isEmpty
+        ? fallback
+        : InvoiceModel.decodeAttachmentPaths(rows.single['attachments']);
+  }
+
+  static Future<void> _deleteUnusedAttachments(Database db, Set<String> paths) async {
+    if (paths.isEmpty) return;
+    try {
+      await db.transaction((txn) async {
+        final rows = await txn.query(
+          tableInvoices,
+          columns: ['attachments'],
+          where: "attachments IS NOT NULL AND attachments != '[]'",
+        );
+        for (final row in rows) {
+          paths.removeAll(InvoiceModel.decodeAttachmentPaths(row['attachments']));
+        }
+        for (final path in paths) {
+          await ImageStore.deleteAttachment(path);
+        }
+      });
+    } catch (e) {
+      debugPrint('Invoice attachments not removed: $e');
+    }
   }
 
   /// Deletes an estimate and its lines.

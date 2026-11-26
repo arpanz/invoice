@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/localization/catalog_localization.dart';
+import '../../../core/localization/l10n.dart';
 
 import '../../../core/billing/free_limits.dart';
 import '../../../core/database/db_provider.dart';
@@ -17,6 +19,8 @@ import '../../../shared_widgets/custom_text_field.dart';
 import '../../../shared_widgets/currency_picker_sheet.dart';
 import '../../clients/models/client_model.dart';
 import '../../clients/screens/client_list_screen.dart';
+import '../../invoices/models/document_custom_field.dart';
+import '../../invoices/widgets/custom_fields_card.dart';
 import '../../invoices/models/invoice_model.dart';
 import '../../invoices/models/line_item_model.dart';
 import '../../invoices/models/invoice_customization_config.dart';
@@ -52,7 +56,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
   DateTime? _expiryDate;
 
   // Business Profile
-  String _bizName = 'My Business';
+  String? _bizName;
 
   // Client Details
   ClientModel? _selectedClient;
@@ -91,6 +95,8 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
 
   // Notes & Theme
   String _currency = 'INR';
+  List<DocumentCustomField> _customFields = const [];
+  List<String> _recentFieldLabels = const [];
   final _notesCtrl = TextEditingController(
     text: defaultEstimateNote,
   );
@@ -128,8 +134,12 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
   Future<void> _loadInitialData() async {
     final currencyProvider = context.read<CurrencyProvider>();
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    _recentFieldLabels = DocumentFieldPreferences.recent(prefs);
+    _customFields = widget.existingEstimate?.customFields ?? const [];
 
-    _bizName = prefs.getString('biz_name') ?? 'My Business';
+
+    _bizName = prefs.getString('biz_name');
 
     final savedThemeId = (widget.existingEstimate != null
             ? prefs.getString('estimate_theme_${widget.existingEstimate!.id}')
@@ -256,6 +266,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
       taxAmount: _taxAmount,
       grandTotal: _grandTotal,
       status: _status,
+      customFields: DocumentCustomField.forSave(_customFields),
       notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       currency: _currency,
       createdAt: widget.existingEstimate?.createdAt ?? now,
@@ -270,14 +281,14 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
   Future<EstimateModel?> _saveEstimate({bool popAfter = true}) async {
     if (_clientNameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter or select a client name')),
+        SnackBar(content: Text(context.l10n.pleaseEnterOrSelectAClientName)),
       );
       return null;
     }
 
     if (_items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add at least one line item')),
+        SnackBar(content: Text(context.l10n.addLineItemValidation)),
       );
       return null;
     }
@@ -291,6 +302,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
     try {
       final estimate = _buildEstimateModel();
       await DbProvider.saveEstimate(estimate);
+      await DocumentFieldPreferences.remember(estimate.customFields);
 
       // Template for this estimate, stored as the id the renderer reads.
       final prefs = await SharedPreferences.getInstance();
@@ -313,7 +325,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
       if (mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Estimate number ${e.number} is already used. Pick another number.')),
+          SnackBar(content: Text(context.l10n.estimateNumberIsAlreadyUsedPickAnotherNumber(e.number))),
         );
       }
       return null;
@@ -322,7 +334,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
       if (mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save the estimate. Please try again.')),
+          SnackBar(content: Text(context.l10n.couldNotSaveTheEstimatePleaseTryAgain)),
         );
       }
       return null;
@@ -407,7 +419,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            existingItem == null ? 'Add Item / Service' : 'Edit Item',
+                            existingItem == null ? context.l10n.addItemService : context.l10n.editItem,
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
@@ -416,7 +428,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Enter description, quantity & rate',
+                            context.l10n.enterDescriptionQuantityRate,
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.slate500,
@@ -434,18 +446,18 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
               ),
               const SizedBox(height: 16),
               CustomTextField(
-                label: 'Description / Item Name *',
-                hint: 'e.g. Website Design, Consultation, Parts',
+                label: context.l10n.descriptionItemName,
+                hint: context.l10n.eGWebsiteDesignConsultationParts,
                 controller: descCtrl,
                 validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Required' : null,
+                    v == null || v.trim().isEmpty ? context.l10n.required : null,
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
                     child: CustomTextField(
-                      label: 'Quantity *',
+                      label: context.l10n.requiredQuantity,
                       hint: '1',
                       controller: qtyCtrl,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -453,7 +465,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       ),
                       validator: (v) {
                         final parsed = NumberText.parse(v, fallback: -1);
-                        if (parsed <= 0) return 'Invalid';
+                        if (parsed <= 0) return context.l10n.invalid;
                         return null;
                       },
                     ),
@@ -462,7 +474,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                   Expanded(
                     flex: 2,
                     child: CustomTextField(
-                      label: 'Unit Price *',
+                      label: context.l10n.requiredUnitPrice,
                       hint: '0.00',
                       controller: priceCtrl,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -472,7 +484,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                           '${CurrencyFormatter.getCurrencySymbol(_currency)} ',
                       validator: (v) {
                         final parsed = NumberText.parse(v, fallback: -1);
-                        if (parsed < 0) return 'Invalid';
+                        if (parsed < 0) return context.l10n.invalid;
                         return null;
                       },
                     ),
@@ -526,7 +538,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     }
                   },
                   child: Text(
-                    existingItem == null ? 'Add to Estimate' : 'Save Changes',
+                    existingItem == null ? context.l10n.addToEstimate : context.l10n.saveChanges,
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
@@ -591,6 +603,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
         for (final i in _items) '${i.description}|${i.quantity}|${i.unitPrice}|${i.discountRate}|${i.taxRate}',
         _hasDiscount, _discountType, _discountCtrl.text, _hasTax, _useIGST,
         _sgstCtrl.text, _cgstCtrl.text, _igstCtrl.text, _notesCtrl.text,
+        DocumentCustomField.encode(_customFields),
         _currency, _selectedTheme.id,
       ].join('\u0001');
 
@@ -600,12 +613,12 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
     if (dirty) {
       final discard = await AppDialog.showConfirmation(
         context: context,
-        title: 'Discard changes?',
-        message: 'You have unsaved changes. Leave without saving them?',
+        title: context.l10n.discardChanges,
+        message: context.l10n.youHaveUnsavedChangesLeaveWithoutSavingThem,
         variant: AppDialogVariant.danger,
         icon: AppIcons.warning,
-        confirmLabel: 'Discard',
-        cancelLabel: 'Keep editing',
+        confirmLabel: context.l10n.discard,
+        cancelLabel: context.l10n.keepEditing,
         isDestructive: true,
       );
       if (discard != true) return;
@@ -636,7 +649,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
             onPressed: () => Navigator.maybePop(context),
           ),
           title: Text(
-            widget.existingEstimate != null ? 'Edit Estimate' : 'Create Estimate',
+            widget.existingEstimate != null ? context.l10n.editEstimate : context.l10n.createEstimate,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -645,7 +658,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
           ),
           actions: [
             IconButton(
-              tooltip: 'PDF Templates',
+              tooltip: context.l10n.pdfTemplates,
               icon: Icon(AppIcons.palette, color: AppColors.primary),
               onPressed: _pickTheme,
             ),
@@ -665,7 +678,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       children: [
                         Expanded(
                           child: CustomTextField(
-                            label: 'Estimate Number *',
+                            label: context.l10n.estimateNumber,
                             controller: _estimateNumberCtrl,
                             textCapitalization: TextCapitalization.characters,
                           ),
@@ -685,12 +698,12 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                               }
                             },
                             child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Estimate Date',
+                              decoration: InputDecoration(
+                                labelText: context.l10n.estimateDate,
                                 border: OutlineInputBorder(),
                               ),
                               child: Text(
-                                DateFormat('dd/MM/yyyy').format(_estimateDate),
+                                DateFormat('dd/MM/yyyy', context.localeName).format(_estimateDate),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -720,16 +733,14 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                               }
                             },
                             child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Valid Until / Expiry',
+                              decoration: InputDecoration(
+                                labelText: context.l10n.validUntilExpiry,
                                 border: OutlineInputBorder(),
                               ),
                               child: Text(
                                 _expiryDate != null
-                                    ? DateFormat(
-                                        'dd/MM/yyyy',
-                                      ).format(_expiryDate!)
-                                    : 'No Expiry',
+                                    ? DateFormat('dd/MM/yyyy', context.localeName).format(_expiryDate!)
+                                    : context.l10n.noExpiry,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -743,17 +754,17 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     Row(
                       children: [
                         Text(
-                          'Quick Validity: ',
+                          context.l10n.quickValidity,
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.slate500,
                           ),
                         ),
-                        _buildQuickDateChip('7 Days', 7),
+                        _buildQuickDateChip(context.l10n.validForSevenDays, 7),
                         const SizedBox(width: 6),
-                        _buildQuickDateChip('14 Days', 14),
+                        _buildQuickDateChip(context.l10n.validForFourteenDays, 14),
                         const SizedBox(width: 6),
-                        _buildQuickDateChip('30 Days', 30),
+                        _buildQuickDateChip(context.l10n.validForThirtyDays, 30),
                       ],
                     ),
                   ],
@@ -785,7 +796,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'PDF Theme',
+                            context.l10n.pdfTheme,
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.slate500,
@@ -793,7 +804,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                             ),
                           ),
                           Text(
-                            _selectedTheme.name,
+                            context.l10n.catalogLabel(_selectedTheme.name),
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -833,11 +844,11 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         ),
                       ),
                       title: Text(
-                        'Bill From',
+                        context.l10n.billFrom,
                         style: TextStyle(fontSize: 12, color: AppColors.slate500),
                       ),
                       subtitle: Text(
-                        _bizName,
+                        _bizName ?? context.l10n.myBusinessPlaceholder,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
@@ -867,7 +878,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Bill To (Client) *',
+                                context.l10n.billToClient,
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.slate500,
@@ -875,7 +886,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                               ),
                               Text(
                                 _clientNameCtrl.text.isEmpty
-                                    ? 'Select / Add Client'
+                                    ? context.l10n.selectAddClient
                                     : _clientNameCtrl.text,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
@@ -889,7 +900,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Select Client',
+                          tooltip: context.l10n.selectClient,
                           icon: Icon(
                             AppIcons.contacts,
                             color: AppColors.primary,
@@ -901,8 +912,8 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     if (_selectedClient == null) ...[
                       const SizedBox(height: 12),
                       CustomTextField(
-                        label: 'Client Name *',
-                        hint: 'John Doe / Apex Corp',
+                        label: context.l10n.clientName,
+                        hint: context.l10n.johnDoeApexCorp,
                         controller: _clientNameCtrl,
                         onChanged: (_) => setState(() {}),
                       ),
@@ -921,7 +932,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Items & Services',
+                          context.l10n.itemsServices,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -932,7 +943,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                           children: [
                             TextButton.icon(
                               icon: const Icon(AppIcons.items, size: 16),
-                              label: const Text('Catalog'),
+                              label: Text(context.l10n.catalog),
                               onPressed: () async {
                                 final picked = await ItemPickerSheet.show(
                                   context,
@@ -946,7 +957,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                             ),
                             TextButton.icon(
                               icon: const Icon(AppIcons.add, size: 18),
-                              label: const Text('Add Item'),
+                              label: Text(context.l10n.addItem),
                               onPressed: () => _showItemDialog(),
                             ),
                           ],
@@ -967,7 +978,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'No items added yet',
+                              context.l10n.noItemsAddedYet,
                               style: TextStyle(
                                 color: AppColors.slate500,
                                 fontSize: 13,
@@ -1049,7 +1060,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                   children: [
                     // Subtotal
                     _buildSummaryRow(
-                      'Subtotal',
+                      context.l10n.subtotal,
                       CurrencyFormatter.format(_subtotal, currencyCode: _currency, currencySymbol: currencySymbol),
                     ),
                     const SizedBox(height: 8),
@@ -1058,8 +1069,8 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Discount',
+                        Text(
+                          context.l10n.discount,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
@@ -1104,7 +1115,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       ),
                       const SizedBox(height: 8),
                       _buildSummaryRow(
-                        'Discount Amount',
+                        context.l10n.discountAmount,
                         '-${CurrencyFormatter.format(_discountAmount, currencyCode: _currency, currencySymbol: currencySymbol)}',
                         isNegative: true,
                       ),
@@ -1118,7 +1129,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         Text(
                           currencyProvider.taxIdLabel.isNotEmpty
                               ? currencyProvider.taxIdLabel
-                              : 'Tax',
+                              : context.l10n.tax,
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
@@ -1189,7 +1200,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       ] else ...[
                         CustomTextField(
                           label:
-                              '${currencyProvider.selectedCurrency.defaultTax.shortName} %',
+                              '${context.l10n.catalogLabel(currencyProvider.selectedCurrency.defaultTax.shortName)} %',
                           controller: _igstCtrl,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
@@ -1199,7 +1210,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       ],
                       const SizedBox(height: 8),
                       _buildSummaryRow(
-                        'Tax Amount',
+                        context.l10n.taxAmount,
                         '+${CurrencyFormatter.format(_taxAmount, currencyCode: _currency, currencySymbol: currencySymbol)}',
                       ),
                     ],
@@ -1210,7 +1221,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Total Estimated',
+                          context.l10n.totalEstimated,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -1264,7 +1275,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Currency',
+                            context.l10n.currency,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -1293,13 +1304,22 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
               ),
               const SizedBox(height: 12),
 
+              if (_initialSignature != null) ...[
+                CustomFieldsCard(
+                  initialFields: _customFields,
+                  recentLabels: _recentFieldLabels,
+                  onChanged: (fields) => setState(() => _customFields = fields),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               // 7. Notes & Terms Card
               _buildCardContainer(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Notes & Terms',
+                      context.l10n.notesTerms,
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -1308,7 +1328,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     ),
                     const SizedBox(height: 10),
                     CustomTextField(
-                      hint: 'e.g. Estimate valid for 30 days. Payment terms...',
+                      hint: context.l10n.eGEstimateValidFor30DaysPayment,
                       controller: _notesCtrl,
                       maxLines: 3,
                     ),
@@ -1345,7 +1365,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                     ),
                     onPressed: _openPreview,
                     child: Text(
-                      'Preview PDF',
+                      context.l10n.previewPdf,
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: AppColors.primary,
@@ -1374,7 +1394,7 @@ class _CreateEstimateScreenState extends State<CreateEstimateScreen> {
                             ),
                           )
                         : Text(
-                            'Save Estimate',
+                            context.l10n.saveEstimate,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               color: AppColors.onPrimary,

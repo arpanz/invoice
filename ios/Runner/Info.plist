@@ -2,8 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 	<dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID keeps your invoices locked when App lock is on.</string>
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
+		<key>CFBundleLocalizations</key>
+		<array>
+			<string>en</string>
+			<string>hi</string>
+		</array>
 		<key>UIFileSharingEnabled</key>
 		<true/>
 		<key>LSSupportsOpeningDocumentsInPlace</key>
@@ -34,9 +41,10 @@
 		<!-- Required for iOS 14+ ATT (needed by AdMob) -->
 		<key>NSUserTrackingUsageDescription</key>
 		<string>This identifier will be used to deliver personalised ads to you.</string>
-		<!-- Photo Library access (for business logo upload) -->
+		<key>NSCameraUsageDescription</key>
+		<string>Take photos to attach to your invoices.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
-		<string>Invoice Maker Pro needs access to your photo library to upload your business logo.</string>
+		<string>Choose photos for your business logo or invoice attachments.</string>
 		<key>NSPhotoLibraryAddUsageDescription</key>
 		<string>Invoice Maker Pro needs access to save invoice images to your photo library.</string>
 		<key>UILaunchStoryboardName</key>

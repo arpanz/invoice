@@ -1,10 +1,17 @@
+import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/core/database/db_provider.dart';
 import 'package:invoice/features/clients/models/client_model.dart';
 import 'package:invoice/features/estimates/models/estimate_model.dart';
+import 'package:invoice/features/invoices/models/document_custom_field.dart';
+import 'package:invoice/features/invoices/models/document_numbering.dart';
 import 'package:invoice/features/invoices/models/invoice_model.dart';
 import 'package:invoice/features/invoices/models/line_item_model.dart';
 import 'package:invoice/features/invoices/models/payment_model.dart';
+import 'package:invoice/features/invoices/services/invoice_render_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 var _seq = 0;
@@ -55,10 +62,12 @@ Future<List<LineItemModel>> linesOf(Database db, String invoiceId) async =>
         .toList();
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
   late Database db;
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     db = await databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
@@ -86,6 +95,117 @@ void main() {
     await DbProvider.saveInvoice(invoice('INV00007'));
     await DbProvider.saveInvoice(invoice('INV483921'));
     expect(await DbProvider.getNextInvoiceNumber(), 'INV00008');
+  });
+
+  test('custom numbering honors width, start, and persisted settings', () async {
+    const settings = DocumentNumbering(
+      invoicePrefix: 'B2B/2026-27/',
+      estimatePrefix: 'Q-',
+      digits: 3,
+      nextInvoice: 12,
+      nextEstimate: 6,
+    );
+    await settings.save(await SharedPreferences.getInstance());
+    await DbProvider.saveInvoice(invoice('INV00099'));
+    await DbProvider.saveInvoice(invoice('B2B/2026-27/011'));
+    await DbProvider.saveInvoice(invoice('B2B/2026-27/123456'));
+    expect(await DbProvider.getNextInvoiceNumber(), 'B2B/2026-27/012');
+    expect(await DbProvider.getNextEstimateNumber(), 'Q-006');
+    final first = invoice('B2B/2026-27/014');
+    await DbProvider.saveInvoice(first);
+    final copy = await DbProvider.duplicateInvoice(
+      first, newInvoiceId: 'custom-copy', newLineId: () => _id('line'),
+    );
+    expect(copy.invoiceNumber, 'B2B/2026-27/015');
+    final quote = estimate('Q-006').copyWith(
+      customFields: const [DocumentCustomField(label: 'PO Number', value: 'AB-12')],
+    );
+    await DbProvider.saveEstimate(quote);
+    final converted = await DbProvider.convertEstimate(
+      quote,
+      (number) => quote.toInvoiceModel(newInvoiceId: 'converted', newInvoiceNumber: number),
+      newId: () => _id('line'),
+    );
+    expect(converted.invoiceNumber, 'B2B/2026-27/016');
+    expect(converted.customFields.single.value, 'AB-12');
+    expect(await DbProvider.getNextEstimateNumber(), 'Q-007');
+  });
+
+  test('numbers escape literal prefixes and skip collisions beyond the width', () async {
+    for (final number in ['X.%_+999', 'X.%_+1000', 'X.%_+1001', 'Xabc+888']) {
+      await DbProvider.saveInvoice(invoice(number));
+    }
+    expect(
+      await DbProvider.nextNumber(db, DbProvider.tableInvoices, 'invoice_number', 'X.%_+', digits: 3),
+      'X.%_+1002',
+    );
+    expect(
+      await DbProvider.nextNumber(db, DbProvider.tableInvoices, 'invoice_number', 'X.%_+', digits: 4),
+      'X.%_+1002',
+    );
+    expect(
+      await DbProvider.nextNumber(db, DbProvider.tableInvoices, 'invoice_number', 'Y-', digits: 8),
+      'Y-00000001',
+    );
+    expect(DocumentNumbering.validPrefix('INV/2026-27/'), isTrue);
+    expect(DocumentNumbering.validPrefix('X.%_+'), isFalse);
+  });
+
+  test('financial year rolls over on 1 April for new duplicates', () async {
+    const settings = DocumentNumbering(addFinancialYear: true, digits: 3);
+    await settings.save(await SharedPreferences.getInstance());
+    final source = invoice('INV/2025-26/018');
+    await DbProvider.saveInvoice(source);
+    final march = await DbProvider.duplicateInvoice(
+      source, newInvoiceId: 'march', newLineId: () => _id('line'), now: DateTime(2026, 3, 31),
+    );
+    final april = await DbProvider.duplicateInvoice(
+      source, newInvoiceId: 'april', newLineId: () => _id('line'), now: DateTime(2026, 4, 1),
+    );
+    expect(march.invoiceNumber, 'INV/2025-26/019');
+    expect(april.invoiceNumber, 'INV/2026-27/001');
+    expect(settings.prefix(estimate: true, date: DateTime(2099, 4)), 'EST/2099-00/');
+  });
+
+  test('custom fields round trip through models and invoice duplication', () async {
+    const fields = [
+      DocumentCustomField(label: 'PO Number', value: 'PO-42'),
+      DocumentCustomField(label: 'Vehicle No.'),
+    ];
+    final source = invoice('INV00001').copyWith(customFields: fields);
+    final quote = estimate('EST00001').copyWith(customFields: fields);
+    final stored = DocumentCustomField.encode(fields);
+    expect(InvoiceModel.fromMap(source.toMap()).copyWith().toMap()['custom_fields'], stored);
+    expect(EstimateModel.fromMap(quote.toMap()).copyWith().toMap()['custom_fields'], stored);
+    expect(InvoiceModel.fromMap(source.toMap()..remove('custom_fields')).customFields, isEmpty);
+    expect(DocumentCustomField.decode('broken JSON'), isEmpty);
+    expect(DocumentCustomField.decode(DocumentCustomField.encode([...fields, ...fields, ...fields])), hasLength(5));
+    await DbProvider.saveInvoice(source);
+    final copy = await DbProvider.duplicateInvoice(
+      source, newInvoiceId: 'field-copy', newLineId: () => _id('line'),
+    );
+    expect(copy.toMap()['custom_fields'], stored);
+    expect((await DbProvider.loadInvoices()).map((invoice) => invoice.toMap()['custom_fields']), everyElement(stored));
+  });
+
+  test('default fields are label-only and recent labels are deduplicated', () async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      DocumentFieldPreferences.defaultsKey,
+      '[{"label":"PO Number","value":"old value"}]',
+    );
+    expect(DocumentFieldPreferences.defaults(prefs).single.label, 'PO Number');
+    expect(DocumentFieldPreferences.defaults(prefs).single.value, isEmpty);
+
+    await DocumentFieldPreferences.remember(const [
+      DocumentCustomField(label: 'PO Number'),
+      DocumentCustomField(label: 'Vehicle No.'),
+    ]);
+    await DocumentFieldPreferences.remember(const [
+      DocumentCustomField(label: 'vehicle no.'),
+      DocumentCustomField(label: 'Project'),
+    ]);
+    expect(DocumentFieldPreferences.recent(prefs), ['vehicle no.', 'Project', 'PO Number']);
   });
 
   test('F1: a duplicate number is refused instead of overwriting', () async {
@@ -296,6 +416,29 @@ void main() {
       expect((await load(inv.id)).status, InvoiceStatus.partiallyPaid);
     });
 
+    test('a paid invoice stamp uses the latest payment date', () async {
+      final inv = invoice('INV00001');
+      await DbProvider.saveInvoice(inv);
+      final earlier = DateTime(2026, 11, 2);
+      final latest = DateTime(2026, 11, 4);
+      await DbProvider.addPayment(PaymentModel(
+        id: _id('p'),
+        invoiceId: inv.id,
+        amount: 55,
+        paidOn: latest,
+        createdAt: latest,
+      ));
+      expect(await InvoiceRenderService.lastPaymentDate(await load(inv.id)), isNull);
+      await DbProvider.addPayment(PaymentModel(
+        id: _id('p'),
+        invoiceId: inv.id,
+        amount: 45,
+        paidOn: earlier,
+        createdAt: latest.add(const Duration(days: 1)),
+      ));
+      expect(await InvoiceRenderService.lastPaymentDate(await load(inv.id)), latest);
+    });
+
     test('deleting an invoice deletes its payments', () async {
       final inv = invoice('INV00001');
       await DbProvider.saveInvoice(inv);
@@ -320,6 +463,114 @@ void main() {
       expect(rows.map((r) => r['amount']), [1000, 333.33]);
       expect(rows.map((r) => r['invoice_id']), [paid.id, part.id]);
     });
+  });
+
+  test('v6 → v7 adds attachment storage and preserves existing invoices', () async {
+    final directory = await Directory.systemTemp.createTemp('invoice_upgrade');
+    addTearDown(() => directory.delete(recursive: true));
+    final path = '${directory.path}/invoices.db';
+    final original = invoice('INV00042');
+    final old = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 6,
+        onConfigure: DbProvider.configureForTesting,
+        onCreate: (db, version) async {
+          await DbProvider.createSchemaForTesting(db, version);
+          await db.execute('ALTER TABLE invoices DROP COLUMN attachments');
+          await db.execute('ALTER TABLE invoices DROP COLUMN custom_fields');
+          await db.execute('ALTER TABLE estimates DROP COLUMN custom_fields');
+        },
+      ),
+    );
+    await old.insert(DbProvider.tableInvoices, original.toMap()..remove('attachments')..remove('custom_fields'));
+    await old.close();
+
+    final upgraded = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 7,
+        onConfigure: DbProvider.configureForTesting,
+        onUpgrade: DbProvider.upgradeForTesting,
+      ),
+    );
+    addTearDown(upgraded.close);
+    final row = (await upgraded.query(DbProvider.tableInvoices)).single;
+    expect(await upgraded.getVersion(), 7);
+    expect(row.containsKey('attachments'), isTrue);
+    expect(InvoiceModel.fromMap(row).attachments, isEmpty);
+    expect(row['invoice_number'], original.invoiceNumber);
+    await DbProvider.upgradeForTesting(upgraded, 6, 7);
+  });
+
+  test('v7 → v8 adds custom fields and preserves both document numbers', () async {
+    final directory = await Directory.systemTemp.createTemp('invoice_fields_upgrade');
+    addTearDown(() => directory.delete(recursive: true));
+    final path = '${directory.path}/invoices.db';
+    final old = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 7,
+        onCreate: (db, version) async {
+          await DbProvider.createSchemaForTesting(db, version);
+          for (final table in [DbProvider.tableInvoices, DbProvider.tableEstimates]) {
+            await db.execute('ALTER TABLE $table DROP COLUMN custom_fields');
+          }
+        },
+      ),
+    );
+    await old.insert(DbProvider.tableInvoices, invoice('INV00042').toMap()..remove('custom_fields'));
+    await old.insert(DbProvider.tableEstimates, estimate('EST00056').toMap()..remove('custom_fields'));
+    await old.close();
+
+    final upgraded = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: DbProvider.schemaVersion,
+        onConfigure: DbProvider.configureForTesting,
+        onUpgrade: DbProvider.upgradeForTesting,
+      ),
+    );
+    addTearDown(upgraded.close);
+    expect(await upgraded.getVersion(), 8);
+    await DbProvider.upgradeForTesting(upgraded, 7, 8);
+    final inv = (await upgraded.query(DbProvider.tableInvoices)).single;
+    final quote = (await upgraded.query(DbProvider.tableEstimates)).single;
+    expect(inv['invoice_number'], 'INV00042');
+    expect(quote['estimate_number'], 'EST00056');
+    expect(inv, containsPair('custom_fields', null));
+    expect(quote, containsPair('custom_fields', null));
+    expect(InvoiceModel.fromMap(inv).customFields, isEmpty);
+    expect(EstimateModel.fromMap(quote).customFields, isEmpty);
+  });
+
+  test('duplicate retains photos and deletion removes the last reference', () async {
+    final directory = await Directory.systemTemp.createTemp('invoice_attachments');
+    addTearDown(() => directory.delete(recursive: true));
+    const pathProvider = MethodChannel('plugins.flutter.io/path_provider');
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(pathProvider, (call) async {
+      expect(call.method, 'getApplicationDocumentsDirectory');
+      return directory.path;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(pathProvider, null));
+
+    final images = await Directory('${directory.path}/images').create();
+    final photo = await File('${images.path}/attachment_test.jpg').writeAsBytes([1, 2, 3]);
+    final original = invoice('INV00001').copyWith(attachments: [photo.path]);
+    await DbProvider.saveInvoice(original);
+    final duplicate = await DbProvider.duplicateInvoice(
+      original,
+      newInvoiceId: _id('inv'),
+      newLineId: () => _id('li'),
+    );
+    expect(duplicate.attachments, [photo.path]);
+    expect((await DbProvider.loadInvoices()).every((row) => row.attachments.single == photo.path), isTrue);
+
+    await DbProvider.deleteInvoice(original.id);
+    expect(await photo.exists(), isTrue);
+    await DbProvider.deleteInvoice(duplicate.id);
+    expect(await photo.exists(), isFalse);
   });
 
   group('v4 → v5 upgrade', () {

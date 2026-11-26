@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/localization/catalog_localization.dart';
+import '../../../core/localization/l10n.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -73,6 +75,7 @@ class PdfThemePickerSheet extends StatefulWidget {
 
 class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
   late PdfTheme _selectedTheme;
+  PdfThemeCategory? _category;
   bool _setAsDefault = false;
   final Map<PdfThemeId, Uint8List> _thumbnailCache = {};
 
@@ -92,8 +95,10 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
     final sampleInv = DummyInvoiceData.getSampleInvoice(currencyCode);
     final sampleProf = DummyInvoiceData.getSampleProfile(currencyCode);
 
-    for (final theme in PdfTheme.all) {
-      if (_thumbnailCache.containsKey(theme.id)) continue;
+    final pending = PdfTheme.all.toList();
+    while (mounted && pending.isNotEmpty) {
+      final categoryIndex = pending.indexWhere((theme) => theme.category == _category);
+      final theme = pending.removeAt(categoryIndex < 0 ? 0 : categoryIndex);
       try {
         final pdfBytes = await PdfGeneratorService.generateInvoicePdf(
           invoice: sampleInv,
@@ -102,8 +107,10 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
           theme: theme,
           isSamplePreview: true,
         );
+        if (!mounted) return;
 
         await for (final page in Printing.raster(pdfBytes, pages: [0], dpi: 90)) {
+          if (!mounted) return;
           final png = await page.toPng();
           if (mounted) {
             setState(() {
@@ -118,6 +125,9 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final templates = PdfTheme.all
+        .where((theme) => _category == null || theme.category == _category)
+        .toList();
     return Container(
       height: MediaQuery.of(context).size.height * 0.88,
       decoration: BoxDecoration(
@@ -154,7 +164,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Choose Invoice Style',
+                          context.l10n.chooseInvoiceStyle,
                           style: AppTypography.serif(
                             fontSize: 18,
                             fontWeight: FontWeight.w500,
@@ -164,7 +174,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Tap any template to select',
+                          context.l10n.templateCount(templates.length, PdfTheme.all.length),
                           style: GoogleFonts.inter(
                             fontSize: 12.5,
                             color: AppColors.muted,
@@ -225,7 +235,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Customize Design & Typography',
+                              context.l10n.customizeDesignTypography,
                               style: GoogleFonts.inter(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -233,7 +243,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                               ),
                             ),
                             Text(
-                              'Change font family, sizing scale & element layout',
+                              context.l10n.changeFontFamilySizingScaleElementLayout,
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 color: AppColors.muted,
@@ -253,11 +263,17 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
               ),
             ),
             const SizedBox(height: 12),
+            PdfThemeCategoryChips(
+              category: _category,
+              onChanged: (category) => setState(() => _category = category),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
             Divider(height: 1, thickness: 1, color: AppColors.hairline),
 
             // Grid of live theme mockups
             Expanded(
               child: GridView.builder(
+                key: ValueKey(_category),
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
@@ -265,9 +281,9 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
-                itemCount: PdfTheme.all.length,
+                itemCount: templates.length,
                 itemBuilder: (context, index) {
-                  final theme = PdfTheme.all[index];
+                  final theme = templates[index];
                   final isSelected = theme.id == _selectedTheme.id;
                   final thumbBytes = _thumbnailCache[theme.id];
 
@@ -316,7 +332,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Always use this style as default',
+                            context.l10n.alwaysUseThisStyleAsDefault,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -342,7 +358,7 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
                         shape: const StadiumBorder(),
                       ),
                       child: Text(
-                        'Apply Selected Style',
+                        context.l10n.applySelectedStyle,
                         style: GoogleFonts.inter(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -373,10 +389,10 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
       child: AnimatedContainer(
         duration: AppAnimations.fast,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surfaceCard,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? theme.previewPrimary : AppColors.cardBorder,
+            color: isSelected ? AppColors.ink : AppColors.cardBorder,
             width: isSelected ? 2.5 : 1.0,
           ),
           boxShadow: isSelected
@@ -397,47 +413,52 @@ class _PdfThemePickerSheetState extends State<PdfThemePickerSheet> {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            fit: StackFit.expand,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Live Rendered Document Page Preview
-              Container(
-                color: const Color(0xFFF8FAFC),
-                child: Center(
-                  child: thumbnailBytes != null
-                      ? Image.memory(
-                          thumbnailBytes,
-                          fit: BoxFit.contain,
-                        )
-                      : _buildFallbackMiniMockup(theme),
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ColoredBox(
+                      color: theme.previewBg,
+                      child: thumbnailBytes != null
+                          ? Image.memory(thumbnailBytes, fit: BoxFit.contain)
+                          : _buildFallbackMiniMockup(theme),
+                    ),
+                    if (isSelected)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            AppIcons.check,
+                            size: 14,
+                            color: AppColors.onPrimary,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-
-              // Top Right Checkmark Badge when selected
-              if (isSelected)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: theme.previewPrimary,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      AppIcons.check,
-                      size: 14,
-                      color: Colors.white,
-                    ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                child: Text(
+                  context.l10n.catalogLabel(theme.name),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.ink,
                   ),
                 ),
+              ),
             ],
           ),
         ),

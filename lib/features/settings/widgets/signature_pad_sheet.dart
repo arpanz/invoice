@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../../core/localization/l10n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 
@@ -99,7 +100,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
 
   Future<void> _saveSignature() async {
     if (_strokes.isEmpty) {
-      setState(() => _notice = 'Draw your signature above, then save.');
+      setState(() => _notice = context.l10n.drawYourSignatureAboveThenSave);
       return;
     }
 
@@ -125,7 +126,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
       if (bounds.longestSide < 24) {
         setState(() {
           _isSaving = false;
-          _notice = 'That looks too small. Sign across the pad, then save.';
+          _notice = context.l10n.thatLooksTooSmallSignAcrossThePad;
         });
         return;
       }
@@ -172,7 +173,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
       if (mounted) {
         setState(() {
           _isSaving = false;
-          _notice = 'Could not save the signature. Please try again.';
+          _notice = context.l10n.couldNotSaveTheSignaturePleaseTryAgain;
         });
       }
     }
@@ -223,7 +224,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Draw Signature',
+                      context.l10n.drawSignature,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -232,7 +233,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                       ),
                     ),
                     Text(
-                      'Sign with your finger or stylus',
+                      context.l10n.signWithYourFingerOrStylus,
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary,
@@ -290,7 +291,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                                 ),
                                 SizedBox(width: 6),
                                 Text(
-                                  'Draw inside this box',
+                                  context.l10n.drawInsideThisBox,
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
@@ -316,7 +317,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Authorized Signatory',
+                                context.l10n.authorizedSignatory,
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -410,7 +411,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
 
               // Undo Button
               IconButton(
-                tooltip: 'Undo stroke',
+                tooltip: context.l10n.undoStroke,
                 icon: const Icon(AppIcons.undo, size: 20),
                 color: _strokes.isNotEmpty
                     ? AppColors.slate700
@@ -420,7 +421,7 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
 
               // Clear Button
               IconButton(
-                tooltip: 'Clear canvas',
+                tooltip: context.l10n.clearCanvas,
                 icon: const Icon(AppIcons.delete, size: 20),
                 color: _strokes.isNotEmpty
                     ? AppColors.accentRed
@@ -443,8 +444,8 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                     shape: const StadiumBorder(),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text(
-                    'Cancel',
+                  child: Text(
+                    context.l10n.cancel,
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -471,13 +472,13 @@ class _SignaturePadSheetState extends State<SignaturePadSheet> {
                                 AlwaysStoppedAnimation<Color>(AppColors.onPrimary),
                           ),
                         )
-                      : const Row(
+                      : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(AppIcons.check, size: 18),
                             SizedBox(width: 6),
                             Text(
-                              'Use Signature',
+                              context.l10n.useSignature,
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,

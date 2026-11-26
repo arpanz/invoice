@@ -3,6 +3,7 @@ import '../../../core/utils/number_text.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/localization/l10n.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -156,7 +157,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Pick from Catalog',
+                      context.l10n.pickFromCatalog,
                       style: AppTypography.serif(
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
@@ -165,7 +166,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                     ),
                     if (_selectedIds.isNotEmpty)
                       Text(
-                        '${_selectedIds.length} selected',
+                        context.l10n.selectedCount(_selectedIds.length),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -190,8 +191,8 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                       },
                       icon:
                           const Icon(AppIcons.add, size: 18),
-                      label: const Text(
-                        'New',
+                      label: Text(
+                        context.l10n.newAction,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
@@ -223,7 +224,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
               child: TextField(
                 controller: _searchCtrl,
                 decoration: InputDecoration(
-                  hintText: 'Search items...',
+                  hintText: context.l10n.searchItemsHint,
                   border: InputBorder.none,
                   prefixIcon: Icon(AppIcons.search,
                       size: 20, color: AppColors.slate400),
@@ -417,7 +418,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                                                       borderRadius: BorderRadius.circular(4),
                                                     ),
                                                     child: Text(
-                                                      '+${NumberText.trim(item.taxRate)}% Tax',
+                                                      context.l10n.plusTaxPercent(NumberText.trim(item.taxRate)),
                                                       style: TextStyle(
                                                         fontSize: 10,
                                                         fontWeight: FontWeight.w600,
@@ -482,7 +483,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                     ),
                     icon: const Icon(AppIcons.add, size: 20),
                     label: Text(
-                      'Add ${_selectedIds.length} Item${_selectedIds.length > 1 ? 's' : ''}',
+                      context.l10n.addSelectedItems(_selectedIds.length),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -520,8 +521,8 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
             const SizedBox(height: 16),
             Text(
               _searchQuery.isNotEmpty
-                  ? 'No items match "$_searchQuery"'
-                  : 'No saved items yet',
+                  ? context.l10n.noItemsMatch(_searchQuery)
+                  : context.l10n.noSavedItemsYet,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15,
@@ -531,7 +532,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Create items in your catalog to quickly add them here',
+              context.l10n.createItemsInYourCatalogToQuicklyAdd,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: AppColors.slate500),
             ),
@@ -547,7 +548,7 @@ class _ItemPickerSheetState extends State<ItemPickerSheet> {
                 }
               },
               icon: const Icon(AppIcons.add, size: 18),
-              label: const Text('Create New Item'),
+              label: Text(context.l10n.createNewItem),
             ),
           ],
         ),

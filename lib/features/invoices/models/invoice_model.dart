@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'document_custom_field.dart';
 import 'line_item_model.dart';
 
 enum InvoiceStatus { unpaid, partiallyPaid, paid, overdue }
@@ -73,10 +76,12 @@ class InvoiceModel {
   final double paidAmount;
   final InvoiceStatus status;
   final String? notes;
+  final List<DocumentCustomField> customFields;
   final String currency;
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<LineItemModel> lineItems;
+  final List<String> attachments;
 
   /// JSON of the business profile as it was when this invoice was last saved
   /// from the editor. Rendering uses it so later profile edits never rewrite
@@ -139,10 +144,12 @@ class InvoiceModel {
     this.paidAmount = 0,
     this.status = InvoiceStatus.unpaid,
     this.notes,
+    this.customFields = const [],
     this.currency = 'INR',
     required this.createdAt,
     required this.updatedAt,
     this.lineItems = const [],
+    this.attachments = const [],
     this.issuerSnapshot,
     this.sentAt,
   });
@@ -190,10 +197,12 @@ class InvoiceModel {
       paidAmount: paidAmount,
       status: status,
       notes: map['notes'] as String?,
+      customFields: DocumentCustomField.decode(map['custom_fields']),
       currency: map['currency'] as String? ?? 'INR',
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int),
       lineItems: items ?? [],
+      attachments: decodeAttachmentPaths(map['attachments']),
       issuerSnapshot: map['issuer_snapshot'] as String?,
       sentAt: map['sent_at'] == null
           ? null
@@ -226,12 +235,27 @@ class InvoiceModel {
       'paid_amount': paidAmount,
       'status': status.value,
       'notes': notes,
+      'custom_fields': DocumentCustomField.encode(customFields),
       'currency': currency,
       'created_at': createdAt.millisecondsSinceEpoch,
       'updated_at': updatedAt.millisecondsSinceEpoch,
+      'attachments': jsonEncode(attachments),
       'issuer_snapshot': issuerSnapshot,
       'sent_at': sentAt?.millisecondsSinceEpoch,
     };
+  }
+
+  static List<String> decodeAttachmentPaths(Object? stored) {
+    if (stored is! String || stored.isEmpty) return const [];
+    try {
+      final paths = jsonDecode(stored);
+      if (paths is List) {
+        return List.unmodifiable(paths.whereType<String>().where((path) => path.isNotEmpty));
+      }
+    } on FormatException {
+      return const [];
+    }
+    return const [];
   }
 
   static DiscountType _discountTypeFromString(String value) {
@@ -280,10 +304,12 @@ class InvoiceModel {
     double? paidAmount,
     InvoiceStatus? status,
     String? notes,
+    List<DocumentCustomField>? customFields,
     String? currency,
     DateTime? createdAt,
     DateTime? updatedAt,
     List<LineItemModel>? lineItems,
+    List<String>? attachments,
     String? issuerSnapshot,
     DateTime? sentAt,
     bool clearSentAt = false,
@@ -315,10 +341,12 @@ class InvoiceModel {
       paidAmount: paidAmount ?? this.paidAmount,
       status: status ?? this.status,
       notes: clearNotes ? null : (notes ?? this.notes),
+      customFields: customFields ?? this.customFields,
       currency: currency ?? this.currency,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lineItems: lineItems ?? this.lineItems,
+      attachments: attachments ?? this.attachments,
       issuerSnapshot: issuerSnapshot ?? this.issuerSnapshot,
       sentAt: clearSentAt ? null : (sentAt ?? this.sentAt),
     );

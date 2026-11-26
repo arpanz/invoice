@@ -1,17 +1,54 @@
 import 'package:flutter/material.dart' show Color;
 import 'package:pdf/pdf.dart';
 
+enum PdfThemeCategory {
+  professional('Professional'),
+  simple('Simple'),
+  bold('Bold'),
+  creative('Creative'),
+  retailGst('Retail & GST');
+
+  const PdfThemeCategory(this.label);
+
+  final String label;
+
+  int get order => index;
+}
+
 enum PdfThemeId {
-  classicBlue,
-  modernMinimal,
-  emeraldExecutive,
-  slateElegance,
-  warmCorporate,
-  nordicFrame,
-  leftRibbon,
-  geometricBlock,
-  securityGrid,
-  splitTwoTone,
+  classicBlue('classic_blue', PdfThemeCategory.professional),
+  modernMinimal('modern_minimal', PdfThemeCategory.simple),
+  emeraldExecutive('emerald_executive', PdfThemeCategory.professional),
+  slateElegance('slate_elegance', PdfThemeCategory.simple),
+  warmCorporate('warm_corporate', PdfThemeCategory.professional),
+  nordicFrame('nordic_frame', PdfThemeCategory.simple),
+  leftRibbon('left_ribbon', PdfThemeCategory.bold),
+  geometricBlock('geometric_block', PdfThemeCategory.bold),
+  securityGrid('security_grid', PdfThemeCategory.professional),
+  splitTwoTone('split_two_tone', PdfThemeCategory.creative),
+  charcoalLetterhead('charcoal_letterhead', PdfThemeCategory.professional),
+  navyLetterhead('navy_letterhead', PdfThemeCategory.professional),
+  forestSeal('forest_seal', PdfThemeCategory.professional),
+  linenRule('linen_rule', PdfThemeCategory.simple),
+  mistLine('mist_line', PdfThemeCategory.simple),
+  oliveFrame('olive_frame', PdfThemeCategory.simple),
+  crimsonSlash('crimson_slash', PdfThemeCategory.bold),
+  indigoSlash('indigo_slash', PdfThemeCategory.bold),
+  copperBanner('copper_banner', PdfThemeCategory.bold),
+  tealWave('teal_wave', PdfThemeCategory.creative),
+  orchidWave('orchid_wave', PdfThemeCategory.creative),
+  clayRibbon('clay_ribbon', PdfThemeCategory.creative),
+  mulberrySplit('mulberry_split', PdfThemeCategory.creative),
+  saffronLedger('saffron_ledger', PdfThemeCategory.retailGst),
+  peacockLedger('peacock_ledger', PdfThemeCategory.retailGst),
+  graphiteReceipt('graphite_receipt', PdfThemeCategory.retailGst),
+  roseReceipt('rose_receipt', PdfThemeCategory.retailGst),
+  oxbloodSeal('oxblood_seal', PdfThemeCategory.retailGst);
+
+  const PdfThemeId(this.value, this.category);
+
+  final String value;
+  final PdfThemeCategory category;
 }
 
 enum PdfPaperStyle {
@@ -25,69 +62,40 @@ enum PdfPaperStyle {
   fullWidthBanner,
   securityDotGrid,
   asymmetricSplitHeader,
+  cornerWave,
+  diagonalBand,
+  letterheadBar,
+  stampBorder,
+  gstLedger,
+  receiptStrip,
 }
 
 extension PdfThemeIdExtension on PdfThemeId {
-  String get value {
-    switch (this) {
-      case PdfThemeId.classicBlue:
-        return 'classic_blue';
-      case PdfThemeId.modernMinimal:
-        return 'modern_minimal';
-      case PdfThemeId.emeraldExecutive:
-        return 'emerald_executive';
-      case PdfThemeId.slateElegance:
-        return 'slate_elegance';
-      case PdfThemeId.warmCorporate:
-        return 'warm_corporate';
-      case PdfThemeId.nordicFrame:
-        return 'nordic_frame';
-      case PdfThemeId.leftRibbon:
-        return 'left_ribbon';
-      case PdfThemeId.geometricBlock:
-        return 'geometric_block';
-      case PdfThemeId.securityGrid:
-        return 'security_grid';
-      case PdfThemeId.splitTwoTone:
-        return 'split_two_tone';
-    }
-  }
-
   static PdfThemeId fromString(String? val) {
     // Estimates once stored the Dart enum name (e.g. "emeraldExecutive").
     for (final id in PdfThemeId.values) {
-      if (id.name == val) return id;
+      if (id.value == val || id.name == val) return id;
     }
     switch (val) {
-      case 'modern_minimal':
       case 'modern':
         return PdfThemeId.modernMinimal;
-      case 'emerald_executive':
       case 'emerald':
         return PdfThemeId.emeraldExecutive;
-      case 'slate_elegance':
       case 'slate':
         return PdfThemeId.slateElegance;
-      case 'warm_corporate':
       case 'warm':
       case 'navy_bronze':
         return PdfThemeId.warmCorporate;
-      case 'nordic_frame':
       case 'nordic':
         return PdfThemeId.nordicFrame;
-      case 'left_ribbon':
       case 'ribbon':
         return PdfThemeId.leftRibbon;
-      case 'geometric_block':
       case 'geometric':
         return PdfThemeId.geometricBlock;
-      case 'security_grid':
       case 'security':
         return PdfThemeId.securityGrid;
-      case 'split_two_tone':
       case 'two_tone':
         return PdfThemeId.splitTwoTone;
-      case 'classic_blue':
       case 'classic':
       default:
         return PdfThemeId.classicBlue;
@@ -97,6 +105,8 @@ extension PdfThemeIdExtension on PdfThemeId {
 
 class PdfTheme {
   final PdfThemeId id;
+  PdfThemeCategory get category => id.category;
+
   final String name;
   final String description;
   final String paperDesignName;
@@ -137,6 +147,42 @@ class PdfTheme {
     required this.tableHeaderTextColor,
     required this.accentColor,
   });
+
+  factory PdfTheme._palette({
+    required PdfThemeId id,
+    required String name,
+    required String description,
+    required String paperDesignName,
+    required PdfPaperStyle paperStyle,
+    required int primary,
+    required int secondary,
+    required int accent,
+    required int background,
+    required int border,
+    bool lightTableHeader = false,
+  }) {
+    const ink = PdfColor.fromInt(0xFF21242A);
+    return PdfTheme(
+      id: id,
+      name: name,
+      description: description,
+      paperDesignName: paperDesignName,
+      paperStyle: paperStyle,
+      previewPrimary: Color(primary),
+      previewSecondary: Color(secondary),
+      previewAccent: Color(accent),
+      previewBg: Color(background),
+      primaryColor: PdfColor.fromInt(primary),
+      secondaryColor: PdfColor.fromInt(secondary),
+      darkColor: ink,
+      slateColor: const PdfColor.fromInt(0xFF515762),
+      lightGray: PdfColor.fromInt(background),
+      borderColor: PdfColor.fromInt(border),
+      tableHeaderBg: PdfColor.fromInt(lightTableHeader ? background : primary),
+      tableHeaderTextColor: lightTableHeader ? ink : PdfColors.white,
+      accentColor: PdfColor.fromInt(accent),
+    );
+  }
 
   // 1. Classic Blue
   static const PdfTheme classicBlue = PdfTheme(
@@ -358,7 +404,7 @@ class PdfTheme {
     accentColor: PdfColor(0.008, 0.518, 0.780), // #0284C7
   );
 
-  static const List<PdfTheme> all = [
+  static final all = List<PdfTheme>.unmodifiable([
     classicBlue,
     modernMinimal,
     emeraldExecutive,
@@ -369,7 +415,228 @@ class PdfTheme {
     geometricBlock,
     securityGrid,
     splitTwoTone,
-  ];
+    PdfTheme._palette(
+      id: PdfThemeId.charcoalLetterhead,
+      name: 'Charcoal Letterhead',
+      description: 'Charcoal bars with a brass accent',
+      paperDesignName: 'Letterhead Bars',
+      paperStyle: PdfPaperStyle.letterheadBar,
+      primary: 0xFF30343A,
+      secondary: 0xFF676B73,
+      accent: 0xFFC8A46C,
+      background: 0xFFF4F1EC,
+      border: 0xFFD6D1C9,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.navyLetterhead,
+      name: 'Navy Letterhead',
+      description: 'A midnight blue letterhead with a cool blue footer',
+      paperDesignName: 'Letterhead Bars',
+      paperStyle: PdfPaperStyle.letterheadBar,
+      primary: 0xFF142D46,
+      secondary: 0xFF416988,
+      accent: 0xFF87B6DC,
+      background: 0xFFEEF5FB,
+      border: 0xFFC8D9E7,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.forestSeal,
+      name: 'Forest Seal',
+      description: 'An evergreen double frame with corner marks',
+      paperDesignName: 'Stamped Double Border',
+      paperStyle: PdfPaperStyle.stampBorder,
+      primary: 0xFF234C37,
+      secondary: 0xFF486850,
+      accent: 0xFF88A26C,
+      background: 0xFFEEF5ED,
+      border: 0xFFCAD9C9,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.linenRule,
+      name: 'Linen Rule',
+      description: 'A cocoa title and fine rules on warm white',
+      paperDesignName: 'Minimal Rules',
+      paperStyle: PdfPaperStyle.minimalDividers,
+      primary: 0xFF5E4333,
+      secondary: 0xFF705B4E,
+      accent: 0xFFA9896F,
+      background: 0xFFFAF3E9,
+      border: 0xFFE7D8C9,
+      lightTableHeader: true,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.mistLine,
+      name: 'Mist Line',
+      description: 'A slender blue-grey rule and a quiet, cool palette',
+      paperDesignName: 'Top Accent Line',
+      paperStyle: PdfPaperStyle.topAccentLine,
+      primary: 0xFF45647B,
+      secondary: 0xFF627889,
+      accent: 0xFF95B4C9,
+      background: 0xFFEEF5F8,
+      border: 0xFFCEDDE6,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.oliveFrame,
+      name: 'Olive Frame',
+      description: 'A slim olive frame with a pale sage palette',
+      paperDesignName: 'Architectural Border Frame',
+      paperStyle: PdfPaperStyle.architecturalFrame,
+      primary: 0xFF4B5526,
+      secondary: 0xFF646B42,
+      accent: 0xFFA5AD74,
+      background: 0xFFF2F4E8,
+      border: 0xFFD8DFC4,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.crimsonSlash,
+      name: 'Crimson Slash',
+      description: 'An angled burgundy band with a coral edge',
+      paperDesignName: 'Diagonal Header Band',
+      paperStyle: PdfPaperStyle.diagonalBand,
+      primary: 0xFF801C39,
+      secondary: 0xFF9E3355,
+      accent: 0xFFF39992,
+      background: 0xFFFCEEF1,
+      border: 0xFFEBC6D0,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.indigoSlash,
+      name: 'Indigo Slash',
+      description: 'An indigo slash edged in periwinkle',
+      paperDesignName: 'Diagonal Header Band',
+      paperStyle: PdfPaperStyle.diagonalBand,
+      primary: 0xFF38286E,
+      secondary: 0xFF51409B,
+      accent: 0xFFAFA0F1,
+      background: 0xFFF1EDFC,
+      border: 0xFFD9D0F2,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.copperBanner,
+      name: 'Copper Banner',
+      description: 'A burnt copper banner with a sand accent',
+      paperDesignName: 'Full-Width Banner',
+      paperStyle: PdfPaperStyle.fullWidthBanner,
+      primary: 0xFF78371E,
+      secondary: 0xFF924C2B,
+      accent: 0xFFE6AA80,
+      background: 0xFFFBF0E8,
+      border: 0xFFE8CFBD,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.tealWave,
+      name: 'Teal Wave',
+      description: 'Sweeping sea-glass curves in the top corner',
+      paperDesignName: 'Corner Wave',
+      paperStyle: PdfPaperStyle.cornerWave,
+      primary: 0xFF116460,
+      secondary: 0xFF25817B,
+      accent: 0xFF68C7B8,
+      background: 0xFFE9F8F5,
+      border: 0xFFC0E5DE,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.orchidWave,
+      name: 'Orchid Wave',
+      description: 'Lilac curves over a soft violet corner',
+      paperDesignName: 'Corner Wave',
+      paperStyle: PdfPaperStyle.cornerWave,
+      primary: 0xFF783D83,
+      secondary: 0xFF935198,
+      accent: 0xFFD4A5DB,
+      background: 0xFFF9EDF9,
+      border: 0xFFE9CDEB,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.clayRibbon,
+      name: 'Clay Ribbon',
+      description: 'A terracotta spine with peach accents',
+      paperDesignName: 'Vertical Margin Ribbon',
+      paperStyle: PdfPaperStyle.leftVerticalRibbon,
+      primary: 0xFF9B472C,
+      secondary: 0xFF83422D,
+      accent: 0xFFEEAF88,
+      background: 0xFFFBEEE6,
+      border: 0xFFEDD2C3,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.mulberrySplit,
+      name: 'Mulberry Split',
+      description: 'Mulberry and blush in a two-panel heading',
+      paperDesignName: 'Two-Tone Split Header',
+      paperStyle: PdfPaperStyle.asymmetricSplitHeader,
+      primary: 0xFF582640,
+      secondary: 0xFF784661,
+      accent: 0xFFC68CA7,
+      background: 0xFFF8EAF1,
+      border: 0xFFE8CEDD,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.saffronLedger,
+      name: 'Saffron Ledger',
+      description: 'A saffron heading and a fully ruled tax ledger',
+      paperDesignName: 'GST Ledger',
+      paperStyle: PdfPaperStyle.gstLedger,
+      primary: 0xFF854800,
+      secondary: 0xFFA75C15,
+      accent: 0xFFE6A948,
+      background: 0xFFFFF4DE,
+      border: 0xFFE8D2AD,
+      lightTableHeader: true,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.peacockLedger,
+      name: 'Peacock Ledger',
+      description: 'Deep petrol blue with a boxed heading and item grid',
+      paperDesignName: 'GST Ledger',
+      paperStyle: PdfPaperStyle.gstLedger,
+      primary: 0xFF005362,
+      secondary: 0xFF167184,
+      accent: 0xFF69B9C5,
+      background: 0xFFE7F6F7,
+      border: 0xFFBDDDE1,
+      lightTableHeader: true,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.graphiteReceipt,
+      name: 'Graphite Receipt',
+      description: 'A centred monochrome receipt with dashed rules',
+      paperDesignName: 'Receipt Strip',
+      paperStyle: PdfPaperStyle.receiptStrip,
+      primary: 0xFF303534,
+      secondary: 0xFF5A625E,
+      accent: 0xFF9EA8A1,
+      background: 0xFFF1F4F1,
+      border: 0xFFD4DDD5,
+      lightTableHeader: true,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.roseReceipt,
+      name: 'Rose Receipt',
+      description: 'Dusty rose paper edges around a narrow receipt column',
+      paperDesignName: 'Receipt Strip',
+      paperStyle: PdfPaperStyle.receiptStrip,
+      primary: 0xFF884451,
+      secondary: 0xFFA2636D,
+      accent: 0xFFD9A3AA,
+      background: 0xFFFBEEF0,
+      border: 0xFFEBD1D6,
+      lightTableHeader: true,
+    ),
+    PdfTheme._palette(
+      id: PdfThemeId.oxbloodSeal,
+      name: 'Oxblood Seal',
+      description: 'An oxblood double border with gold corner marks',
+      paperDesignName: 'Stamped Double Border',
+      paperStyle: PdfPaperStyle.stampBorder,
+      primary: 0xFF662629,
+      secondary: 0xFF844649,
+      accent: 0xFFB78B57,
+      background: 0xFFFAEFE9,
+      border: 0xFFE8D2C8,
+    ),
+  ]);
 
   static PdfTheme get defaultTheme => classicBlue;
 

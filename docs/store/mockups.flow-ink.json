@@ -1,0 +1,126 @@
+{
+  "name": "Invoice Maker",
+  "template": "flow",
+  "sizes": [
+    "play-phone"
+  ],
+  "brandColor": "#2E6B3F",
+  "subtitles": false,
+  "out": "out/flow-ink",
+  "flow": {
+    "theme": "night",
+    "layout": "snug",
+    "phoneWidth": 0.78,
+    "motifs": [
+      "grid"
+    ],
+    "callouts": "lifted",
+    "type": {
+      "font": "Fraunces",
+      "weight": 600,
+      "tracking": -0.02,
+      "lineHeight": 1.05,
+      "accent": "color"
+    },
+    "colors": {
+      "page": "#1F1D1A",
+      "wave": "#2C2924",
+      "deep": "#15130F",
+      "band": "#3A352E",
+      "accent": "#E9B949",
+      "ink": "#FFFFFF"
+    },
+    "device": {
+      "style": "minimal",
+      "tint": "#15130F",
+      "bezel": 0.75,
+      "corner": 0.9,
+      "cutout": "punch-hole",
+      "showButtons": false,
+      "glare": 0,
+      "rim": 0.25
+    }
+  },
+  "screens": [
+    {
+      "image": "screens/01-editor.png",
+      "title": "Invoice in\n*60 seconds*",
+      "logo": "assets/app_icon.png"
+    },
+    {
+      "image": "screens/02-pdf.png",
+      "title": "PDFs that look\n*professional*",
+      "callout": {
+        "crop": [
+          100,
+          830,
+          880,
+          330
+        ],
+        "y": 0.575
+      }
+    },
+    {
+      "image": "screens/03-dashboard.png",
+      "title": "Know who\n*owes you*",
+      "callout": {
+        "crop": [
+          30,
+          360,
+          1020,
+          420
+        ],
+        "y": 0.42
+      }
+    },
+    {
+      "image": "screens/04-payments.png",
+      "title": "Track every\n*payment*",
+      "callout": {
+        "crop": [
+          30,
+          1510,
+          1020,
+          230
+        ],
+        "y": 0.835
+      }
+    },
+    {
+      "image": "screens/05-studio.png",
+      "title": "Your style,\n*your brand*",
+      "callout": {
+        "crop": [
+          20,
+          1150,
+          1060,
+          300
+        ],
+        "y": 0.7
+      }
+    },
+    {
+      "image": "screens/06-items.png",
+      "title": "Your price list,\n*always ready*",
+      "tiles": [
+        {
+          "icon": "users",
+          "label": "Clients"
+        },
+        {
+          "icon": "package",
+          "label": "Items"
+        },
+        {
+          "icon": "percent",
+          "label": "Tax"
+        }
+      ]
+    },
+    {
+      "image": "screens/dark-03-dashboard.png",
+      "title": "Easy on the eyes\n*at night*",
+      "icon": "moon"
+    }
+  ]
+}

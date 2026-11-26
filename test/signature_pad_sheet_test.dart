@@ -1,3 +1,4 @@
+import 'package:invoice/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/features/settings/widgets/signature_pad_sheet.dart';
@@ -11,6 +12,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SignaturePadSheet(),
         ),
@@ -31,6 +35,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SignaturePadSheet(),
         ),

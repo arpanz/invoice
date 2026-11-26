@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/localization/catalog_localization.dart';
+import '../../../core/localization/l10n.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -75,13 +77,13 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     if (_hasUnsavedChanges) {
       final discard = await AppDialog.showConfirmation(
         context: context,
-        title: 'Discard changes?',
+        title: context.l10n.discardChanges,
         message:
-            'You have unsaved changes to your business profile. Leave without saving them?',
+            context.l10n.youHaveUnsavedChangesToYourBusinessProfile,
         variant: AppDialogVariant.danger,
         icon: AppIcons.warning,
-        confirmLabel: 'Discard',
-        cancelLabel: 'Keep editing',
+        confirmLabel: context.l10n.discard,
+        cancelLabel: context.l10n.keepEditing,
         isDestructive: true,
       );
       if (discard != true) return;
@@ -146,7 +148,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       HapticFeedback.vibrate();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please fill all required fields'),
+          content: Text(context.l10n.pleaseFillAllRequiredFields),
           backgroundColor: AppColors.accentRed,
           behavior: SnackBarBehavior.floating,
         ),
@@ -194,7 +196,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
             Icon(AppIcons.checkCircleFilled, color: AppColors.onPrimary, size: 20),
             SizedBox(width: 10),
             Text(
-              'Business profile saved successfully!',
+              context.l10n.businessProfileSavedSuccessfully,
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
           ],
@@ -223,7 +225,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Could not open that image. Try another one.'),
+            content: Text(context.l10n.couldNotOpenThatImageTryAnotherOne),
             backgroundColor: AppColors.accentRed,
           ),
         );
@@ -256,7 +258,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Business Logo',
+                    context.l10n.businessLogo,
                     style: AppTypography.serif(
                       fontSize: 18,
                       fontWeight: FontWeight.w500,
@@ -277,8 +279,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 icon: AppIcons.photoLibrary,
                 iconColor: AppColors.squirclePurpleIcon,
                 bgColor: AppColors.squirclePurple,
-                title: 'Choose from Gallery',
-                subtitle: 'Select an existing PNG or JPEG image',
+                title: context.l10n.chooseFromGallery,
+                subtitle: context.l10n.selectAnExistingPngOrJpegImage,
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickLogo(ImageSource.gallery);
@@ -289,8 +291,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 icon: AppIcons.camera,
                 iconColor: AppColors.squircleCyanIcon,
                 bgColor: AppColors.squircleCyan,
-                title: 'Take Photo',
-                subtitle: 'Capture company logo using camera',
+                title: context.l10n.takePhoto,
+                subtitle: context.l10n.captureCompanyLogoUsingCamera,
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickLogo(ImageSource.camera);
@@ -302,8 +304,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   icon: AppIcons.delete,
                   iconColor: AppColors.accentRed,
                   bgColor: AppColors.statusOverdueBg,
-                  title: 'Remove Logo',
-                  subtitle: 'Clear current logo image',
+                  title: context.l10n.removeLogo,
+                  subtitle: context.l10n.clearCurrentLogoImage,
                   isDestructive: true,
                   onTap: () {
                     Navigator.pop(ctx);
@@ -344,8 +346,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
-              'Could not open that signature image. Try another one.',
+            content: Text(
+              context.l10n.couldNotOpenThatSignatureImageTryAnother,
             ),
             backgroundColor: AppColors.accentRed,
           ),
@@ -379,7 +381,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Authorized Signature',
+                    context.l10n.authorizedSignature,
                     style: AppTypography.serif(
                       fontSize: 18,
                       fontWeight: FontWeight.w500,
@@ -400,8 +402,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 icon: AppIcons.draw,
                 iconColor: AppColors.squirclePurpleIcon,
                 bgColor: AppColors.squirclePurple,
-                title: 'Draw Signature on Screen',
-                subtitle: 'Sign smoothly with your finger or stylus',
+                title: context.l10n.drawSignatureOnScreen,
+                subtitle: context.l10n.signSmoothlyWithYourFingerOrStylus,
                 onTap: () {
                   Navigator.pop(ctx);
                   _openSignatureDrawingPad();
@@ -412,8 +414,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 icon: AppIcons.image,
                 iconColor: AppColors.squircleTealIcon,
                 bgColor: AppColors.squircleTeal,
-                title: 'Upload Image from Gallery',
-                subtitle: 'PNG with transparent background recommended',
+                title: context.l10n.uploadImageFromGallery,
+                subtitle: context.l10n.pngWithTransparentBackgroundRecommended,
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickSignatureFromGallery();
@@ -425,8 +427,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   icon: AppIcons.delete,
                   iconColor: AppColors.accentRed,
                   bgColor: AppColors.statusOverdueBg,
-                  title: 'Remove Signature',
-                  subtitle: 'Clear current signature',
+                  title: context.l10n.removeSignature,
+                  subtitle: context.l10n.clearCurrentSignature,
                   isDestructive: true,
                   onTap: () {
                     Navigator.pop(ctx);
@@ -551,15 +553,15 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final currencyProvider = context.watch<CurrencyProvider>();
-    final taxIdLabel = currencyProvider.taxIdLabel;
-    final taxIdHint = currencyProvider.taxIdHint;
-    final bankRoutingLabel = currencyProvider.bankRoutingLabel;
-    final bankRoutingHint = currencyProvider.bankRoutingHint;
-    final bankAccountLabel = currencyProvider.bankAccountLabel;
-    final bankAccountHint = currencyProvider.bankAccountHint;
-    final bankNameHint = currencyProvider.bankNameHint;
-    final digitalPaymentLabel = currencyProvider.digitalPaymentLabel;
-    final digitalPaymentHint = currencyProvider.digitalPaymentHint;
+    final taxIdLabel = context.l10n.catalogLabel(currencyProvider.taxIdLabel);
+    final taxIdHint = context.l10n.catalogLabel(currencyProvider.taxIdHint);
+    final bankRoutingLabel = context.l10n.catalogLabel(currencyProvider.bankRoutingLabel);
+    final bankRoutingHint = context.l10n.catalogLabel(currencyProvider.bankRoutingHint);
+    final bankAccountLabel = context.l10n.catalogLabel(currencyProvider.bankAccountLabel);
+    final bankAccountHint = context.l10n.catalogLabel(currencyProvider.bankAccountHint);
+    final bankNameHint = context.l10n.catalogLabel(currencyProvider.bankNameHint);
+    final digitalPaymentLabel = context.l10n.catalogLabel(currencyProvider.digitalPaymentLabel);
+    final digitalPaymentHint = context.l10n.catalogLabel(currencyProvider.digitalPaymentHint);
 
     if (_isLoading) {
       return Scaffold(
@@ -590,7 +592,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
             icon: Icon(AppIcons.arrowBack, color: AppColors.ink),
             onPressed: () => Navigator.maybePop(context),
           ),
-          title: const Text('Business Profile'),
+          title: Text(context.l10n.businessProfile),
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 12),
@@ -608,7 +610,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         ),
                       )
                     : Text(
-                        'Save',
+                        context.l10n.save,
                         style: GoogleFonts.inter(
                           color: AppColors.ink,
                           fontWeight: FontWeight.w600,
@@ -634,7 +636,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
               // 2. Branding & Media Section (Logo + Signature)
               _buildSectionHeader(
-                title: 'Branding & Identity',
+                title: context.l10n.brandingIdentity,
                 icon: AppIcons.sparkle,
                 iconColor: AppColors.badgeViolet,
                 iconBg: AppColors.badgeViolet.withValues(alpha: 0.12),
@@ -651,10 +653,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           // Business Logo Box
                           Expanded(
                             child: _buildMediaTile(
-                              label: 'Company Logo',
+                              label: context.l10n.companyLogo,
                               subtitle: _logoPath != null
-                                  ? 'Tap to change'
-                                  : 'Upload logo',
+                                  ? context.l10n.tapToChange
+                                  : context.l10n.uploadLogo,
                               icon: AppIcons.addPhoto,
                               imagePath: _logoPath,
                               onTap: _showLogoOptions,
@@ -664,10 +666,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           // Signature Box
                           Expanded(
                             child: _buildMediaTile(
-                              label: 'Authorized Signature',
+                              label: context.l10n.authorizedSignature,
                               subtitle: _signaturePath != null
-                                  ? 'Tap to change'
-                                  : 'Draw or upload',
+                                  ? context.l10n.tapToChange
+                                  : context.l10n.drawOrUpload,
                               icon: AppIcons.draw,
                               imagePath: _signaturePath,
                               onTap: _showSignatureOptions,
@@ -677,8 +679,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                       ),
                       const SizedBox(height: 18),
                       CustomTextField(
-                        label: 'Business / Company Name *',
-                        hint: 'e.g. Acme Innovations LLC',
+                        label: context.l10n.businessCompanyName,
+                        hint: context.l10n.eGAcmeInnovationsLlc,
                         controller: _nameCtrl,
                         textCapitalization: TextCapitalization.words,
                         prefixIcon: Icon(
@@ -687,13 +689,13 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           size: 20,
                         ),
                         validator: (v) => v == null || v.trim().isEmpty
-                            ? 'Business name is required'
+                            ? context.l10n.businessNameIsRequired
                             : null,
                       ),
                       const SizedBox(height: 12),
                       CustomTextField(
-                        label: 'Tagline or Industry (Optional)',
-                        hint: 'e.g. Creative Studio & Digital Agency',
+                        label: context.l10n.taglineOrIndustryOptional,
+                        hint: context.l10n.eGCreativeStudioDigitalAgency,
                         controller: _taglineCtrl,
                         textCapitalization: TextCapitalization.sentences,
                         prefixIcon: Icon(
@@ -710,7 +712,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
               // 3. Contact & Location Section
               _buildSectionHeader(
-                title: 'Contact & Location',
+                title: context.l10n.contactLocation,
                 icon: AppIcons.contactCard,
                 iconColor: AppColors.squircleCyanIcon,
                 iconBg: AppColors.squircleCyan,
@@ -721,7 +723,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   child: Column(
                     children: [
                       CustomTextField(
-                        label: 'Business Email',
+                        label: context.l10n.businessEmail,
                         hint: 'contact@mycompany.com',
                         controller: _emailCtrl,
                         keyboardType: TextInputType.emailAddress,
@@ -733,7 +735,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                       ),
                       const SizedBox(height: 12),
                       CustomTextField(
-                        label: 'Phone Number',
+                        label: context.l10n.phoneNumber,
                         hint: '+1 (555) 019-2834',
                         controller: _phoneCtrl,
                         keyboardType: TextInputType.phone,
@@ -745,7 +747,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                       ),
                       const SizedBox(height: 12),
                       CustomTextField(
-                        label: 'Website / Portfolio',
+                        label: context.l10n.websitePortfolio,
                         hint: 'https://mycompany.com',
                         controller: _websiteCtrl,
                         keyboardType: TextInputType.url,
@@ -757,8 +759,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                       ),
                       const SizedBox(height: 12),
                       CustomTextField(
-                        label: 'Registered Business Address',
-                        hint: 'Suite 400, 100 Main Street, City, State, ZIP',
+                        label: context.l10n.registeredBusinessAddress,
+                        hint: context.l10n.suite400100MainStreetCityStateZip,
                         controller: _addressCtrl,
                         maxLines: 3,
                         textCapitalization: TextCapitalization.sentences,
@@ -779,7 +781,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
               // 4. Tax & Legal Section
               _buildSectionHeader(
-                title: 'Tax & Legal Registration',
+                title: context.l10n.taxLegalRegistration,
                 icon: AppIcons.gavel,
                 iconColor: AppColors.squircleOrangeIcon,
                 iconBg: AppColors.squircleOrange,
@@ -812,7 +814,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              'This $taxIdLabel will be displayed on all generated PDFs and estimates for ${currencyProvider.countryName}.',
+                              context.l10n.thisWillBeDisplayedOnAllGeneratedPdfs(taxIdLabel, context.l10n.catalogLabel(currencyProvider.countryName)),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textSecondary,
@@ -829,7 +831,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
               // 5. Bank & Payment Methods Section
               _buildSectionHeader(
-                title: 'Bank & Payment Details',
+                title: context.l10n.bankPaymentDetails,
                 icon: AppIcons.bank,
                 iconColor: AppColors.ink,
                 iconBg: AppColors.surfaceCard,
@@ -859,7 +861,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${currencyProvider.currencyCode} (${currencyProvider.countryName})',
+                          '${currencyProvider.currencyCode} (${context.l10n.catalogLabel(currencyProvider.countryName)})',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -900,7 +902,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Payment fields & routing format match ${currencyProvider.countryName} (${currencyProvider.currencyCode}) standards.',
+                                context.l10n.paymentFieldsRoutingFormatMatchStandards(context.l10n.catalogLabel(currencyProvider.countryName), currencyProvider.currencyCode),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
@@ -915,7 +917,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
                       // Bank Name
                       CustomTextField(
-                        label: 'Bank Name',
+                        label: context.l10n.bankName,
                         hint: bankNameHint,
                         controller: _bankNameCtrl,
                         textCapitalization: TextCapitalization.words,
@@ -957,7 +959,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
                       // Digital Payment / UPI (localized label & hint)
                       CustomTextField(
-                        label: '$digitalPaymentLabel (Optional)',
+                        label: context.l10n.optionalFieldTitle(digitalPaymentLabel),
                         hint: digitalPaymentHint,
                         controller: _upiCtrl,
                         keyboardType: TextInputType.text,
@@ -971,9 +973,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
                       // Default Payment Terms & Notes
                       CustomTextField(
-                        label: 'Default Payment Notes & Terms',
+                        label: context.l10n.defaultPaymentNotesTerms,
                         hint:
-                            'e.g. Net 15. Payment is due within 15 days of invoice date.',
+                            context.l10n.eGNet15PaymentIsDueWithin,
                         controller: _notesCtrl,
                         maxLines: 2,
                         textCapitalization: TextCapitalization.sentences,
@@ -1009,7 +1011,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
           child: SafeArea(
             top: false,
             child: PrimaryButton(
-              label: 'Save Business Profile',
+              label: context.l10n.saveBusinessProfile,
               isLoading: _isSaving,
               icon: AppIcons.checkCircle,
               onPressed: _saveProfile,
@@ -1101,7 +1103,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              name.isNotEmpty ? name : 'Your Business Name',
+                              name.isNotEmpty ? name : context.l10n.yourBusinessName,
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -1151,7 +1153,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                       Text(
                         tagline.isNotEmpty
                             ? tagline
-                            : 'Set your business identity',
+                            : context.l10n.setYourBusinessIdentity,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: tagline.isNotEmpty
@@ -1181,7 +1183,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                   border: Border.all(color: AppColors.hairline),
                                 ),
                                 child: Text(
-                                  '${currencyProvider.taxIdLabel}: $taxId',
+                                  '${context.l10n.catalogLabel(currencyProvider.taxIdLabel)}: $taxId',
                                   style: AppTypography.monoCode(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
@@ -1213,7 +1215,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      'Signed',
+                                      context.l10n.signed,
                                       style: GoogleFonts.inter(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w600,
@@ -1399,7 +1401,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
-                                  '${currencyProvider.digitalPaymentLabel}: $upi',
+                                  '${context.l10n.catalogLabel(currencyProvider.digitalPaymentLabel)}: $upi',
                                   style: GoogleFonts.inter(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w500,
@@ -1439,7 +1441,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Profile Readiness',
+                                  context.l10n.profileReadiness,
                                   style: GoogleFonts.inter(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,

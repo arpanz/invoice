@@ -1,3 +1,4 @@
+import 'package:invoice/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -32,6 +33,9 @@ void main() {
             create: (_) => customProvider ?? CurrencyProvider()),
       ],
       child: const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: BusinessProfileScreen(),
       ),
     );

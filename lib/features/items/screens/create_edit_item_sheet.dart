@@ -3,6 +3,7 @@ import '../../../core/utils/number_text.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/localization/l10n.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -75,21 +76,21 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
     'lot',
   ];
 
-  static const Map<String, String> _unitLabels = {
-    'pcs': 'Pieces',
-    'hrs': 'Hours',
-    'days': 'Days',
-    'kg': 'Kilograms',
-    'g': 'Grams',
-    'ltr': 'Litres',
-    'ml': 'Millilitres',
-    'ft': 'Feet',
-    'm': 'Metres',
-    'sqft': 'Sq. Feet',
-    'sqm': 'Sq. Metres',
-    'box': 'Boxes',
-    'unit': 'Units',
-    'lot': 'Lots',
+  Map<String, String> get _unitLabels => {
+    'pcs': context.l10n.pieces,
+    'hrs': context.l10n.hours,
+    'days': context.l10n.days,
+    'kg': context.l10n.kilograms,
+    'g': context.l10n.grams,
+    'ltr': context.l10n.litres,
+    'ml': context.l10n.millilitres,
+    'ft': context.l10n.feet,
+    'm': context.l10n.metres,
+    'sqft': context.l10n.sqFeet,
+    'sqm': context.l10n.sqMetres,
+    'box': context.l10n.boxes,
+    'unit': context.l10n.units,
+    'lot': context.l10n.lots,
   };
 
   static const List<double> _quickTaxRates = [0, 5, 12, 18, 28];
@@ -146,10 +147,10 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
     super.dispose();
   }
 
-  static String? _percentValidator(String? val) {
+  String? _percentValidator(String? val) {
     if (val == null || val.trim().isEmpty) return null;
     final v = NumberText.parse(val, fallback: double.nan);
-    if (v.isNaN || v < 0 || v > 100) return '0 to 100';
+    if (v.isNaN || v < 0 || v > 100) return context.l10n.label0To100;
     return null;
   }
 
@@ -239,7 +240,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    _isEditing ? 'Edit Item' : 'New Item',
+                    _isEditing ? context.l10n.editItem : context.l10n.newItem,
                     style: AppTypography.serif(
                       fontSize: 20,
                       fontWeight: FontWeight.w500,
@@ -259,13 +260,13 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
 
               // Name (required)
               CustomTextField(
-                label: 'Item Name *',
-                hint: 'e.g. Web Design, Consulting, T-Shirt',
+                label: context.l10n.itemName,
+                hint: context.l10n.eGWebDesignConsultingTShirt,
                 controller: _nameCtrl,
                 textCapitalization: TextCapitalization.sentences,
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
-                    return 'Item name is required';
+                    return context.l10n.itemNameIsRequired;
                   }
                   return null;
                 },
@@ -275,8 +276,8 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
 
               // Description (optional)
               CustomTextField(
-                label: 'Description',
-                hint: 'Optional details about this item or service',
+                label: context.l10n.itemDescription,
+                hint: context.l10n.optionalDetailsAboutThisItemOrService,
                 controller: _descCtrl,
                 textCapitalization: TextCapitalization.sentences,
                 maxLines: 2,
@@ -290,7 +291,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                   Expanded(
                     flex: 3,
                     child: CustomTextField(
-                      label: 'Unit Price *',
+                      label: context.l10n.requiredUnitPrice,
                       hint: '0.00',
                       controller: _priceCtrl,
                       prefixText: '$currencySymbol ',
@@ -298,11 +299,11 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                           const TextInputType.numberWithOptions(decimal: true),
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
-                          return 'Required';
+                          return context.l10n.required;
                         }
                         final v = NumberText.parse(val, fallback: double.nan);
-                        if (v.isNaN) return 'Invalid';
-                        if (v < 0) return 'Must be 0 or more';
+                        if (v.isNaN) return context.l10n.invalid;
+                        if (v < 0) return context.l10n.mustBe0OrMore;
                         return null;
                       },
                       onChanged: (_) => setState(() {}),
@@ -312,7 +313,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                   Expanded(
                     flex: 2,
                     child: CustomTextField(
-                      label: 'Default Qty',
+                      label: context.l10n.defaultQty,
                       hint: '1',
                       controller: _qtyCtrl,
                       keyboardType:
@@ -321,7 +322,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                           ? null
                           : NumberText.parse(val, fallback: double.nan) > 0
                               ? null
-                              : 'More than 0',
+                              : context.l10n.moreThan0,
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
@@ -330,7 +331,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
               const SizedBox(height: 14),
 
               // Unit of Measurement dropdown
-              _buildSectionLabel('Unit of Measurement'),
+              _buildSectionLabel(context.l10n.unitOfMeasurement),
               const SizedBox(height: 6),
               Container(
                 padding:
@@ -408,7 +409,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
               const SizedBox(height: 14),
 
               // Category with autocomplete
-              _buildSectionLabel('Category'),
+              _buildSectionLabel(context.l10n.category),
               const SizedBox(height: 6),
               Autocomplete<String>(
                 initialValue: TextEditingValue(text: _categoryCtrl.text),
@@ -431,7 +432,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                     textController.text = _categoryCtrl.text;
                   }
                   return CustomTextField(
-                    hint: 'e.g. Design, Development, Products',
+                    hint: context.l10n.eGDesignDevelopmentProducts,
                     controller: textController,
                     focusNode: focusNode,
                     textCapitalization: TextCapitalization.sentences,
@@ -444,8 +445,8 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
 
               // HSN / SAC code
               CustomTextField(
-                label: 'HSN / SAC Code',
-                hint: 'e.g. 998311',
+                label: context.l10n.hsnSacCode,
+                hint: context.l10n.eG998311,
                 controller: _hsnCtrl,
                 keyboardType: TextInputType.text,
               ),
@@ -453,8 +454,8 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
 
               // ─── Individual Item Discount Section ───
               _buildCardSection(
-                title: 'Item Discount',
-                subtitle: 'Set a default percentage discount for this item',
+                title: context.l10n.itemDiscount,
+                subtitle: context.l10n.setADefaultPercentageDiscountForThisItem,
                 icon: AppIcons.tag,
                 iconBg: AppColors.surfaceCard,
                 iconColor: AppColors.ink,
@@ -462,7 +463,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     CustomTextField(
-                      label: 'Discount Percentage (%)',
+                      label: context.l10n.discountPercentage,
                       hint: '0',
                       controller: _discountRateCtrl,
                       suffixText: '%',
@@ -475,7 +476,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: _quickDiscountRates.map((rate) {
-                          final label = rate == 0 ? 'None (0%)' : '${rate.toInt()}%';
+                          final label = rate == 0 ? context.l10n.none0 : '${rate.toInt()}%';
                           final isSelected = (NumberText.parse(_discountRateCtrl.text)) == rate;
                           return Padding(
                             padding: const EdgeInsets.only(right: 6),
@@ -499,8 +500,8 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
 
               // ─── Individual Item Tax Section ───
               _buildCardSection(
-                title: 'Tax Configuration',
-                subtitle: 'Specify whether tax applies and the item tax rate',
+                title: context.l10n.taxConfiguration,
+                subtitle: context.l10n.specifyWhetherTaxAppliesAndTheItemTax,
                 icon: AppIcons.receipt,
                 iconBg: AppColors.surfaceCard,
                 iconColor: _isTaxable ? AppColors.ink : AppColors.mutedSoft,
@@ -511,7 +512,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Apply Tax to this Item',
+                          context.l10n.applyTaxToThisItem,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -528,8 +529,8 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                     if (_isTaxable) ...[
                       const SizedBox(height: 10),
                       CustomTextField(
-                        label: 'Tax Rate (%)',
-                        hint: 'e.g. 18',
+                        label: context.l10n.taxRate,
+                        hint: context.l10n.eG18,
                         controller: _taxRateCtrl,
                         suffixText: '%',
                         validator: _percentValidator,
@@ -541,7 +542,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: _quickTaxRates.map((rate) {
-                            final label = rate == 0 ? '0% (Exempt)' : '${rate.toInt()}%';
+                            final label = rate == 0 ? context.l10n.label0Exempt : '${rate.toInt()}%';
                             final isSelected = (NumberText.parse(_taxRateCtrl.text)) == rate;
                             return Padding(
                               padding: const EdgeInsets.only(right: 6),
@@ -580,7 +581,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                         Icon(AppIcons.calculate, size: 18, color: AppColors.primary),
                         SizedBox(width: 6),
                         Text(
-                          'Estimated Item Total',
+                          context.l10n.estimatedItemTotal,
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -594,7 +595,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Base (${NumberText.trim(qty)} × ${CurrencyFormatter.format(price, currencyCode: currencyCode)})',
+                          context.l10n.base(NumberText.trim(qty), CurrencyFormatter.format(price, currencyCode: currencyCode)),
                           style: TextStyle(fontSize: 13, color: AppColors.slate600),
                         ),
                         Text(
@@ -609,7 +610,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Item Discount (${NumberText.trim(discountPercent)}%)',
+                            context.l10n.itemDiscountPercent(NumberText.trim(discountPercent)),
                             style: TextStyle(fontSize: 13, color: AppColors.statusPartiallyPaid),
                           ),
                           Text(
@@ -625,7 +626,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Tax (${NumberText.trim(taxPercent)}%)',
+                            context.l10n.taxPercent(NumberText.trim(taxPercent)),
                             style: TextStyle(fontSize: 13, color: AppColors.squircleGreenIcon),
                           ),
                           Text(
@@ -640,7 +641,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Net Item Total:',
+                          context.l10n.netItemTotal,
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                         ),
                         Text(
@@ -682,7 +683,7 @@ class _CreateEditItemSheetState extends State<CreateEditItemSheet> {
                           ),
                         )
                       : Text(
-                          _isEditing ? 'Update Item' : 'Save Item',
+                          _isEditing ? context.l10n.updateItem : context.l10n.saveItem,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,

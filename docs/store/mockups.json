@@ -1,0 +1,40 @@
+{
+  "name": "Invoice Maker",
+  "template": "clean-center",
+  "sizes": [
+    "play-phone"
+  ],
+  "brandColor": "#2E6B3F",
+  "subtitles": false,
+  "out": "out/tpl",
+  "screens": [
+    {
+      "image": "screens/01-editor.png",
+      "title": "Invoice in\n*60 seconds*"
+    },
+    {
+      "image": "screens/02-pdf.png",
+      "title": "PDFs that look\n*professional*"
+    },
+    {
+      "image": "screens/03-dashboard.png",
+      "title": "Know who\n*owes you*"
+    },
+    {
+      "image": "screens/04-payments.png",
+      "title": "Track every\n*payment*"
+    },
+    {
+      "image": "screens/05-studio.png",
+      "title": "Your style,\n*your brand*"
+    },
+    {
+      "image": "screens/06-items.png",
+      "title": "Your price list,\n*always ready*"
+    },
+    {
+      "image": "screens/dark-03-dashboard.png",
+      "title": "Easy on the eyes\n*at night*"
+    }
+  ]
+}

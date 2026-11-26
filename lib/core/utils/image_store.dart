@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
-/// Keeps picked images (logo, signature) in the app's own documents folder.
+/// Keeps picked images (logo, signature, invoice attachments) in the app's own documents folder.
 ///
 /// `image_picker` returns a path in the cache folder, which Android may clear
 /// at any time; a logo stored there silently disappears from invoices.
@@ -24,17 +26,33 @@ class ImageStore {
   static Future<String> keep(String pickedPath, String kind) async {
     try {
       final dir = await _dir();
-      if (pickedPath.startsWith(dir.path)) return pickedPath;
+      if (p.isWithin(dir.path, pickedPath)) return pickedPath;
       final source = File(pickedPath);
       if (!await source.exists()) return pickedPath;
       final dot = pickedPath.lastIndexOf('.');
       final ext = dot > pickedPath.lastIndexOf('/') ? pickedPath.substring(dot) : '.png';
-      final target = '${dir.path}/${kind}_${DateTime.now().millisecondsSinceEpoch}$ext';
+      final target = '${dir.path}/${kind}_${const Uuid().v4()}$ext';
       await source.copy(target);
       return target;
     } catch (e) {
       debugPrint('Keep image failed: $e');
       return pickedPath;
+    }
+  }
+
+  /// Removes a managed attachment without touching arbitrary paths.
+  static Future<void> deleteAttachment(String path) async {
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final images = p.join(docs.path, 'images');
+      final file = p.normalize(path);
+      if (p.dirname(file) == images && p.basename(file).startsWith('attachment_')) {
+        await File(file).delete();
+      }
+    } on PathNotFoundException {
+      // Missing files need no cleanup.
+    } catch (e) {
+      debugPrint('Attachment cleanup failed: $e');
     }
   }
 

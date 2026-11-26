@@ -333,6 +333,8 @@ class InvoiceCustomizationConfig {
   final bool showBankDetails;
   final bool showUpiDetails;
   final bool showSignature;
+  final bool showAttachments;
+  final bool showStatusStamp;
   final bool showNotes;
   final bool showTaxColumn;
   final bool showUnitPrice;
@@ -351,6 +353,8 @@ class InvoiceCustomizationConfig {
     this.showBankDetails = true,
     this.showUpiDetails = true,
     this.showSignature = true,
+    this.showAttachments = true,
+    this.showStatusStamp = true,
     this.showNotes = true,
     this.showTaxColumn = true,
     this.showUnitPrice = true,
@@ -386,6 +390,8 @@ class InvoiceCustomizationConfig {
     bool? showBankDetails,
     bool? showUpiDetails,
     bool? showSignature,
+    bool? showAttachments,
+    bool? showStatusStamp,
     bool? showNotes,
     bool? showTaxColumn,
     bool? showUnitPrice,
@@ -404,6 +410,8 @@ class InvoiceCustomizationConfig {
       showBankDetails: showBankDetails ?? this.showBankDetails,
       showUpiDetails: showUpiDetails ?? this.showUpiDetails,
       showSignature: showSignature ?? this.showSignature,
+      showAttachments: showAttachments ?? this.showAttachments,
+      showStatusStamp: showStatusStamp ?? this.showStatusStamp,
       showNotes: showNotes ?? this.showNotes,
       showTaxColumn: showTaxColumn ?? this.showTaxColumn,
       showUnitPrice: showUnitPrice ?? this.showUnitPrice,
@@ -469,6 +477,8 @@ class InvoiceCustomizationConfig {
       'show_bank_details': showBankDetails,
       'show_upi_details': showUpiDetails,
       'show_signature': showSignature,
+      'show_attachments': showAttachments,
+      'show_status_stamp': showStatusStamp,
       'show_notes': showNotes,
       'show_tax_column': showTaxColumn,
       'show_unit_price': showUnitPrice,
@@ -499,6 +509,8 @@ class InvoiceCustomizationConfig {
       showBankDetails: json['show_bank_details'] as bool? ?? true,
       showUpiDetails: json['show_upi_details'] as bool? ?? true,
       showSignature: json['show_signature'] as bool? ?? true,
+      showAttachments: json['show_attachments'] as bool? ?? true,
+      showStatusStamp: json['show_status_stamp'] as bool? ?? true,
       showNotes: json['show_notes'] as bool? ?? true,
       showTaxColumn: json['show_tax_column'] as bool? ?? true,
       showUnitPrice: json['show_unit_price'] as bool? ?? true,

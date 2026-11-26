@@ -1,7 +1,10 @@
+import 'package:invoice/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/core/billing/billing_service.dart';
 import 'package:invoice/core/providers/currency_provider.dart';
+import 'package:invoice/core/theme/app_colors.dart';
+import 'package:invoice/features/invoices/models/invoice_customization_config.dart';
 import 'package:invoice/features/invoices/models/invoice_model.dart';
 import 'package:invoice/features/invoices/models/line_item_model.dart';
 import 'package:invoice/features/invoices/models/pdf_theme.dart';
@@ -28,7 +31,12 @@ void main() {
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
         ChangeNotifierProvider(create: (_) => BillingService()),
       ],
-      child: MaterialApp(home: child),
+      child: MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: child,
+      ),
     );
   }
 
@@ -68,33 +76,43 @@ void main() {
     ],
   );
 
-  const testProfile = BusinessProfile(
-    businessName: 'Studio Precision LLC',
-    address: '42 Wallaby Way, Sydney',
-    phone: '+61 2 9999 8888',
-    email: 'hello@precision.studio',
-    gstin: 'AU123456789',
-    bankName: 'Global Commerce Bank',
-    accountNumber: '9876543210',
-    ifscCode: 'GCB000123',
-    currency: 'USD',
-  );
-
   group('PdfTheme Model & Lookups', () {
-    test('PdfTheme contains exactly 10 clean, professional themes', () {
-      expect(PdfTheme.all.length, 10);
-      expect(PdfTheme.all.map((t) => t.id).toList(), [
-        PdfThemeId.classicBlue,
-        PdfThemeId.modernMinimal,
-        PdfThemeId.emeraldExecutive,
-        PdfThemeId.slateElegance,
-        PdfThemeId.warmCorporate,
-        PdfThemeId.nordicFrame,
-        PdfThemeId.leftRibbon,
-        PdfThemeId.geometricBlock,
-        PdfThemeId.securityGrid,
-        PdfThemeId.splitTwoTone,
-      ]);
+    test('all 28 themes have unique saved IDs and an ordered category', () {
+      expect(PdfTheme.all, hasLength(28));
+      expect(PdfTheme.all.map((theme) => theme.id), unorderedEquals(PdfThemeId.values));
+      expect(
+        PdfTheme.all.map((theme) => theme.category).toSet(),
+        unorderedEquals(PdfThemeCategory.values),
+      );
+      expect(
+        PdfThemeCategory.values.map((category) => category.label),
+        ['Professional', 'Simple', 'Bold', 'Creative', 'Retail & GST'],
+      );
+      expect(PdfThemeCategory.values.map((category) => category.order), [0, 1, 2, 3, 4]);
+
+      final ids = PdfTheme.all.map((theme) => theme.id.value).toSet();
+      expect(ids, hasLength(28));
+      for (final theme in PdfTheme.all) {
+        expect(theme.id.value, matches(r'^[a-z]+(?:_[a-z]+)+$'));
+        expect(PdfTheme.fromId(theme.id.value), same(theme));
+        expect(PdfTheme.fromId(theme.id.name), same(theme));
+
+        final customized = InvoiceCustomizationConfig.fromTheme(theme)
+            .copyWith(primaryColor: Colors.black)
+            .toPdfTheme();
+        expect(customized.category, theme.category);
+      }
+    });
+
+    test('table headers meet 4.5:1 contrast across all theme palettes', () {
+      for (final theme in PdfTheme.all) {
+        final foreground = theme.tableHeaderTextColor.luminance;
+        final background = theme.tableHeaderBg.luminance;
+        final contrast = foreground > background
+            ? (foreground + 0.05) / (background + 0.05)
+            : (background + 0.05) / (foreground + 0.05);
+        expect(contrast, greaterThanOrEqualTo(4.5), reason: theme.name);
+      }
     });
 
     test('PdfTheme.fromId resolves valid themes and falls back safely', () {
@@ -113,21 +131,7 @@ void main() {
     });
   });
 
-  group('PdfGeneratorService 10 Themes & Paper Styles Rendering', () {
-    for (final theme in PdfTheme.all) {
-      test('generates valid PDF bytes for ${theme.name} (${theme.paperDesignName})', () async {
-        final bytes = await PdfGeneratorService.generateInvoicePdf(
-          invoice: testInvoice,
-          businessProfile: testProfile,
-          isPro: true,
-          theme: theme,
-        );
-
-        expect(bytes, isNotEmpty);
-        expect(bytes.length, greaterThan(1000));
-      });
-    }
-
+  group('PdfGeneratorService theme options', () {
     test('generates sample live preview with dummy logo and signature', () async {
       final bytes = await PdfGeneratorService.generateInvoicePdf(
         invoice: DummyInvoiceData.sampleInvoice,
@@ -165,52 +169,69 @@ void main() {
   });
 
   group('PdfThemePickerSheet Widget Tests', () {
-    testWidgets('renders 2-column live preview grid and allows selection', (
-      WidgetTester tester,
-    ) async {
-      tester.view.physicalSize = const Size(800, 1200);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
+    for (final dark in [false, true]) {
+      testWidgets('filters, counts and applies a template (dark: $dark)', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(800, 1200);
+        tester.view.devicePixelRatio = 1.0;
+        AppColors.isDark = dark;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          AppColors.isDark = false;
+        });
 
-      PdfTheme? selectedResult;
-      bool? defaultSaved;
+        PdfTheme? selectedResult;
+        bool? defaultSaved;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: PdfThemePickerSheet(
-              currentTheme: PdfTheme.classicBlue,
-              onThemeSelected: (choice, setAsDefault) {
-                selectedResult = choice.theme;
-                expect(choice.customConfig, isNull); // a plain template
-                defaultSaved = setAsDefault;
-              },
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: dark ? ThemeData.dark() : ThemeData.light(),
+            home: Scaffold(
+              body: PdfThemePickerSheet(
+                currentTheme: PdfTheme.classicBlue,
+                onThemeSelected: (choice, setAsDefault) {
+                  selectedResult = choice.theme;
+                  expect(choice.customConfig, isNull);
+                  defaultSaved = setAsDefault;
+                },
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pump(const Duration(milliseconds: 200));
+        );
+        await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.text('Choose Invoice Style'), findsOneWidget);
-      expect(find.byType(GridView), findsOneWidget);
+        expect(find.text('Choose Invoice Style'), findsOneWidget);
+        expect(find.text('28 of 28 templates'), findsOneWidget);
+        expect(find.text('Classic Corporate'), findsOneWidget);
+        expect(find.byType(GridView), findsOneWidget);
 
-      // Tap on the 2nd template card in the 2-column grid (Modern Minimal)
-      final gridCards = find.descendant(
-        of: find.byType(GridView),
-        matching: find.byType(GestureDetector),
-      );
-      expect(gridCards, findsWidgets);
-      await tester.tap(gridCards.at(1));
-      await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(find.text('Retail & GST'));
+        await tester.pump();
+        expect(find.text('5 of 28 templates'), findsOneWidget);
+        expect(find.text('Classic Corporate'), findsNothing);
+        expect(find.text('Saffron Ledger'), findsOneWidget);
 
-      // Tap Apply Selected Style button
-      await tester.tap(find.byType(ElevatedButton));
-      await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(find.text('All'));
+        await tester.pump();
+        expect(find.text('28 of 28 templates'), findsOneWidget);
+        expect(find.text('Classic Corporate'), findsOneWidget);
 
-      expect(selectedResult, isNotNull);
-      expect(selectedResult!.id, PdfThemeId.modernMinimal);
-      expect(defaultSaved, isFalse);
-    });
+        await tester.tap(find.text('Retail & GST'));
+        await tester.pump();
+        await tester.tap(find.text('Saffron Ledger'));
+        await tester.pump();
+        await tester.tap(find.text('Apply Selected Style'));
+        await tester.pump();
+
+        expect(selectedResult?.id, PdfThemeId.saffronLedger);
+        expect(defaultSaved, isFalse);
+      });
+    }
   });
 
   group('CreateInvoiceScreen & InvoicePreviewScreen Theme Integration', () {

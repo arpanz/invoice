@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../core/localization/catalog_localization.dart';
+import '../core/localization/l10n.dart';
 import '../core/models/currency_model.dart';
 import '../core/providers/currency_provider.dart';
 import '../core/theme/app_colors.dart';
@@ -45,10 +47,15 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
   final TextEditingController _searchCtrl = TextEditingController();
 
   void _filterCurrencies(String query) {
+    final search = query.trim().toLowerCase();
+    final matches = SupportedCurrencies.search(search).toSet();
+    final l10n = context.l10n;
     setState(() {
-      _filteredCurrencies = query.isEmpty
-          ? SupportedCurrencies.all
-          : SupportedCurrencies.search(query);
+      _filteredCurrencies = SupportedCurrencies.all.where((currency) {
+        return matches.contains(currency) ||
+            l10n.catalogLabel(currency.name).toLowerCase().contains(search) ||
+            l10n.catalogLabel(currency.countryName).toLowerCase().contains(search);
+      }).toList();
     });
   }
 
@@ -103,7 +110,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Select Country & Currency',
+                        context.l10n.selectCountryCurrency,
                         style: AppTypography.serif(
                           fontSize: 17,
                           fontWeight: FontWeight.w500,
@@ -112,7 +119,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                         ),
                       ),
                       Text(
-                        'Tax system, payment fields & symbol will adapt',
+                        context.l10n.taxSystemPaymentFieldsSymbolWillAdapt,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: AppColors.muted,
@@ -147,7 +154,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                   color: AppColors.ink,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Search by country, currency or code...',
+                  hintText: context.l10n.searchByCountryCurrencyOrCode,
                   hintStyle: GoogleFonts.inter(
                     color: AppColors.mutedSoft,
                     fontSize: 13.5,
@@ -231,8 +238,8 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                                   children: [
                                     Text(
                                       currency.countryName.isNotEmpty
-                                          ? currency.countryName
-                                          : currency.name,
+                                          ? context.l10n.catalogLabel(currency.countryName)
+                                          : context.l10n.catalogLabel(currency.name),
                                       style: GoogleFonts.inter(
                                         fontSize: 14,
                                         fontWeight: isSelected
@@ -268,7 +275,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${currency.name} (${currency.symbol}) • ${currency.defaultTax.bankAccountLabel} & ${currency.defaultTax.bankRoutingLabel}',
+                                  '${context.l10n.catalogLabel(currency.name)} (${currency.symbol}) • ${context.l10n.catalogLabel(currency.defaultTax.bankAccountLabel)} & ${context.l10n.catalogLabel(currency.defaultTax.bankRoutingLabel)}',
                                   style: GoogleFonts.inter(
                                     fontSize: 11.5,
                                     color: AppColors.muted,

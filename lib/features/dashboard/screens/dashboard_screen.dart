@@ -5,8 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/localization/l10n.dart';
 import '../../../core/billing/billing_service.dart';
 import '../../../core/database/db_provider.dart';
+import '../../../core/notifications/reminder_service.dart';
 import '../../../core/providers/currency_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -17,7 +19,10 @@ import '../../invoices/models/invoice_model.dart';
 import '../../invoices/screens/create_invoice_screen.dart';
 import '../../invoices/screens/invoice_preview_screen.dart';
 import '../../invoices/services/invoice_actions.dart';
+import '../../reports/screens/reports_screen.dart';
+import '../../settings/screens/business_profile_screen.dart';
 import '../../settings/screens/settings_screen.dart';
+import '../widgets/setup_checklist_card.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_animations.dart';
 
@@ -39,6 +44,9 @@ class DashboardScreenState extends State<DashboardScreen> {
   Map<String, int> _otherCurrencyCounts = const {};
   String _currency = 'INR';
   bool _hasProfileAlert = false;
+
+  /// What is left to set up; null until the first load (or if prefs failed).
+  SetupChecklist? _setup;
 
   /// The invoice whose stamp should drop in on the next build.
   String? _stampedId;
@@ -71,9 +79,12 @@ class DashboardScreenState extends State<DashboardScreen> {
 
     // A failed read must not leave the tab on a spinner: fall back to
     // "no profile alert" and an empty list.
+    final taxRate = currencyProvider.defaultTax.rate;
+    final taxIdLabel = currencyProvider.taxIdLabel;
     bool hasIncompleteProfile = false;
+    SharedPreferences? prefs;
     try {
-      final prefs = await SharedPreferences.getInstance();
+      prefs = await SharedPreferences.getInstance();
       final bizName = prefs.getString('biz_name');
       hasIncompleteProfile = bizName == null || bizName.trim().isEmpty || bizName == 'My Business';
     } catch (e) {
@@ -88,10 +99,15 @@ class DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       debugPrint('Could not load invoices: $e');
       if (mounted && !_isLoading) {
-        ScaffoldMessenger.of(context).showSnackBar(_snack('Could not refresh invoices. Pull down to try again.'));
+        ScaffoldMessenger.of(context).showSnackBar(_snack(context.l10n.couldNotRefreshInvoicesPullDownToTry));
       }
     }
     if (seq != _loadSeq) return;
+
+    // Worked out after the invoices load so "first invoice" is current.
+    final setup = prefs == null
+        ? null
+        : SetupChecklist.fromPrefs(prefs, invoiceCount: all.length, taxRate: taxRate, taxIdLabel: taxIdLabel);
 
     double paidSum = 0.0;
     double unpaidSum = 0.0;
@@ -119,8 +135,10 @@ class DashboardScreenState extends State<DashboardScreen> {
         _totalUnpaid = unpaidSum;
         _otherCurrencyCounts = otherCurrencies;
         _hasProfileAlert = hasIncompleteProfile;
+        _setup = setup;
         _isLoading = false;
       });
+      unawaited(ReminderService.instance.resyncAll());
     }
   }
 
@@ -168,7 +186,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     final rows = <Object>[];
     String? month;
     for (final inv in list) {
-      final key = DateFormat('MMMM yyyy').format(inv.invoiceDate);
+      final key = DateFormat('MMMM yyyy', context.localeName).format(inv.invoiceDate);
       if (key != month) {
         rows.add(key);
         month = key;
@@ -182,10 +200,10 @@ class DashboardScreenState extends State<DashboardScreen> {
     if (inv.dueDate == null) return inv.invoiceNumber;
     final today = DateUtils.dateOnly(DateTime.now());
     final days = DateUtils.dateOnly(inv.dueDate!).difference(today).inDays;
-    if (days < 0) return '${-days} ${-days == 1 ? 'day' : 'days'} overdue';
-    if (days == 0) return 'Due today';
-    if (days == 1) return 'Due tomorrow';
-    return 'Due in $days days';
+    if (days < 0) return context.l10n.daysOverdue(-days);
+    if (days == 0) return context.l10n.dueToday;
+    if (days == 1) return context.l10n.dueTomorrow;
+    return context.l10n.dueInDays(days);
   }
 
   Future<void> _openInvoicePreview(InvoiceModel invoice) async {
@@ -195,6 +213,12 @@ class DashboardScreenState extends State<DashboardScreen> {
       MaterialPageRoute(builder: (_) => InvoicePreviewScreen(invoice: invoice)),
     );
     if (mounted) await _loadData();
+  }
+
+  Future<void> _openReports() async {
+    Haptics.tap();
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportsScreen()));
+    if (mounted) _loadData();
   }
 
   Future<void> _openSettings() async {
@@ -214,18 +238,19 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   /// Records the balance as paid, drops the PAID stamp, and offers Undo.
   Future<void> _markPaid(InvoiceModel invoice) async {
+    final l10n = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     String? paymentId;
     try {
       paymentId = await DbProvider.markPaidInFull(invoice.id);
     } catch (e) {
       debugPrint('Mark paid failed: $e');
-      messenger.showSnackBar(_snack('Could not update the payment. Please try again.'));
+      messenger.showSnackBar(_snack(l10n.couldNotUpdateThePaymentPleaseTryAgain));
       return;
     }
     if (!mounted) return;
     if (paymentId == null) {
-      messenger.showSnackBar(_snack('Nothing is left to pay on ${invoice.invoiceNumber}.'));
+      messenger.showSnackBar(_snack(l10n.nothingIsLeftToPayOn(invoice.invoiceNumber)));
       return;
     }
     setState(() => _stampedId = invoice.id);
@@ -245,15 +270,15 @@ class DashboardScreenState extends State<DashboardScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         _snack(
-          '${invoice.invoiceNumber} marked paid',
+          l10n.invoiceMarkedPaid(invoice.invoiceNumber),
           action: SnackBarAction(
-            label: 'Undo',
+            label: l10n.undo,
             onPressed: () async {
               try {
                 await DbProvider.deletePayment(paymentId!);
               } catch (e) {
                 debugPrint('Undo failed: $e');
-                messenger.showSnackBar(_snack('Could not undo. Remove the payment from the invoice instead.'));
+                messenger.showSnackBar(_snack(l10n.couldNotUndoRemoveThePaymentFromThe));
                 return;
               }
               if (!mounted) return;
@@ -288,7 +313,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             children: [
               const _SheetHandle(),
               const SizedBox(height: 16),
-              Text('Payment', style: AppTypography.serif(fontSize: 22, color: AppColors.ink)),
+              Text(context.l10n.payment, style: AppTypography.serif(fontSize: 22, color: AppColors.ink)),
               const SizedBox(height: 2),
               Text(
                 '${invoice.invoiceNumber} · ${invoice.clientName}',
@@ -297,9 +322,9 @@ class DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
               if (invoice.effectiveStatus != InvoiceStatus.paid) ...[
                 _statusOption(
-                  title: 'Paid in Full',
-                  subtitle: 'Records the balance as received today',
-                  stamp: StampMark(label: 'PAID', color: AppColors.statusPaid),
+                  title: context.l10n.paidInFull,
+                  subtitle: context.l10n.recordsTheBalanceAsReceivedToday,
+                  stamp: StampMark(label: context.l10n.paidStamp, color: AppColors.statusPaid),
                   onTap: () {
                     Navigator.pop(ctx);
                     _quickUpdateStatus(invoice, InvoiceStatus.paid);
@@ -307,9 +332,9 @@ class DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 8),
                 _statusOption(
-                  title: 'Record a payment',
-                  subtitle: 'Add a deposit or part payment',
-                  stamp: StampMark(label: 'PART', color: AppColors.statusPartiallyPaid),
+                  title: context.l10n.recordAPayment,
+                  subtitle: context.l10n.addADepositOrPartPayment,
+                  stamp: StampMark(label: context.l10n.part, color: AppColors.statusPartiallyPaid),
                   onTap: () {
                     Navigator.pop(ctx);
                     _quickUpdateStatus(invoice, InvoiceStatus.partiallyPaid);
@@ -319,9 +344,9 @@ class DashboardScreenState extends State<DashboardScreen> {
               if (invoice.paidAmount > 0.005) ...[
                 const SizedBox(height: 8),
                 _statusOption(
-                  title: 'Unpaid',
-                  subtitle: 'Deletes recorded payments',
-                  stamp: StampMark(label: 'DUE', color: AppColors.muted),
+                  title: context.l10n.unpaid,
+                  subtitle: context.l10n.deletesRecordedPayments,
+                  stamp: StampMark(label: context.l10n.due, color: AppColors.muted),
                   onTap: () {
                     Navigator.pop(ctx);
                     _quickUpdateStatus(invoice, InvoiceStatus.unpaid);
@@ -398,19 +423,19 @@ class DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(invoice.clientName, style: AppTypography.serif(fontSize: 20, color: AppColors.ink)),
                 ),
-                action(AppIcons.visibility, 'View details', () => run(() => _openInvoicePreview(invoice))),
-                action(AppIcons.edit, 'Edit invoice', () => run(() {
+                action(AppIcons.visibility, context.l10n.viewDetails, () => run(() => _openInvoicePreview(invoice))),
+                action(AppIcons.edit, context.l10n.editInvoiceMenu, () => run(() {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => CreateInvoiceScreen(existingInvoice: invoice)),
                   ).then((_) => _loadData());
                 })),
-                action(AppIcons.payments, 'Payment status', () => run(() => _showQuickStatusPicker(invoice))),
-                action(AppIcons.share, 'Share PDF', () => run(() => _sharePdf(invoice))),
-                action(AppIcons.download, 'Save PDF', () => run(() => InvoiceActions.saveToDevice(context, invoice))),
-                action(AppIcons.print, 'Print', () => run(() => InvoiceActions.printPdf(context, invoice))),
+                action(AppIcons.payments, context.l10n.paymentStatus, () => run(() => _showQuickStatusPicker(invoice))),
+                action(AppIcons.share, context.l10n.sharePdf, () => run(() => _sharePdf(invoice))),
+                action(AppIcons.download, context.l10n.savePdf, () => run(() => InvoiceActions.saveToDevice(context, invoice))),
+                action(AppIcons.print, context.l10n.print, () => run(() => InvoiceActions.printPdf(context, invoice))),
                 Divider(color: AppColors.hairline, height: 12),
-                action(AppIcons.delete, 'Delete invoice', () => run(() => _deleteInvoice(invoice)),
+                action(AppIcons.delete, context.l10n.deleteInvoiceMenu, () => run(() => _deleteInvoice(invoice)),
                     destructive: true),
               ],
             ),
@@ -433,6 +458,14 @@ class DashboardScreenState extends State<DashboardScreen> {
     if (!await CreateInvoiceScreen.canCreateNewInvoice(context)) return;
     if (!mounted) return;
     await Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateInvoiceScreen()));
+    if (mounted) _loadData();
+  }
+
+  /// A checklist tap: profile items open the profile, the last one makes an
+  /// invoice. Reloads after so a finished item drops off straight away.
+  Future<void> _openSetupStep(SetupStep step) async {
+    if (step == SetupStep.firstInvoice) return _createInvoice();
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const BusinessProfileScreen()));
     if (mounted) _loadData();
   }
 
@@ -460,6 +493,10 @@ class DashboardScreenState extends State<DashboardScreen> {
               SliverToBoxAdapter(child: _buildHeader(isPro)),
               if (_allInvoices.isNotEmpty || !_isLoading)
                 SliverToBoxAdapter(child: _buildHero(money, currencyCode)),
+              // With no invoices yet the card sits under the empty state's
+              // create button instead, so it never pushes that off screen.
+              if (_allInvoices.isNotEmpty)
+                SliverToBoxAdapter(child: _buildSetupCard(const EdgeInsets.fromLTRB(16, 18, 16, 4))),
               if (needsYou.isNotEmpty) SliverToBoxAdapter(child: _buildNeedsYou(needsYou)),
               if (_allInvoices.isNotEmpty)
                 SliverPersistentHeader(
@@ -485,7 +522,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                 ),
-                const SliverToBoxAdapter(child: ListFootnote('Swipe right to mark paid · hold for more')),
+                SliverToBoxAdapter(child: ListFootnote(context.l10n.swipeRightToMarkPaidHoldForMore)),
               ],
             ],
           ),
@@ -496,13 +533,19 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildHeader(bool isPro) {
     return TabHeader(
-      title: 'Invoices',
-      caption: DateFormat('EEEE, d MMMM').format(DateTime.now()),
+      title: context.l10n.invoices,
+      caption: DateFormat('EEEE, d MMMM', context.localeName).format(DateTime.now()),
       showPro: !isPro,
       trailing: [
         const SizedBox(width: 2),
         _CircleButton(
-          tooltip: _hasProfileAlert ? 'Profile incomplete' : 'Settings',
+          tooltip: context.l10n.reports,
+          onTap: _openReports,
+          child: Icon(AppIcons.pieChart, color: AppColors.ink, size: 21),
+        ),
+        const SizedBox(width: 8),
+        _CircleButton(
+          tooltip: _hasProfileAlert ? context.l10n.profileIncomplete : context.l10n.settings,
           onTap: _openSettings,
           dot: _hasProfileAlert,
           child: Icon(AppIcons.settings, color: AppColors.ink, size: 21),
@@ -521,7 +564,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('TO COLLECT', style: label),
+          Text(context.l10n.toCollect, style: label),
           const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -561,7 +604,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 10),
           Row(
             children: [
-              Text('Collected ', style: GoogleFonts.inter(fontSize: 13, color: AppColors.muted)),
+              Text(context.l10n.collected, style: GoogleFonts.inter(fontSize: 13, color: AppColors.muted)),
               Flexible(
                 child: Text(
                   money(_totalPaid),
@@ -571,7 +614,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               ),
               const Spacer(),
               Text(
-                '${_allInvoices.length} ${_allInvoices.length == 1 ? 'invoice' : 'invoices'}',
+                context.l10n.invoiceCount(_allInvoices.length),
                 style: GoogleFonts.inter(fontSize: 13, color: AppColors.muted),
               ),
             ],
@@ -579,8 +622,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           if (_otherCurrencyCounts.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              'Totals are for $currencyCode invoices only. Not included: '
-              '${_otherCurrencyCounts.entries.map((e) => '${e.value} in ${e.key}').join(', ')}.',
+              context.l10n.totalsAreForInvoicesOnlyNotIncluded(currencyCode, _otherCurrencyCounts.entries.map((e) => context.l10n.countInCurrency(e.value, e.key)).join(', ')),
               style: GoogleFonts.inter(fontSize: 11.5, color: AppColors.mutedSoft),
             ),
           ],
@@ -597,7 +639,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: Text('Needs you', style: AppTypography.serif(fontSize: 19, color: AppColors.ink)),
+            child: Text(context.l10n.needsYou, style: AppTypography.serif(fontSize: 19, color: AppColors.ink)),
           ),
           for (final inv in list) ...[
             PaperSlip(
@@ -639,7 +681,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                       textStyle: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600),
                     ),
-                    child: const Text('Mark paid'),
+                    child: Text(context.l10n.markPaid),
                   ),
                 ],
               ),
@@ -661,12 +703,36 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
     return FilterRow(
       children: [
-        pill('all', 'All', counted: false),
-        pill('unpaid', 'Unpaid'),
-        pill('overdue', 'Overdue'),
-        pill('partially_paid', 'Partially Paid'),
-        pill('paid', 'Paid'),
+        pill('all', context.l10n.all, counted: false),
+        pill('unpaid', context.l10n.unpaid),
+        pill('overdue', context.l10n.overdue),
+        pill('partially_paid', context.l10n.partiallyPaid),
+        pill('paid', context.l10n.paid),
       ],
+    );
+  }
+
+  /// The "Finish setting up" card, or nothing once it is closed or done.
+  /// On a first run the create button sits right above it, so its own
+  /// "first invoice" row would only repeat that.
+  Widget _buildSetupCard(EdgeInsets padding, {bool firstRun = false}) {
+    return AnimatedSize(
+      duration: AppAnimations.medium,
+      curve: AppAnimations.defaultCurve,
+      alignment: Alignment.topCenter,
+      child: (firstRun ? _setup?.isVisibleWithout(SetupStep.firstInvoice) : _setup?.isVisible) == true
+          ? Padding(
+              padding: padding,
+              child: SetupChecklistCard(
+                checklist: _setup!,
+                showFirstInvoice: !firstRun,
+                onOpen: _openSetupStep,
+                onDismissed: () {
+                  if (mounted) setState(() => _setup = null);
+                },
+              ),
+            )
+          : const SizedBox(width: double.infinity),
     );
   }
 
@@ -677,12 +743,18 @@ class DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Nothing here', style: AppTypography.serif(fontSize: 22, color: AppColors.ink)),
+            Text(context.l10n.nothingHere, style: AppTypography.serif(fontSize: 22, color: AppColors.ink)),
             const SizedBox(height: 6),
             Text(
               _searchQuery.isNotEmpty
-                  ? 'No invoices match "$_searchQuery"'
-                  : 'No ${const {'unpaid': 'unpaid', 'partially_paid': 'part-paid', 'overdue': 'overdue', 'paid': 'paid'}[_selectedFilter] ?? ''} invoices',
+                  ? context.l10n.noInvoicesMatch(_searchQuery)
+                  : switch (_selectedFilter) {
+                    'unpaid' => context.l10n.noUnpaidInvoices,
+                    'partially_paid' => context.l10n.noPartPaidInvoices,
+                    'overdue' => context.l10n.noOverdueInvoices,
+                    'paid' => context.l10n.noPaidInvoices,
+                    _ => '',
+                  },
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(fontSize: 13.5, color: AppColors.muted),
             ),
@@ -693,7 +765,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   Haptics.tap();
                   setState(() => _selectedFilter = 'all');
                 },
-                child: const Text('Show all'),
+                child: Text(context.l10n.showAll),
               ),
             ],
           ],
@@ -702,7 +774,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 8, 32, 120),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -732,19 +804,22 @@ class DashboardScreenState extends State<DashboardScreen> {
                   ],
                   Align(
                     alignment: Alignment.centerRight,
-                    child: StampMark(label: 'NEW', color: AppColors.brandAccent, fontSize: 11),
+                    child: StampMark(label: context.l10n.newStamp, color: AppColors.brandAccent, fontSize: 11),
                   ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 28),
-          Text('Your first invoice', style: AppTypography.serif(fontSize: 24, color: AppColors.ink)),
+          Text(context.l10n.yourFirstInvoice, style: AppTypography.serif(fontSize: 24, color: AppColors.ink)),
           const SizedBox(height: 6),
-          Text(
-            'Make one in under a minute. Tap + below any time.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(fontSize: 14, color: AppColors.muted, height: 1.4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              context.l10n.makeOneInUnderAMinuteTapBelow,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(fontSize: 14, color: AppColors.muted, height: 1.4),
+            ),
           ),
           const SizedBox(height: 22),
           ElevatedButton(
@@ -757,8 +832,9 @@ class DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
             ),
-            child: const Text('Create Invoice'),
+            child: Text(context.l10n.createInvoice),
           ),
+          _buildSetupCard(const EdgeInsets.only(top: 32), firstRun: true),
         ],
       ),
     );
@@ -772,7 +848,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       currencyCode: invoice.currency.isNotEmpty ? invoice.currency : _currency,
     );
     final meta = isPaid || invoice.dueDate == null
-        ? '${invoice.invoiceNumber} · ${DateFormat('d MMM').format(invoice.invoiceDate)}'
+        ? '${invoice.invoiceNumber} · ${DateFormat('d MMM', context.localeName).format(invoice.invoiceDate)}'
         : '${invoice.invoiceNumber} · ${_dueLine(invoice)}';
 
     final slip = PaperSlip(
@@ -786,7 +862,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  invoice.clientName.isEmpty ? 'No client' : invoice.clientName,
+                  invoice.clientName.isEmpty ? context.l10n.noClient : invoice.clientName,
                   style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -812,13 +888,14 @@ class DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 6),
               Semantics(
                 button: true,
-                hint: 'Change payment status',
+                hint: context.l10n.changePaymentStatus,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => _showQuickStatusPicker(invoice),
                   child: Padding(
                     padding: const EdgeInsets.only(left: 12, top: 2),
                     child: StampMark.forStatus(
+                      context,
                       status,
                       fontSize: 9.5,
                       animate: _stampedId == invoice.id && isPaid,
@@ -853,14 +930,14 @@ class DashboardScreenState extends State<DashboardScreen> {
           color: AppColors.statusPaidBg,
           fg: AppColors.statusPaid,
           icon: AppIcons.checkCircle,
-          label: 'Mark paid',
+          label: context.l10n.markPaid,
         ),
         secondaryBackground: _swipeBackground(
           alignLeft: false,
           color: AppColors.surfaceCard,
           fg: AppColors.ink,
           icon: AppIcons.share,
-          label: 'Share',
+          label: context.l10n.share,
         ),
         child: slip,
       ),

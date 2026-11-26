@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/localization/l10n.dart';
 
 import '../../../core/billing/free_limits.dart';
 import '../../../core/database/db_provider.dart';
@@ -30,7 +31,7 @@ class EstimateActions {
   static Future<InvoiceModel?> convert(BuildContext context, EstimateModel estimate) async {
     if (isLocked(estimate)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This estimate is already converted to an invoice.')),
+        SnackBar(content: Text(context.l10n.thisEstimateIsAlreadyConvertedToAnInvoice)),
       );
       return null;
     }
@@ -88,7 +89,7 @@ class EstimateActions {
     } on AlreadyConvertedException {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('This estimate is already converted to an invoice.')),
+          SnackBar(content: Text(context.l10n.thisEstimateIsAlreadyConvertedToAnInvoice)),
         );
       }
       return null;
@@ -96,7 +97,7 @@ class EstimateActions {
       debugPrint('Convert estimate failed: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not convert the estimate. Please try again.')),
+          SnackBar(content: Text(context.l10n.couldNotConvertTheEstimatePleaseTryAgain)),
         );
       }
       return null;
@@ -107,8 +108,8 @@ class EstimateActions {
   static Future<bool> confirmAndDelete(BuildContext context, EstimateModel estimate) async {
     final confirm = await AppDialog.showDelete(
       context: context,
-      title: 'Delete Estimate?',
-      message: 'Delete ${estimate.estimateNumber}? This cannot be undone.',
+      title: context.l10n.deleteEstimateQuestion,
+      message: context.l10n.deleteThisCannotBeUndone(estimate.estimateNumber),
     );
     if (confirm != true) return false;
     try {
@@ -121,7 +122,7 @@ class EstimateActions {
       debugPrint('Delete estimate failed: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not delete the estimate. Please try again.')),
+          SnackBar(content: Text(context.l10n.couldNotDeleteTheEstimatePleaseTryAgain)),
         );
       }
       return false;

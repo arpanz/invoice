@@ -6,6 +6,9 @@ import 'app_colors.dart';
 
 /// Holds the user's System / Light / Dark choice and applies it.
 ///
+/// The app is light unless the person picks Dark, or "Same as device" to
+/// follow the phone's setting.
+///
 /// [AppColors] tokens are plain getters that read [AppColors.isDark], so
 /// changing the theme means setting that flag and rebuilding every widget.
 /// Load it before `runApp` so the first frame already has the right colours.
@@ -16,7 +19,7 @@ class ThemeController extends ChangeNotifier with WidgetsBindingObserver {
 
   static const prefKey = 'theme_mode';
 
-  ThemeMode _mode = ThemeMode.system;
+  ThemeMode _mode = ThemeMode.light;
   ThemeMode get mode => _mode;
 
   bool get isDark => AppColors.isDark;
@@ -24,9 +27,9 @@ class ThemeController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     _mode = switch (prefs.getString(prefKey)) {
-      'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
-      _ => ThemeMode.system,
+      'system' => ThemeMode.system,
+      _ => ThemeMode.light,
     };
     _apply(rebuild: false);
   }

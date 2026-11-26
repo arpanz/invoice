@@ -11,6 +11,7 @@ import '../../../shared_widgets/paper.dart';
 import '../../../shared_widgets/tab_chrome.dart';
 import '../../../core/theme/app_typography.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/localization/l10n.dart';
 import '../models/saved_item_model.dart';
 import '../services/item_service.dart';
 import 'create_edit_item_sheet.dart';
@@ -132,7 +133,7 @@ class ItemListScreenState extends State<ItemListScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Duplicated "${item.name}"'),
+          content: Text(context.l10n.duplicated(item.name)),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -146,9 +147,9 @@ class ItemListScreenState extends State<ItemListScreen> {
   Future<void> _deleteItem(SavedItemModel item) async {
     final confirm = await AppDialog.showDelete(
       context: context,
-      title: 'Delete Item?',
+      title: context.l10n.deleteItem,
       message:
-          'Delete "${item.name}"? This won\'t affect existing invoices.',
+          context.l10n.deleteThisWonTAffectExistingInvoices(item.name),
     );
     if (confirm == true) {
       await ItemService.deleteItem(item.id);
@@ -189,10 +190,10 @@ class ItemListScreenState extends State<ItemListScreen> {
             slivers: [
               SliverToBoxAdapter(
                 child: TabHeader(
-                  title: 'Items',
+                  title: context.l10n.items,
                   caption: _items.isEmpty
-                      ? 'Products & services'
-                      : '${_items.length} saved ${_items.length == 1 ? 'item' : 'items'}',
+                      ? context.l10n.productsServices
+                      : context.l10n.savedItemCount(_items.length),
                 ),
               ),
               if (_categories.isNotEmpty)
@@ -201,9 +202,9 @@ class ItemListScreenState extends State<ItemListScreen> {
                   delegate: PinnedBarDelegate(
                     child: FilterRow(
                       children: [
-                        pill('All', 'all'),
+                        pill(context.l10n.all, 'all'),
                         ..._categories.map((cat) => pill(cat, cat)),
-                        if (hasUncategorized) pill('Uncategorized', 'uncategorized'),
+                        if (hasUncategorized) pill(context.l10n.uncategorized, 'uncategorized'),
                       ],
                     ),
                   ),
@@ -232,7 +233,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                     },
                   ),
                 ),
-                const SliverToBoxAdapter(child: ListFootnote('Tap to edit · hold for more')),
+                SliverToBoxAdapter(child: ListFootnote(context.l10n.tapToEditHoldForMore)),
               ],
             ],
           ),
@@ -245,19 +246,19 @@ class ItemListScreenState extends State<ItemListScreen> {
     if (_searchQuery.isNotEmpty) {
       return EmptyStateView(
         icon: AppIcons.searchOff,
-        title: 'No Results',
-        subtitle: 'No items match "$_searchQuery"',
+        title: context.l10n.noResults,
+        subtitle: context.l10n.noItemsMatch(_searchQuery),
         isDarkBackground: false,
       );
     }
     return EmptyStateView(
       icon: AppIcons.items,
-      title: 'No Items Yet',
+      title: context.l10n.noItemsYet,
       subtitle: _filterCategory == 'all'
-          ? 'Save your products & services here to quickly add them to invoices'
-          : 'No items in this category',
+          ? context.l10n.saveYourProductsServicesHereToQuicklyAdd
+          : context.l10n.noItemsInThisCategory,
       isDarkBackground: false,
-      actionLabel: 'Add Your First Item',
+      actionLabel: context.l10n.addYourFirstItem,
       onAction: _createItem,
     );
   }
@@ -300,10 +301,10 @@ class ItemListScreenState extends State<ItemListScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(item.name, style: AppTypography.serif(fontSize: 20, color: AppColors.ink)),
                 ),
-                action(AppIcons.edit, 'Edit item', () => _editItem(item)),
-                action(AppIcons.copy, 'Duplicate', () => _duplicateItemDirect(item)),
+                action(AppIcons.edit, context.l10n.editItemMenu, () => _editItem(item)),
+                action(AppIcons.copy, context.l10n.duplicate, () => _duplicateItemDirect(item)),
                 Divider(color: AppColors.hairline, height: 12),
-                action(AppIcons.delete, 'Delete item', () => _deleteItem(item), color: AppColors.error),
+                action(AppIcons.delete, context.l10n.deleteItemMenu, () => _deleteItem(item), color: AppColors.error),
               ],
             ),
           ),
@@ -317,9 +318,9 @@ class ItemListScreenState extends State<ItemListScreen> {
     final meta = <String>[
       if ((item.category ?? '').isNotEmpty) item.category!,
       if ((item.hsnCode ?? '').isNotEmpty) 'HSN ${item.hsnCode}',
-      if (item.isTaxable && item.taxRate > 0) 'Tax ${NumberText.trim(item.taxRate)}%',
-      if (!item.isTaxable) 'Tax exempt',
-      if (item.discountRate > 0) '${NumberText.trim(item.discountRate)}% off',
+      if (item.isTaxable && item.taxRate > 0) context.l10n.itemTaxPercent(NumberText.trim(item.taxRate)),
+      if (!item.isTaxable) context.l10n.taxExempt,
+      if (item.discountRate > 0) context.l10n.percentOff(NumberText.trim(item.discountRate)),
     ].join(' · ');
 
     return Padding(
@@ -363,7 +364,7 @@ class ItemListScreenState extends State<ItemListScreen> {
                   style: AppTypography.money(fontSize: 17, color: AppColors.ink, letterSpacing: -0.3),
                 ),
                 const SizedBox(height: 2),
-                Text('per ${item.unit}', style: GoogleFonts.inter(fontSize: 11.5, color: AppColors.mutedSoft)),
+                Text(context.l10n.perUnit(item.unit), style: GoogleFonts.inter(fontSize: 11.5, color: AppColors.mutedSoft)),
               ],
             ),
           ],

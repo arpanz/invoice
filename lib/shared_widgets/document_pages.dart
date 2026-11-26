@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/localization/l10n.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_animations.dart';
@@ -11,13 +12,13 @@ import '../core/theme/app_animations.dart';
 class DocumentPagesView extends StatefulWidget {
   final List<MemoryImage>? pages;
   final bool loading;
-  final String errorText;
+  final String? errorText;
 
   const DocumentPagesView({
     super.key,
     required this.pages,
     required this.loading,
-    this.errorText = 'Could not show the preview. Please try again.',
+    this.errorText,
   });
 
   @override
@@ -91,7 +92,7 @@ class _DocumentPagesViewState extends State<DocumentPagesView> with SingleTicker
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
-            child: Text(widget.errorText, textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+            child: Text(widget.errorText ?? context.l10n.couldNotShowThePreviewPleaseTryAgain, textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
           ),
         );
       }
